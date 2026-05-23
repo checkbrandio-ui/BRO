@@ -52,7 +52,7 @@ export default function StatsCounter() {
           </motion.div>
         </div>
 
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 md:gap-6">
           {stats.map((s, i) => (
             <motion.div
               key={s.label}
@@ -61,19 +61,19 @@ export default function StatsCounter() {
               viewport={{ once: true }}
               transition={{ duration: 0.7, delay: i * 0.12 }}
               whileHover={{ scale: 1.03 }}
-              className="relative glass-card-gold rounded-xl p-8 text-center group cursor-default overflow-hidden"
+              className="relative glass-card-gold rounded-xl p-5 md:p-8 text-center group cursor-default overflow-hidden"
             >
               {/* Hover glow */}
               <div className="absolute inset-0 opacity-0 group-hover:opacity-100 transition-opacity duration-500 pointer-events-none"
                 style={{ background: 'radial-gradient(circle at center, rgba(123,63,191,0.12) 0%, transparent 70%)' }}
               />
               <div className="relative z-10">
-                <div className="text-5xl md:text-6xl font-black text-[#C9A84C] tracking-[-0.04em] mb-3"
+                <div className="text-4xl md:text-6xl font-black text-[#C9A84C] tracking-[-0.04em] mb-2 md:mb-3"
                   style={{ textShadow: '0 0 30px rgba(201,168,76,0.3)' }}>
                   <AnimatedNumber value={s.value} suffix={s.suffix} />
                 </div>
-                <div className="text-xs font-bold tracking-[0.15em] text-[#7B3FBF] mb-2">{s.label}</div>
-                <div className="text-xs text-[#F8FAFC]/40">{s.sub}</div>
+                <div className="text-[10px] md:text-xs font-bold tracking-[0.1em] text-[#7B3FBF] mb-1 md:mb-2 leading-tight">{s.label}</div>
+                <div className="text-[10px] md:text-xs text-[#F8FAFC]/40 leading-tight">{s.sub}</div>
               </div>
             </motion.div>
           ))}
