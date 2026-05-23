@@ -116,7 +116,7 @@ export default function Hero() {
           className="mt-20 flex flex-wrap items-center justify-center gap-8 md:gap-16"
         >
           {[
-            { num: '1987', label: 'специалистов привлечено' },
+            { num: '10187', label: 'специалистов привлечено' },
             { num: '30+', label: 'населённых пунктов' },
             { num: '50+', label: 'крупных проектов' },
           ].map((s) => (
