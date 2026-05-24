@@ -57,7 +57,7 @@ export default function Privacy() {
             Согласие действует с момента его предоставления и до достижения целей обработки персональных данных либо
             до момента его отзыва субъектом персональных данных. Отзыв согласия осуществляется путём направления
             письменного заявления по адресу Оператора или на электронную почту{' '}
-            <a href="mailto:anufriev@bratouverie-snb.ru" className="text-[#C9A84C] hover:underline">anufriev@bratouverie-snb.ru</a>.
+            <a href="mailto:support@bratouverie-snb.ru" className="text-[#C9A84C] hover:underline">support@bratouverie-snb.ru</a>.
           </p>
 
           <p>
