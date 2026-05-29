@@ -8,6 +8,7 @@ import NationalProjectsSection from '../components/NationalProjectsSection';
 import DocumentsSection from '../components/DocumentsSection';
 import TeamSection from '../components/TeamSection';
 import AwardsSection from '../components/AwardsSection';
+import OfficeGallery from '../components/OfficeGallery';
 import ContactSection from '../components/ContactSection';
 import Footer from '../components/Footer';
 
@@ -24,6 +25,7 @@ export default function Home() {
       <DocumentsSection />
       <TeamSection />
       <AwardsSection />
+      <OfficeGallery />
       <ContactSection />
       <Footer />
     </div>
