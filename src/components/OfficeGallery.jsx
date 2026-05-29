@@ -4,66 +4,18 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const photos = [
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/12000e12a_Two_professional_businessmen_standing_side_by_side-1780031760697.png',
-    caption: 'Руководство компании',
-    span: 'col-span-2',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/cf975bdbb_Professional_corporate_office_portrait_with_brande-1779981329050.png',
-    caption: 'В офисе Братоуверие',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/30fdb7d0c_Transform_this_young_man_into_wearing_an_elegant_n-1780031660249.png',
-    caption: 'Генеральный директор',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/d86e52ee4_Professional_corporate_office_photography_A_confi-1779981242763.png',
-    caption: 'Рабочий день директора',
-    span: 'col-span-2',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/e993d73bf_Dynamic_corporate_office_photography_showing_a_bus-1779981296069.png',
-    caption: 'Оперативное совещание',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/2f8263fb3_Corporate_team_meeting_photography_in_modern_offic-1779981322057.png',
-    caption: 'Переговоры с партнёрами',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/fb8d38a9b_Professional_office_lifestyle_photography_Two_bus-1779981316337.png',
-    caption: 'Общение в команде',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/a8f0d69e0_Corporate_team_collaboration_photo_in_conference_r-1779981347099.png',
-    caption: 'Стратегическое планирование',
-    span: 'col-span-2',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/9b6aeaca7_Casual_corporate_team_gathering_in_modern_office_l-1779981363086.png',
-    caption: 'Командный дух',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/add352a1f_Corporate_office_break_room_social_interaction_An-1780042272529.png',
-    caption: 'Перерыв в команде',
-    span: 'col-span-2',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/f28e6ec17_Professional_corporate_office_collaboration_scene-1780042628739.png',
-    caption: 'Работа над проектом',
-    span: 'col-span-1',
-  },
-  {
-    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/eab989c87_Remove_the_yellow_sticky_note_from_the_upper_left_-1780045812987.png',
-    caption: 'Мозговой штурм',
-    span: 'col-span-2',
-  },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/12000e12a_Two_professional_businessmen_standing_side_by_side-1780031760697.png', caption: 'Руководство компании' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/cf975bdbb_Professional_corporate_office_portrait_with_brande-1779981329050.png', caption: 'В офисе Братоуверие' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/30fdb7d0c_Transform_this_young_man_into_wearing_an_elegant_n-1780031660249.png', caption: 'Генеральный директор' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/d86e52ee4_Professional_corporate_office_photography_A_confi-1779981242763.png', caption: 'Рабочий день директора' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/e993d73bf_Dynamic_corporate_office_photography_showing_a_bus-1779981296069.png', caption: 'Оперативное совещание' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/2f8263fb3_Corporate_team_meeting_photography_in_modern_offic-1779981322057.png', caption: 'Переговоры с партнёрами' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/fb8d38a9b_Professional_office_lifestyle_photography_Two_bus-1779981316337.png', caption: 'Общение в команде' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/a8f0d69e0_Corporate_team_collaboration_photo_in_conference_r-1779981347099.png', caption: 'Стратегическое планирование' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/9b6aeaca7_Casual_corporate_team_gathering_in_modern_office_l-1779981363086.png', caption: 'Командный дух' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/add352a1f_Corporate_office_break_room_social_interaction_An-1780042272529.png', caption: 'Перерыв в команде' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/f28e6ec17_Professional_corporate_office_collaboration_scene-1780042628739.png', caption: 'Работа над проектом' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/eab989c87_Remove_the_yellow_sticky_note_from_the_upper_left_-1780045812987.png', caption: 'Мозговой штурм' },
 ];
 
 export default function OfficeGallery() {
@@ -95,15 +47,15 @@ export default function OfficeGallery() {
           </div>
         </SectionReveal>
 
-        {/* Masonry-style grid */}
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-3 md:gap-4">
+        {/* Uniform grid */}
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3 md:gap-4">
           {photos.map((photo, i) => (
-            <SectionReveal key={i} delay={i * 0.07}>
+            <SectionReveal key={i} delay={i * 0.05}>
               <motion.div
                 whileHover={{ scale: 1.02 }}
                 transition={{ duration: 0.3 }}
-                className={`relative overflow-hidden rounded-xl cursor-pointer group ${photo.span}`}
-                style={{ aspectRatio: photo.span === 'col-span-2' ? '16/9' : '4/5' }}
+                className="relative overflow-hidden rounded-xl cursor-pointer group"
+                style={{ aspectRatio: '4/3' }}
                 onClick={() => setLightbox(i)}
               >
                 <img
