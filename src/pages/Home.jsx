@@ -7,6 +7,7 @@ import WhyUsSection from '../components/WhyUsSection';
 import NationalProjectsSection from '../components/NationalProjectsSection';
 import DocumentsSection from '../components/DocumentsSection';
 import TeamSection from '../components/TeamSection';
+import AwardsSection from '../components/AwardsSection';
 import ContactSection from '../components/ContactSection';
 import Footer from '../components/Footer';
 
@@ -22,6 +23,7 @@ export default function Home() {
       <NationalProjectsSection />
       <DocumentsSection />
       <TeamSection />
+      <AwardsSection />
       <ContactSection />
       <Footer />
     </div>
