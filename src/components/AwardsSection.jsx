@@ -12,6 +12,7 @@ const awards = [
     desc: 'ООО «Братоуверие» получила официальное признание от Правительства РФ за значительный вклад в реализацию национального проекта «Кадры». Компания продемонстрировала высокий профессионализм при организации массового подбора специалистов и подготовке кадров для ключевых отраслей экономики страны. Под личной координацией генерального директора И.А. Михляева компания внедрила инновационные методы рекрутинга, достигнув выдающихся результатов.',
     image: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/994da1168_--.jpg',
     accentColor: '#C9A84C',
+    portrait: true,
   },
   {
     title: 'Благодарность Министра здравоохранения РФ',
@@ -21,6 +22,7 @@ const awards = [
     desc: 'Министерство здравоохранения РФ выражает благодарность коллективу ООО «Братоуверие» за неоценимую помощь в комплектовании трудовых ресурсов для масштабной программы модернизации здравоохранения. Компания обеспечила высокий уровень кадрового сопровождения ремонтных работ на 10 000 объектах, продемонстрировав надёжность и профессиональный подход к решению стратегических задач отрасли.',
     image: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/11d8178ed_.jpg',
     accentColor: '#C9A84C',
+    portrait: true,
   },
   {
     title: 'Почётная грамота Минцифры России',
@@ -30,6 +32,7 @@ const awards = [
     desc: 'Министерство цифрового развития, связи и массовых коммуникаций отметило успешную работу ООО «Братоуверие» в области информационной безопасности. За успешное содействие в комплектовании специалистов по информационной безопасности компания внесла весомый вклад в решение стратегической задачи кадрового обеспечения государственного сектора, продемонстрировав высокий уровень профессионализма и ответственности.',
     image: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/1148d61b5_Official_Russian_Certificate_of_Honor_Pochetnaya_-1779974154437.jpg',
     accentColor: '#7B3FBF',
+    portrait: false,
   },
   {
     title: 'Почётная грамота Министерства просвещения РФ',
@@ -39,36 +42,32 @@ const awards = [
     desc: 'Коллектив ООО «Братоуверие» награждён почётной грамотой Министерства просвещения за весомый вклад в реализацию национального проекта по развитию сети образовательных учреждений. Компания обеспечила успешное комплектование кадрами строительства 1400 новых школ, 1700 детских садов и создание 246 000 мест в ясельных группах, продемонстрировав высокий уровень организационной и кадровой поддержки.',
     image: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/9cb9620f5_Official_Russian_Certificate_of_Honor_Pochetnaya_-1779972088305.jpg',
     accentColor: '#7B3FBF',
+    portrait: false,
   },
 ];
 
-function CertificateFrame({ image, title }) {
+function CertificateFrame({ image, title, portrait }) {
   return (
-    <div className="relative w-full" style={{ paddingBottom: '72%' }}>
-      {/* Outer frame shadow */}
+    <div className="relative w-full" style={{ paddingBottom: portrait ? '135%' : '72%' }}>
       <div className="absolute inset-0 rounded-sm"
         style={{ boxShadow: '0 8px 40px rgba(0,0,0,0.7), 0 2px 8px rgba(0,0,0,0.5)' }}
       >
-        {/* Wooden/dark frame border */}
         <div className="absolute inset-0 rounded-sm"
           style={{
             background: 'linear-gradient(135deg, #2a1f0e 0%, #4a3520 25%, #1a1208 50%, #3d2c18 75%, #2a1f0e 100%)',
             padding: '10px',
           }}
         >
-          {/* Inner gold line */}
           <div className="absolute inset-[10px] rounded-sm border border-[#C9A84C]/60 pointer-events-none z-10" />
-          {/* Glass reflection */}
           <div className="absolute inset-[10px] rounded-sm pointer-events-none z-20 overflow-hidden">
             <div className="absolute top-0 left-0 right-0 h-1/3"
               style={{ background: 'linear-gradient(180deg, rgba(255,255,255,0.06) 0%, transparent 100%)' }}
             />
           </div>
-          {/* Certificate image */}
           <img
             src={image}
             alt={title}
-            className="absolute inset-[10px] w-[calc(100%-20px)] h-[calc(100%-20px)] object-cover rounded-sm"
+            className="absolute inset-[10px] w-[calc(100%-20px)] h-[calc(100%-20px)] object-contain rounded-sm bg-white"
           />
         </div>
       </div>
@@ -114,7 +113,7 @@ export default function AwardsSection() {
                 onClick={() => setSelected(award)}
               >
                 {/* Certificate in frame */}
-                <CertificateFrame image={award.image} title={award.title} />
+                <CertificateFrame image={award.image} title={award.title} portrait={award.portrait} />
 
                 {/* Info below */}
                 <div className="mt-5">
@@ -152,7 +151,7 @@ export default function AwardsSection() {
               animate={{ opacity: 1, scale: 1, y: 0 }}
               exit={{ opacity: 0, scale: 0.9, y: 20 }}
               transition={{ duration: 0.3 }}
-              className="relative max-w-3xl w-full grid md:grid-cols-2 gap-8 bg-[#0D1B3E] rounded-2xl p-8 border border-[rgba(201,168,76,0.2)]"
+              className={`relative w-full bg-[#0D1B3E] rounded-2xl p-8 border border-[rgba(201,168,76,0.2)] grid gap-8 ${selected?.portrait ? 'max-w-lg' : 'max-w-3xl md:grid-cols-2'}`}
               onClick={(e) => e.stopPropagation()}
             >
               <button
@@ -163,7 +162,7 @@ export default function AwardsSection() {
               </button>
 
               <div>
-                <CertificateFrame image={selected.image} title={selected.title} />
+                <CertificateFrame image={selected.image} title={selected.title} portrait={selected.portrait} />
               </div>
 
               <div className="flex flex-col justify-center">
