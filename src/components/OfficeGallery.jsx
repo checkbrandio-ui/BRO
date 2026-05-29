@@ -49,6 +49,21 @@ const photos = [
     caption: 'Командный дух',
     span: 'col-span-1',
   },
+  {
+    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/add352a1f_Corporate_office_break_room_social_interaction_An-1780042272529.png',
+    caption: 'Перерыв в команде',
+    span: 'col-span-2',
+  },
+  {
+    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/f28e6ec17_Professional_corporate_office_collaboration_scene-1780042628739.png',
+    caption: 'Работа над проектом',
+    span: 'col-span-1',
+  },
+  {
+    src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/eab989c87_Remove_the_yellow_sticky_note_from_the_upper_left_-1780045812987.png',
+    caption: 'Мозговой штурм',
+    span: 'col-span-2',
+  },
 ];
 
 export default function OfficeGallery() {
