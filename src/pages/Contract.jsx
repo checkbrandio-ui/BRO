@@ -8,7 +8,7 @@ import { Link } from 'react-router-dom';
 const CORRECT_PASSWORD = 'SNB2026';
 
 // PDF договора с кадровым агентством
-const PDF_URL = 'https://media.base44.com/files/public/6a118622c856f058618fff8e/91839942e_.pdf';
+const PDF_URL = 'https://media.base44.com/files/public/6a118622c856f058618fff8e/40bf164cf_.pdf';
 
 const contractSections = [
   {
