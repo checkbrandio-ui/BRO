@@ -1,75 +1,79 @@
 import { useLocation } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
-import { useQuery } from '@tanstack/react-query';
+import { motion } from 'framer-motion';
+import Nav from '../components/Nav';
+import Footer from '../components/Footer';
 
-
-export default function PageNotFound({}) {
+export default function PageNotFound() {
     const location = useLocation();
-    const pageName = location.pathname.substring(1);
 
-    const { data: authData, isFetched } = useQuery({
-        queryKey: ['user'],
-        queryFn: async () => {
-            try {
-                const user = await base44.auth.me();
-                return { user, isAuthenticated: true };
-            } catch (error) {
-                return { user: null, isAuthenticated: false };
-            }
-        }
-    });
-    
     return (
-        <div className="min-h-screen flex items-center justify-center p-6 bg-slate-50">
-            <div className="max-w-md w-full">
-                <div className="text-center space-y-6">
-                    {/* 404 Error Code */}
-                    <div className="space-y-2">
-                        <h1 className="text-7xl font-light text-slate-300">404</h1>
-                        <div className="h-0.5 w-16 bg-slate-200 mx-auto"></div>
-                    </div>
-                    
-                    {/* Main Message */}
-                    <div className="space-y-3">
-                        <h2 className="text-2xl font-medium text-slate-800">
-                            Page Not Found
-                        </h2>
-                        <p className="text-slate-600 leading-relaxed">
-                            The page <span className="font-medium text-slate-700">"{pageName}"</span> could not be found in this application.
-                        </p>
-                    </div>
-                    
-                    {/* Admin Note */}
-                    {isFetched && authData.isAuthenticated && authData.user?.role === 'admin' && (
-                        <div className="mt-8 p-4 bg-slate-100 rounded-lg border border-slate-200">
-                            <div className="flex items-start space-x-3">
-                                <div className="flex-shrink-0 w-5 h-5 rounded-full bg-orange-100 flex items-center justify-center mt-0.5">
-                                    <div className="w-2 h-2 rounded-full bg-orange-400"></div>
-                                </div>
-                                <div className="text-left space-y-1">
-                                    <p className="text-sm font-medium text-slate-700">Admin Note</p>
-                                    <p className="text-sm text-slate-600 leading-relaxed">
-                                        This could mean that the AI hasn't implemented this page yet. Ask it to implement it in the chat.
-                                    </p>
-                                </div>
+        <div className="min-h-screen bg-[#05070A] font-inter flex flex-col">
+            <Nav />
+            <div className="flex-1 flex items-center justify-center px-6 py-32">
+                <div className="text-center max-w-xl mx-auto">
+                    <motion.div
+                        initial={{ opacity: 0, y: 30 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ duration: 0.7, ease: [0.16, 1, 0.3, 1] }}
+                    >
+                        {/* 404 */}
+                        <div className="relative mb-8">
+                            <div
+                                className="text-[160px] font-black leading-none select-none"
+                                style={{
+                                    background: 'linear-gradient(135deg, rgba(123,63,191,0.15) 0%, rgba(201,168,76,0.08) 100%)',
+                                    WebkitBackgroundClip: 'text',
+                                    WebkitTextFillColor: 'transparent',
+                                    backgroundClip: 'text',
+                                }}
+                            >
+                                404
+                            </div>
+                            <div className="absolute inset-0 flex items-center justify-center">
+                                <span className="text-[160px] font-black leading-none text-transparent"
+                                    style={{ WebkitTextStroke: '1px rgba(123,63,191,0.3)' }}>
+                                    404
+                                </span>
                             </div>
                         </div>
-                    )}
-                    
-                    {/* Action Button */}
-                    <div className="pt-6">
-                        <button 
-                            onClick={() => window.location.href = '/'} 
-                            className="inline-flex items-center px-4 py-2 text-sm font-medium text-slate-700 bg-white border border-slate-200 rounded-lg hover:bg-slate-50 hover:border-slate-300 transition-colors duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 focus:ring-slate-500"
-                        >
-                            <svg className="w-4 h-4 mr-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
-                            </svg>
-                            Go Home
-                        </button>
-                    </div>
+
+                        {/* Divider */}
+                        <div className="flex items-center justify-center gap-4 mb-8">
+                            <span className="h-px flex-1 max-w-[60px] bg-[#C9A84C]/40" />
+                            <span className="text-xs font-semibold tracking-[0.2em] uppercase text-[#C9A84C]">Страница не найдена</span>
+                            <span className="h-px flex-1 max-w-[60px] bg-[#C9A84C]/40" />
+                        </div>
+
+                        <h1 className="text-3xl md:text-4xl font-black tracking-[-0.03em] text-[#F8FAFC] mb-4">
+                            Такой страницы<br />
+                            <span className="text-[#7B3FBF]">не существует</span>
+                        </h1>
+                        <p className="text-[#F8FAFC]/50 mb-10 text-base leading-relaxed">
+                            Запрашиваемая страница была удалена, перемещена<br className="hidden sm:block" /> или никогда не существовала.
+                        </p>
+
+                        <div className="flex flex-col sm:flex-row gap-4 justify-center">
+                            <motion.a
+                                href="/"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white text-sm font-bold tracking-wide transition-all duration-300 shadow-[0_0_30px_rgba(123,63,191,0.3)]"
+                            >
+                                На главную
+                            </motion.a>
+                            <motion.a
+                                href="/#contacts"
+                                whileHover={{ scale: 1.02 }}
+                                whileTap={{ scale: 0.98 }}
+                                className="inline-flex items-center justify-center gap-2 px-8 py-3.5 rounded-lg border border-[#C9A84C]/40 text-[#C9A84C] text-sm font-bold tracking-wide hover:bg-[#C9A84C]/10 hover:border-[#C9A84C]/70 transition-all duration-300"
+                            >
+                                Связаться с нами
+                            </motion.a>
+                        </div>
+                    </motion.div>
                 </div>
             </div>
+            <Footer />
         </div>
-    )
+    );
 }
