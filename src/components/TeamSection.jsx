@@ -261,7 +261,7 @@ export default function TeamSection() {
           <div className="mt-4 grid sm:grid-cols-2 gap-4 max-w-4xl mx-auto">
             {[
               { label: 'Приемная', phone: '+7 (4212) 51-59-30', desc: 'Общие вопросы' },
-              { label: 'Горячая линия', phone: '+7 (499) 686-13-17', desc: 'Экстренные обращения' },
+              { label: 'Горячая линия', phone: '+7 (499) 686-46-30', desc: 'Экстренные обращения' },
             ].map((c) => (
               <div key={c.label} className="glass-card rounded-xl p-5 flex items-center gap-4">
                 <div className="w-10 h-10 rounded-lg bg-[#7B3FBF]/12 flex items-center justify-center flex-shrink-0">

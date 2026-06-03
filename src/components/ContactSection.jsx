@@ -154,7 +154,7 @@ export default function ContactSection() {
                       icon: Phone,
                       items: [
                         { label: 'Приёмная', value: '+7 (4212) 51-59-30', href: 'tel:+74212515930' },
-                        { label: 'Горячая линия', value: '+7 (499) 686-13-17', href: 'tel:+74996861317' },
+                        { label: 'Горячая линия', value: '+7 (499) 686-46-30', href: 'tel:+74996861317' },
                       ]
                     },
                     {
