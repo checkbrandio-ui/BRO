@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X } from 'lucide-react';
+import { Menu, X, LogIn } from 'lucide-react';
+import { base44 } from '@/api/base44Client';
 
 const NAV_LINKS = [
   { label: 'О компании', anchor: 'about' },
@@ -14,8 +15,13 @@ const NAV_LINKS = [
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
   const [open, setOpen] = useState(false);
+  const [user, setUser] = useState(null);
   const navigate = useNavigate();
   const location = useLocation();
+
+  useEffect(() => {
+    base44.auth.me().then(setUser).catch(() => setUser(null));
+  }, []);
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -69,12 +75,22 @@ export default function Nav() {
 
         {/* CTA */}
         <div className="hidden lg:flex items-center gap-3">
-          <a
-            href="tel:+74996861317"
-            className="text-sm font-bold text-[#C9A84C] hover:text-[#C9A84C]/80 transition-colors"
-          >
-            +7 (499) 686-46-30
-          </a>
+          {user ? (
+            <>
+              {(user.role === 'admin') && (
+                <Link to="/admin/agencies" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[rgba(123,63,191,0.35)] text-[#7B3FBF] text-sm font-bold hover:bg-[#7B3FBF]/10 transition-all">
+                  Управление
+                </Link>
+              )}
+              <button onClick={() => base44.auth.logout()} className="text-sm text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-colors">
+                Выйти
+              </button>
+            </>
+          ) : (
+            <button onClick={() => base44.auth.redirectToLogin()} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(123,63,191,0.35)] text-[#7B3FBF] text-sm font-bold hover:bg-[#7B3FBF]/10 transition-all">
+              <LogIn size={15} /> Войти
+            </button>
+          )}
           <button
             onClick={() => handleAnchor('contacts')}
             className="px-5 py-2 rounded-lg bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(123,63,191,0.3)]"
@@ -102,7 +118,18 @@ export default function Nav() {
             </button>
           ))}
           <Link to="/blog" onClick={() => setOpen(false)} className="block text-sm text-[#F8FAFC]/70 hover:text-[#C9A84C] py-2 transition-colors">Блог</Link>
-          <a href="tel:+74996861317" className="block text-sm font-bold text-[#C9A84C] py-2">+7 (499) 686-46-30</a>
+          {user ? (
+            <>
+              {user.role === 'admin' && (
+                <Link to="/admin/agencies" onClick={() => setOpen(false)} className="block text-sm text-[#7B3FBF] font-bold py-2">Управление</Link>
+              )}
+              <button onClick={() => base44.auth.logout()} className="block text-sm text-[#F8FAFC]/50 py-2 w-full text-left">Выйти</button>
+            </>
+          ) : (
+            <button onClick={() => base44.auth.redirectToLogin()} className="flex items-center gap-2 text-sm text-[#7B3FBF] font-bold py-2">
+              <LogIn size={14} /> Войти
+            </button>
+          )}
           <button
             onClick={() => handleAnchor('contacts')}
             className="w-full mt-2 px-5 py-3 rounded-lg bg-[#7B3FBF] text-white text-sm font-bold"
