@@ -1,17 +1,22 @@
 import { useState } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Lock, Mail, Eye, EyeOff, ArrowRight, UserPlus, LogIn } from 'lucide-react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function Login() {
-  const [mode, setMode] = useState('login'); // 'login' | 'register'
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [confirmPassword, setConfirmPassword] = useState('');
-  const [showPass, setShowPass] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [error, setError] = useState('');
-  const [success, setSuccess] = useState('');
+  const navigate  = useNavigate();
+  const location  = useLocation();
+  const nextUrl   = new URLSearchParams(location.search).get('next') || '/admin/agencies';
+
+  const [mode, setMode]             = useState('login');
+  const [email, setEmail]           = useState('');
+  const [password, setPassword]     = useState('');
+  const [confirmPwd, setConfirmPwd] = useState('');
+  const [showPass, setShowPass]     = useState(false);
+  const [loading, setLoading]       = useState(false);
+  const [error, setError]           = useState('');
+  const [success, setSuccess]       = useState('');
 
   const reset = () => { setError(''); setSuccess(''); };
 
@@ -20,27 +25,38 @@ export default function Login() {
     if (!email || !password) { setError('Введите email и пароль'); return; }
     setLoading(true); reset();
     try {
-      await base44.auth.signInWithEmailPassword(email, password);
-      window.location.href = '/admin/agencies';
+      await base44.auth.loginViaEmailPassword(email, password);
+      navigate(nextUrl, { replace: true });
     } catch {
-      setError('Неверный email или пароль. Обратитесь к администратору.');
+      setError('Неверный email или пароль');
     }
     setLoading(false);
   };
 
   const handleRegister = async (e) => {
     e.preventDefault();
-    if (!email || !password || !confirmPassword) { setError('Заполните все поля'); return; }
-    if (password !== confirmPassword) { setError('Пароли не совпадают'); return; }
+    if (!email || !password || !confirmPwd) { setError('Заполните все поля'); return; }
+    if (password !== confirmPwd) { setError('Пароли не совпадают'); return; }
     if (password.length < 6) { setError('Пароль должен быть не менее 6 символов'); return; }
     setLoading(true); reset();
     try {
-      await base44.auth.signUpWithEmailPassword(email, password);
-      setSuccess('Аккаунт создан! Теперь войдите.');
-      setMode('login');
-      setPassword(''); setConfirmPassword('');
+      await base44.auth.register({ email, password });
+      // Пробуем сразу залогиниться
+      try {
+        await base44.auth.loginViaEmailPassword(email, password);
+        navigate(nextUrl, { replace: true });
+      } catch {
+        setSuccess('Аккаунт создан! Войдите с вашими данными.');
+        setMode('login');
+        setPassword(''); setConfirmPwd('');
+      }
     } catch (err) {
-      setError(err.message?.includes('already') ? 'Этот email уже зарегистрирован' : 'Ошибка регистрации. Попробуйте позже.');
+      const msg = err?.message || '';
+      if (msg.toLowerCase().includes('already') || msg.toLowerCase().includes('exists')) {
+        setError('Этот email уже зарегистрирован');
+      } else {
+        setError('Ошибка регистрации. Попробуйте позже.');
+      }
     }
     setLoading(false);
   };
@@ -59,11 +75,10 @@ export default function Login() {
       <motion.div initial={{ opacity: 0, y: 30 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.5 }} className="w-full max-w-md">
         <div className="glass-card rounded-2xl overflow-hidden">
           <div className="h-1 bg-gradient-to-r from-[#7B3FBF] via-[#C9A84C] to-[#7B3FBF]" />
-
           <div className="p-8 md:p-10">
             {/* Logo */}
             <div className="flex flex-col items-center mb-8">
-              <div className="flex items-center gap-3 mb-5">
+              <div className="flex items-center gap-3 mb-4">
                 <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" alt="logo" className="w-12 h-12 object-contain" />
                 <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png" alt="Bratouverie" className="h-8 object-contain" style={{ filter: 'invert(1) brightness(2)' }} />
               </div>
@@ -72,10 +87,13 @@ export default function Login() {
 
             {/* Tabs */}
             <div className="flex rounded-xl bg-[rgba(255,255,255,0.04)] p-1 mb-7">
-              {[{key:'login', label:'Войти', icon: LogIn}, {key:'register', label:'Зарегистрироваться', icon: UserPlus}].map(({key, label, icon: Icon}) => (
+              {[
+                { key: 'login', label: 'Войти', Icon: LogIn },
+                { key: 'register', label: 'Зарегистрироваться', Icon: UserPlus },
+              ].map(({ key, label, Icon }) => (
                 <button key={key} onClick={() => { setMode(key); reset(); }}
                   className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-lg text-sm font-bold transition-all ${mode === key ? 'bg-[#7B3FBF] text-white shadow-lg' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
-                  <Icon size={14}/>{label}
+                  <Icon size={14} />{label}
                 </button>
               ))}
             </div>
@@ -83,34 +101,31 @@ export default function Login() {
             <AnimatePresence mode="wait">
               <motion.div key={mode} initial={{ opacity: 0, x: mode === 'login' ? -10 : 10 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0 }} transition={{ duration: 0.2 }}>
                 <form onSubmit={mode === 'login' ? handleLogin : handleRegister} className="space-y-4">
-                  {/* Email */}
                   <div>
                     <label className="block text-xs text-[#F8FAFC]/40 mb-2">Email</label>
                     <div className="relative">
                       <Mail size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
-                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} />
+                      <input type="email" value={email} onChange={e => setEmail(e.target.value)} placeholder="you@example.com" className={inputClass} autoComplete="email" />
                     </div>
                   </div>
 
-                  {/* Password */}
                   <div>
                     <label className="block text-xs text-[#F8FAFC]/40 mb-2">Пароль</label>
                     <div className="relative">
                       <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
-                      <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className={inputClass + ' pr-10'} />
+                      <input type={showPass ? 'text' : 'password'} value={password} onChange={e => setPassword(e.target.value)} placeholder="••••••••" className={inputClass + ' pr-10'} autoComplete={mode === 'login' ? 'current-password' : 'new-password'} />
                       <button type="button" onClick={() => setShowPass(!showPass)} className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30 hover:text-[#F8FAFC]/60 transition-colors">
-                        {showPass ? <EyeOff size={15}/> : <Eye size={15}/>}
+                        {showPass ? <EyeOff size={15} /> : <Eye size={15} />}
                       </button>
                     </div>
                   </div>
 
-                  {/* Confirm password (register only) */}
                   {mode === 'register' && (
                     <div>
                       <label className="block text-xs text-[#F8FAFC]/40 mb-2">Подтвердите пароль</label>
                       <div className="relative">
                         <Lock size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
-                        <input type={showPass ? 'text' : 'password'} value={confirmPassword} onChange={e => setConfirmPassword(e.target.value)} placeholder="••••••••" className={inputClass} />
+                        <input type={showPass ? 'text' : 'password'} value={confirmPwd} onChange={e => setConfirmPwd(e.target.value)} placeholder="••••••••" className={inputClass} autoComplete="new-password" />
                       </div>
                       <p className="text-xs text-[#F8FAFC]/25 mt-1.5">После регистрации администратор назначит вам права доступа</p>
                     </div>
@@ -121,7 +136,10 @@ export default function Login() {
 
                   <motion.button type="submit" disabled={loading} whileHover={{ scale: 1.01 }} whileTap={{ scale: 0.99 }}
                     className="w-full flex items-center justify-center gap-2 py-3.5 rounded-xl bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white text-sm font-bold transition-all shadow-[0_0_30px_rgba(123,63,191,0.3)] disabled:opacity-60 disabled:cursor-not-allowed mt-2">
-                    {loading ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" /> : <><span>{mode === 'login' ? 'Войти' : 'Создать аккаунт'}</span><ArrowRight size={16}/></>}
+                    {loading
+                      ? <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                      : <><span>{mode === 'login' ? 'Войти' : 'Создать аккаунт'}</span><ArrowRight size={16} /></>
+                    }
                   </motion.button>
                 </form>
               </motion.div>

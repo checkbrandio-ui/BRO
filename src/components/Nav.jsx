@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { Menu, X, LogIn } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+import { Menu, X, LogIn, LogOut, Users, Briefcase, UserCheck } from 'lucide-react';
+import { useAuth } from '@/lib/AuthContext';
 
 const NAV_LINKS = [
   { label: 'О компании', anchor: 'about' },
@@ -14,14 +14,10 @@ const NAV_LINKS = [
 
 export default function Nav() {
   const [scrolled, setScrolled] = useState(false);
-  const [open, setOpen] = useState(false);
-  const [user, setUser] = useState(null);
-  const navigate = useNavigate();
-  const location = useLocation();
-
-  useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => setUser(null));
-  }, []);
+  const [open, setOpen]         = useState(false);
+  const { user, isAuthenticated, logout } = useAuth();
+  const navigate  = useNavigate();
+  const location  = useLocation();
 
   useEffect(() => {
     const onScroll = () => setScrolled(window.scrollY > 30);
@@ -41,60 +37,52 @@ export default function Nav() {
     }
   };
 
+  const isAdmin = user?.role === 'admin';
+
   return (
     <header className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${scrolled ? 'bg-[#05070A]/95 backdrop-blur-xl border-b border-[rgba(123,63,191,0.15)] shadow-lg' : 'bg-transparent'}`}>
       <div className="max-w-7xl mx-auto px-6 lg:px-10 h-16 flex items-center justify-between">
         {/* Logo */}
         <Link to="/" className="flex items-center gap-3 group">
-          <img
-            src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png"
-            alt="Братоуверие-СНБ"
-            className="w-9 h-9 object-contain"
-          />
-          <img
-            src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png"
-            alt="Bratouverie"
-            className="h-6 object-contain hidden sm:block"
-            style={{ filter: 'invert(1) brightness(2)' }}
-          />
+          <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" alt="Братоуверие-СНБ" className="w-9 h-9 object-contain" />
+          <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png" alt="Bratouverie" className="h-6 object-contain hidden sm:block" style={{ filter: 'invert(1) brightness(2)' }} />
         </Link>
 
         {/* Desktop nav */}
         <nav className="hidden lg:flex items-center gap-8">
           {NAV_LINKS.map((l) => (
-            <button
-              key={l.anchor}
-              onClick={() => handleAnchor(l.anchor)}
-              className="text-sm text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-colors"
-            >
+            <button key={l.anchor} onClick={() => handleAnchor(l.anchor)} className="text-sm text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-colors">
               {l.label}
             </button>
           ))}
           <Link to="/blog" className="text-sm text-[#F8FAFC]/60 hover:text-[#C9A84C] transition-colors">Блог</Link>
         </nav>
 
-        {/* CTA */}
+        {/* Desktop CTA */}
         <div className="hidden lg:flex items-center gap-3">
-          {user ? (
+          {isAuthenticated ? (
             <>
-              {(user.role === 'admin') && (
-                <Link to="/admin/agencies" className="flex items-center gap-1.5 px-4 py-2 rounded-lg border border-[rgba(123,63,191,0.35)] text-[#7B3FBF] text-sm font-bold hover:bg-[#7B3FBF]/10 transition-all">
-                  Управление
+              <Link to="/admin/agencies" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[#F8FAFC]/60 text-sm hover:text-[#7B3FBF] transition-colors">
+                <Briefcase size={14} /> Агентства
+              </Link>
+              <Link to="/admin/candidates" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[#F8FAFC]/60 text-sm hover:text-[#7B3FBF] transition-colors">
+                <UserCheck size={14} /> Кандидаты
+              </Link>
+              {isAdmin && (
+                <Link to="/admin/users" className="flex items-center gap-1.5 px-3 py-2 rounded-lg text-[#F8FAFC]/60 text-sm hover:text-[#C9A84C] transition-colors">
+                  <Users size={14} /> Пользователи
                 </Link>
               )}
-              <button onClick={() => base44.auth.logout()} className="text-sm text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-colors">
-                Выйти
+              <button onClick={logout} className="flex items-center gap-1.5 text-sm text-[#F8FAFC]/45 hover:text-[#F8FAFC] transition-colors">
+                <LogOut size={14} /> Выйти
               </button>
             </>
           ) : (
-            <button onClick={() => base44.auth.redirectToLogin()} className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(123,63,191,0.35)] text-[#7B3FBF] text-sm font-bold hover:bg-[#7B3FBF]/10 transition-all">
+            <Link to="/login" className="flex items-center gap-2 px-4 py-2 rounded-lg border border-[rgba(123,63,191,0.35)] text-[#7B3FBF] text-sm font-bold hover:bg-[#7B3FBF]/10 transition-all">
               <LogIn size={15} /> Войти
-            </button>
+            </Link>
           )}
-          <button
-            onClick={() => handleAnchor('contacts')}
-            className="px-5 py-2 rounded-lg bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white text-sm font-bold transition-all duration-300 shadow-[0_0_20px_rgba(123,63,191,0.3)]"
-          >
+          <button onClick={() => handleAnchor('contacts')} className="px-5 py-2 rounded-lg bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white text-sm font-bold transition-all shadow-[0_0_20px_rgba(123,63,191,0.3)]">
             Стать партнёром
           </button>
         </div>
@@ -109,31 +97,35 @@ export default function Nav() {
       {open && (
         <div className="lg:hidden bg-[#05070A]/98 backdrop-blur-xl border-t border-[rgba(123,63,191,0.15)] px-6 py-5 space-y-3">
           {NAV_LINKS.map((l) => (
-            <button
-              key={l.anchor}
-              onClick={() => handleAnchor(l.anchor)}
-              className="block w-full text-left text-sm text-[#F8FAFC]/70 hover:text-[#F8FAFC] py-2 transition-colors"
-            >
+            <button key={l.anchor} onClick={() => handleAnchor(l.anchor)} className="block w-full text-left text-sm text-[#F8FAFC]/70 hover:text-[#F8FAFC] py-2 transition-colors">
               {l.label}
             </button>
           ))}
           <Link to="/blog" onClick={() => setOpen(false)} className="block text-sm text-[#F8FAFC]/70 hover:text-[#C9A84C] py-2 transition-colors">Блог</Link>
-          {user ? (
+
+          {isAuthenticated ? (
             <>
-              {user.role === 'admin' && (
-                <Link to="/admin/agencies" onClick={() => setOpen(false)} className="block text-sm text-[#7B3FBF] font-bold py-2">Управление</Link>
+              <Link to="/admin/agencies" onClick={() => setOpen(false)} className="flex items-center gap-2 text-sm text-[#7B3FBF] font-bold py-2">
+                <Briefcase size={14} /> Агентства
+              </Link>
+              <Link to="/admin/candidates" onClick={() => setOpen(false)} className="flex items-center gap-2 text-sm text-[#7B3FBF] font-bold py-2">
+                <UserCheck size={14} /> Кандидаты
+              </Link>
+              {isAdmin && (
+                <Link to="/admin/users" onClick={() => setOpen(false)} className="flex items-center gap-2 text-sm text-[#C9A84C] font-bold py-2">
+                  <Users size={14} /> Пользователи
+                </Link>
               )}
-              <button onClick={() => base44.auth.logout()} className="block text-sm text-[#F8FAFC]/50 py-2 w-full text-left">Выйти</button>
+              <button onClick={() => { setOpen(false); logout(); }} className="flex items-center gap-2 text-sm text-[#F8FAFC]/50 py-2 w-full text-left">
+                <LogOut size={14} /> Выйти
+              </button>
             </>
           ) : (
-            <button onClick={() => base44.auth.redirectToLogin()} className="flex items-center gap-2 text-sm text-[#7B3FBF] font-bold py-2">
+            <Link to="/login" onClick={() => setOpen(false)} className="flex items-center gap-2 text-sm text-[#7B3FBF] font-bold py-2">
               <LogIn size={14} /> Войти
-            </button>
+            </Link>
           )}
-          <button
-            onClick={() => handleAnchor('contacts')}
-            className="w-full mt-2 px-5 py-3 rounded-lg bg-[#7B3FBF] text-white text-sm font-bold"
-          >
+          <button onClick={() => handleAnchor('contacts')} className="w-full mt-2 px-5 py-3 rounded-lg bg-[#7B3FBF] text-white text-sm font-bold">
             Стать партнёром
           </button>
         </div>
