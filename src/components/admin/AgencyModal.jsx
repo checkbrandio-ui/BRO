@@ -19,6 +19,8 @@ export default function AgencyModal({ agency, onSave, onClose }) {
     email: agency?.email || '',
     phone: agency?.phone || '',
     status: agency?.status || 'Рассматриваем',
+    is_active: agency?.is_active !== false,
+    access_code: agency?.access_code || '',
     contract_url: agency?.contract_url || '',
     contract_date: agency?.contract_date || '',
     special_conditions: agency?.special_conditions || '',
@@ -100,6 +102,26 @@ export default function AgencyModal({ agency, onSave, onClose }) {
                 </button>
               </div>
               <p className="text-xs text-[#F8FAFC]/25 mt-1">Менеджер получит письмо с логином и паролем для входа</p>
+            </div>
+            <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Код доступа агентства</label>
+              <div className="flex gap-2">
+                <input className={inp + ' flex-1 font-mono tracking-widest'} value={form.access_code} onChange={e => set('access_code', e.target.value)} placeholder="Например: AG-2026-XYZ" />
+                <button type="button" onClick={() => {
+                  const code = 'AG-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+                  set('access_code', code);
+                }} className="px-3 py-2 text-xs rounded-lg bg-[#7B3FBF]/15 border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[#7B3FBF]/25 transition-all whitespace-nowrap">
+                  Сгенерировать
+                </button>
+              </div>
+              <p className="text-xs text-[#F8FAFC]/25 mt-1">Этот код представитель агентства вводит для входа</p>
+            </div>
+            <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Статус агентства</label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input type="checkbox" checked={form.is_active} onChange={e => set('is_active', e.target.checked)} className="w-4 h-4 rounded accent-[#7B3FBF]" />
+                <span className="text-sm text-[#F8FAFC]/70">{form.is_active ? 'Активно (доступ по коду разрешён)' : 'Отключено (доступ заблокирован)'}</span>
+              </label>
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Статус взаимодействия</label>

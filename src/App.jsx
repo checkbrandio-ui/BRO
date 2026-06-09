@@ -15,6 +15,8 @@ import Application from './pages/Application';
 import Contract from './pages/Contract';
 import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
+import AgencyLogin from './pages/AgencyLogin';
+import AgencyWorkspace from './pages/AgencyWorkspace';
 
 // Protected pages
 import Agencies from './pages/admin/Agencies';
@@ -38,6 +40,9 @@ function App() {
             <Route path="/blog/:slug" element={<BlogPost />} />
             {/* /tables alias */}
             <Route path="/tables" element={<Navigate to="/admin/agencies" replace />} />
+            {/* Agency access — public, no auth required */}
+            <Route path="/agency-login" element={<AgencyLogin />} />
+            <Route path="/agency/workspace" element={<AgencyWorkspace />} />
 
             {/* Protected routes (any authenticated user) */}
             <Route element={<ProtectedRoute />}>
