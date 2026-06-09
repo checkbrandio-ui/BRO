@@ -90,6 +90,8 @@ export default function Candidates() {
             <Link to="/admin/agencies" className="text-sm text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-colors">База агентств</Link>
             <span className="text-[rgba(123,63,191,0.4)]">/</span>
             <h1 className="text-sm font-bold text-[#F8FAFC]">База кандидатов</h1>
+            <span className="text-[rgba(123,63,191,0.4)]">/</span>
+            <Link to="/admin/users" className="text-sm text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-colors">Пользователи</Link>
           </div>
           <div className="flex items-center gap-3">
             <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
