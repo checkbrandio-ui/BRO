@@ -206,7 +206,7 @@ export default function Agencies() {
                         <td className="px-4 py-3 text-xs text-[#F8FAFC]/60">
                           {agency.contract_date
                             ? <div>
-                                <div>{agency.contract_date}</div>
+                                <div>{agency.contract_date.split('-').reverse().join('.')}</div>
                                 {agency.contract_url && (
                                   <a href={agency.contract_url} target="_blank" rel="noreferrer"
                                     onClick={e => e.stopPropagation()}

@@ -36,8 +36,12 @@ export default function Candidates() {
       base44.entities.Candidate.list('-created_date', 500),
       base44.entities.Agency.list('-created_date', 200),
     ]);
-    setCandidates(cand);
-    setAgencies(ag);
+    // Только активные агентства (без deleted_at)
+    const activeAg = ag.filter(a => !a.deleted_at);
+    const activeAgIds = new Set(activeAg.map(a => a.id));
+    // Скрываем кандидатов удалённых агентств
+    setCandidates(cand.filter(c => !c.agency_id || activeAgIds.has(c.agency_id)));
+    setAgencies(activeAg);
     setLoading(false);
   };
 
@@ -264,7 +268,9 @@ export default function Candidates() {
                           {c.medical_check === 'Прошёл' ? '✓' : c.medical_check === 'Не прошёл' ? '✗' : '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">{c.arrival_date || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">
+                        {c.arrival_date ? c.arrival_date.split('-').reverse().join('.') : '—'}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>
                           {c.payment_basis || '—'}

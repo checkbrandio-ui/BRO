@@ -70,7 +70,7 @@ export default function AgencyWorkspace() {
   const handleDelete = async (id) => {
     if (!confirm('Удалить кандидата?')) return;
     await base44.entities.Candidate.delete(id);
-    load();
+    setCandidates(prev => prev.filter(c => c.id !== id));
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -238,7 +238,9 @@ export default function AgencyWorkspace() {
                           {c.medical_check === 'Прошёл' ? '✓' : c.medical_check === 'Не прошёл' ? '✗' : '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">{c.arrival_date || '—'}</td>
+                      <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">
+                        {c.arrival_date ? c.arrival_date.split('-').reverse().join('.') : '—'}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>{c.payment_basis || '—'}</span>
                       </td>
