@@ -23,6 +23,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     sb_check: candidate?.sb_check || 'Не проверялся',
     medical_check: candidate?.medical_check || 'Не проверялся',
     comment: candidate?.comment || '',
+    phone: candidate?.phone || '',
     payment_basis: candidate?.payment_basis || '',
     payment_made: candidate?.payment_made || 'Нет',
     documents: candidate?.documents || [],
@@ -131,6 +132,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             <div className="sm:col-span-2">
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">ФИО *</label>
               <input className={inp} value={form.full_name} onChange={e => handleNameChange(e.target.value)} placeholder="Иванов Иван Иванович" />
+            </div>
+            <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
+              <input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Должность</label>
