@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X } from 'lucide-react';
+import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, FileDown } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import { logCandidateAction } from '@/lib/candidateLogger';
 
@@ -173,6 +173,29 @@ export default function AgencyWorkspace() {
             })()}
           </div>
         )}
+
+        {/* Documents download */}
+        <div className="glass-card rounded-xl px-5 py-4 mb-4">
+          <div className="text-xs text-[#F8FAFC]/40 uppercase tracking-widest font-bold mb-3">Документы для скачивания</div>
+          <div className="flex flex-wrap gap-3">
+            <a
+              href="https://docs.google.com/document/d/1zkxK4XVZ7uDdiqln69jWsDpiqq5aAV1U/export?format=docx"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[rgba(123,63,191,0.12)] border border-[rgba(123,63,191,0.25)] text-sm text-[#F8FAFC]/80 hover:text-[#F8FAFC] hover:bg-[rgba(123,63,191,0.2)] hover:border-[#7B3FBF]/50 transition-all">
+              <FileDown size={14} className="text-[#7B3FBF]" />
+              Согласие на обработку ПДн
+            </a>
+            <a
+              href="https://docs.google.com/document/d/186PQl9GidflFfLJV24W42hEvYsyBT0Va/export?format=docx"
+              target="_blank"
+              rel="noreferrer"
+              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[rgba(123,63,191,0.12)] border border-[rgba(123,63,191,0.25)] text-sm text-[#F8FAFC]/80 hover:text-[#F8FAFC] hover:bg-[rgba(123,63,191,0.2)] hover:border-[#7B3FBF]/50 transition-all">
+              <FileDown size={14} className="text-[#7B3FBF]" />
+              Анкета кандидата
+            </a>
+          </div>
+        </div>
 
         {/* Actions bar + filters */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
