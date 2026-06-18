@@ -17,45 +17,136 @@
       "type": "string",
       "format": "date"
     },
-    "passport_number": {
-      "type": "string",
-      "description": "\u0421\u0435\u0440\u0438\u044f \u0438 \u043d\u043e\u043c\u0435\u0440 \u043f\u0430\u0441\u043f\u043e\u0440\u0442\u0430"
-    },
-    "email": {
-      "type": "string"
-    },
-    "phone": {
-      "type": "string"
-    },
-    "city": {
+    "birth_place": {
       "type": "string"
     },
     "citizenship": {
       "type": "string"
     },
+    "registration_address": {
+      "type": "string"
+    },
+    "actual_address": {
+      "type": "string"
+    },
+    "passport_series": {
+      "type": "string"
+    },
+    "passport_number": {
+      "type": "string"
+    },
+    "passport_issued_by": {
+      "type": "string"
+    },
+    "passport_issued_date": {
+      "type": "string"
+    },
+    "passport_dept_code": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "email": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "assembly_point": {
+      "type": "string"
+    },
+    "arrival_date": {
+      "type": "string",
+      "format": "date"
+    },
     "position": {
       "type": "string"
     },
-    "work_experience": {
+    "education_level": {
+      "type": "string"
+    },
+    "education_institution": {
+      "type": "string"
+    },
+    "education_specialty": {
+      "type": "string"
+    },
+    "graduation_year": {
+      "type": "string"
+    },
+    "additional_certs": {
       "type": "string"
     },
     "skills": {
       "type": "array",
       "items": {
         "type": "string"
-      },
-      "description": "\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0435 \u043d\u0430\u0432\u044b\u043a\u0438"
+      }
     },
-    "salary_expectations": {
+    "work_experience": {
+      "type": "string"
+    },
+    "shift_experience": {
       "type": "string"
     },
     "health_notes": {
       "type": "string"
     },
+    "chronic_diseases": {
+      "type": "string"
+    },
+    "disabilities": {
+      "type": "string"
+    },
+    "family_status": {
+      "type": "string"
+    },
+    "children_count": {
+      "type": "string"
+    },
+    "emergency_contact_name": {
+      "type": "string"
+    },
+    "emergency_contact_phone": {
+      "type": "string"
+    },
+    "emergency_contact_relation": {
+      "type": "string"
+    },
+    "military_rank": {
+      "type": "string"
+    },
+    "military_unit": {
+      "type": "string"
+    },
+    "military_specialty": {
+      "type": "string"
+    },
+    "has_criminal_record": {
+      "type": "string"
+    },
+    "criminal_record_details": {
+      "type": "string"
+    },
+    "salary_expectations": {
+      "type": "string"
+    },
+    "motivation": {
+      "type": "string"
+    },
+    "docs_ready": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      }
+    },
+    "ready_to_start_date": {
+      "type": "string"
+    },
     "consent_given": {
       "type": "boolean",
-      "default": false,
-      "description": "\u0421\u043e\u0433\u043b\u0430\u0441\u0438\u0435 \u043d\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0443 \u041f\u0414\u043d"
+      "default": false
     },
     "consent_timestamp": {
       "type": "string"

@@ -21,10 +21,10 @@ export default function ConsentPage() {
           </p>
 
           <div>
-            <h2 className="text-white font-bold mb-2">1. Операторы персональных данных</h2>
+            <h2 className="text-white font-bold mb-2">1. Оператор персональных данных</h2>
             <p>
-              <strong className="text-white">ООО «Братоуверие-СНБ»</strong>, ОГРН 1262600032774, ИНН 2600014060,
-              юридический адрес: 357100, Ставропольский край, г. Невинномысск, ул. Гагарина, д. 51, кв. 31.
+              <strong className="text-white">ООО «Братоуверие-СНБ»</strong>, ОГРН 1262500006966, ИНН 2511135442,
+              юридический адрес: 692510, Приморский край, г. Уссурийск, пер. Мирный, д.1.
             </p>
             <p className="mt-2">
               Третьи лица, которым передаются данные: работодатели, государственные органы (ФСБ, МВД),
@@ -97,9 +97,9 @@ export default function ConsentPage() {
             <h2 className="text-white font-bold mb-2">7. Контакты оператора</h2>
             <div className="text-white/65 space-y-1">
               <p>ООО «Братоуверие-СНБ»</p>
-              <p>ОГРН 1262600032774, ИНН 2600014060</p>
-              <p>357100, Ставропольский край, г. Невинномысск, ул. Гагарина, д. 51, кв. 31</p>
-              <p>Сайт: <a href="https://vosstanovim-dnr.ru" target="_blank" rel="noreferrer" className="text-[#7B3FBF] hover:underline">vosstanovim-dnr.ru</a></p>
+              <p>ОГРН 1262500006966, ИНН 2511135442</p>
+              <p>692510, Приморский край, г. Уссурийск, пер. Мирный, д.1</p>
+              <p>Сайт: <a href="https://bratouverie-snb.ru" target="_blank" rel="noreferrer" className="text-[#7B3FBF] hover:underline">bratouverie-snb.ru</a></p>
             </div>
           </div>
 

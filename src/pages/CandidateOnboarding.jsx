@@ -9,12 +9,23 @@ const EDUCATION_LEVELS = ['Среднее','Среднее специально�
 const FAMILY_STATUSES = ['Холост/Не замужем','Женат/Замужем','Разведён/Разведена','Вдовец/Вдова'];
 const MILITARY_RANKS = ['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант','Старшина','Прапорщик','Офицер','Не служил'];
 
-const SKILLS_LIST = [
-  'Работа с инструментом','Сварочные работы','Вождение грузовых авто',
-  'Электромонтаж','Погрузо-разгрузочные работы','Работа на высоте',
-  'Знание ПК','Охрана порядка','Медицинская помощь','Управление БПЛА',
-  'Взрывные работы','Работа с документами',
-];
+// Навыки по должностям
+const SKILLS_BY_POSITION = {
+  'Разнорабочий': ['Физическая выносливость','Работа с инструментом','Погрузо-разгрузочные работы','Уборка территории','Работа на высоте','Перенос тяжестей','Работа в команде'],
+  'Строитель': ['Бетонные работы','Кирпичная кладка','Штукатурные работы','Работа с инструментом','Сварочные работы','Работа на высоте','Чтение чертежей','Арматурные работы','Опалубочные работы'],
+  'Водитель B': ['Вождение легкового авто','Знание ПДД','Ориентирование на местности','Мелкий ремонт ТС','Работа с навигатором','Безаварийный стаж'],
+  'Водитель C': ['Вождение грузовых авто','Знание ПДД','Такелажные работы','Оформление путевых листов','Мелкий ремонт ТС','Работа с тахографом'],
+  'Водитель CE': ['Вождение авто с прицепом','Знание ПДД','Работа с тахографом','Управление полуприцепом','Мелкий ремонт ТС','Оформление путевых листов'],
+  'Водитель D': ['Вождение автобуса','Знание ПДД','Работа с пассажирами','Оформление путевых листов','Работа с тахографом','Мелкий ремонт ТС'],
+  'Автослесарь': ['Диагностика авто','Ремонт двигателя','Ремонт ходовой части','Сварочные работы','Работа с инструментом','Электрика авто','Шиномонтаж','Работа с документацией'],
+  'Инженер связи': ['Монтаж кабельных линий','Настройка оборудования связи','Знание протоколов TCP/IP','Работа с волоконной оптикой','Пайка','Чтение технической документации','Работа с ПК','Диагностика неисправностей'],
+  'Оператор БПЛА': ['Управление БПЛА','Обработка аэрофотосъёмки','Работа с ПК','Навигация','Техническое обслуживание БПЛА','Знание воздушного законодательства'],
+  'Взрывотехник': ['Взрывные работы','Обращение со взрывчатыми веществами','Работа с документацией','Техника безопасности','Оценка рисков','Маркировка и учёт ВВ'],
+  'Медицинский работник': ['Первая медицинская помощь','Введение инъекций','Перевязочные работы','Транспортировка пострадавших','Работа с медоборудованием','Ведение медицинской документации','Реанимационные мероприятия'],
+  'Охранник': ['Охрана порядка','Физическая подготовка','Работа с оружием','Видеонаблюдение','Оформление документов','Работа в ЧС','Тактика охраны','Знание законодательства'],
+};
+
+const DEFAULT_SKILLS = ['Работа в команде','Физическая выносливость','Работа с документами','Знание ПК'];
 
 const DOCS_READY = [
   'Паспорт РФ','Военный билет / приписное удостоверение',
@@ -24,59 +35,88 @@ const DOCS_READY = [
 ];
 
 const EMPTY_FORM = {
-  // Раздел 1: Персональные данные
-  full_name: '',
-  birth_date: '',
-  birth_place: '',
-  citizenship: 'РФ',
-  registration_address: '',
-  actual_address: '',
-  // Паспорт
-  passport_series: '',
-  passport_number: '',
-  passport_issued_by: '',
-  passport_issued_date: '',
-  passport_dept_code: '',
-  // Контакты
-  phone: '',
-  email: '',
-  // Раздел 2: Специализация
+  full_name: '', birth_date: '', birth_place: '', citizenship: 'РФ',
+  registration_address: '', actual_address: '',
+  passport_series: '', passport_number: '', passport_issued_by: '',
+  passport_issued_date: '', passport_dept_code: '',
+  phone: '', email: '', city: '', assembly_point: '', arrival_date: '',
   position: '',
-  education_level: '',
-  education_institution: '',
-  education_specialty: '',
-  graduation_year: '',
-  additional_certs: '',
-  skills: [],
-  // Раздел 3: Опыт
-  work_experience: '',
-  shift_experience: '',
-  // Раздел 4: Здоровье
-  health_notes: '',
-  chronic_diseases: '',
-  disabilities: '',
-  // Раздел 5: Семья
-  family_status: '',
-  children_count: '',
-  emergency_contact_name: '',
-  emergency_contact_phone: '',
-  emergency_contact_relation: '',
-  // Раздел 6: Воинский учёт
-  military_rank: '',
-  military_unit: '',
-  military_specialty: '',
-  // Раздел 7: Судимость
-  has_criminal_record: '',
-  criminal_record_details: '',
-  // Раздел 8: Мотивация
-  salary_expectations: '',
-  motivation: '',
-  // Раздел 9: Готовность документов
-  docs_ready: [],
-  ready_to_start_date: '',
-  // Согласие
+  education_level: '', education_institution: '', education_specialty: '',
+  graduation_year: '', additional_certs: '', skills: [],
+  work_experience: '', shift_experience: '',
+  health_notes: '', chronic_diseases: '', disabilities: '',
+  family_status: '', children_count: '',
+  emergency_contact_name: '', emergency_contact_phone: '', emergency_contact_relation: '',
+  military_rank: '', military_unit: '', military_specialty: '',
+  has_criminal_record: '', criminal_record_details: '',
+  salary_expectations: '', motivation: '',
+  docs_ready: [], ready_to_start_date: '',
   consent_given: false,
 };
+
+// Маппинг всех полей карточки -> форма (правильное соответствие)
+function prefillFromCandidate(cand) {
+  return {
+    full_name: cand?.full_name || '',
+    birth_date: cand?.birth_date || '',
+    birth_place: cand?.birth_place || '',
+    citizenship: cand?.citizenship || 'РФ',
+    phone: cand?.phone || '',
+    city: cand?.city || '',
+    assembly_point: cand?.assembly_point || '',
+    arrival_date: cand?.arrival_date || '',
+    position: cand?.position || '',
+  };
+}
+
+// Маппинг всех полей формы из сохранённой записи CandidateForm
+function prefillFromRecord(rec, cand) {
+  return {
+    full_name: rec.full_name || cand?.full_name || '',
+    birth_date: rec.birth_date || cand?.birth_date || '',
+    birth_place: rec.birth_place || cand?.birth_place || '',
+    citizenship: rec.citizenship || cand?.citizenship || 'РФ',
+    registration_address: rec.registration_address || '',
+    actual_address: rec.actual_address || '',
+    passport_series: rec.passport_series || '',
+    passport_number: rec.passport_number || '',
+    passport_issued_by: rec.passport_issued_by || '',
+    passport_issued_date: rec.passport_issued_date || '',
+    passport_dept_code: rec.passport_dept_code || '',
+    phone: rec.phone || cand?.phone || '',
+    email: rec.email || '',
+    city: rec.city || cand?.city || '',
+    assembly_point: rec.assembly_point || cand?.assembly_point || '',
+    arrival_date: rec.arrival_date || cand?.arrival_date || '',
+    position: rec.position || cand?.position || '',
+    education_level: rec.education_level || '',
+    education_institution: rec.education_institution || '',
+    education_specialty: rec.education_specialty || '',
+    graduation_year: rec.graduation_year || '',
+    additional_certs: rec.additional_certs || '',
+    skills: rec.skills || [],
+    work_experience: rec.work_experience || '',
+    shift_experience: rec.shift_experience || '',
+    health_notes: rec.health_notes || cand?.health_details || '',
+    chronic_diseases: rec.chronic_diseases || '',
+    disabilities: rec.disabilities || '',
+    family_status: rec.family_status || '',
+    children_count: rec.children_count || '',
+    emergency_contact_name: rec.emergency_contact_name || '',
+    emergency_contact_phone: rec.emergency_contact_phone || '',
+    emergency_contact_relation: rec.emergency_contact_relation || '',
+    military_rank: rec.military_rank || '',
+    military_unit: rec.military_unit || '',
+    military_specialty: rec.military_specialty || '',
+    has_criminal_record: rec.has_criminal_record || '',
+    criminal_record_details: rec.criminal_record_details || '',
+    salary_expectations: rec.salary_expectations || '',
+    motivation: rec.motivation || '',
+    docs_ready: rec.docs_ready || [],
+    ready_to_start_date: rec.ready_to_start_date || '',
+    consent_given: rec.consent_given || false,
+  };
+}
 
 function Section({ title, children, defaultOpen = true }) {
   const [open, setOpen] = useState(defaultOpen);
@@ -118,68 +158,11 @@ export default function CandidateOnboarding() {
       setCandidate(cand);
 
       if (rec.status === 'completed') {
-        // Pre-fill from saved form data
-        setForm(f => ({
-          ...EMPTY_FORM,
-          full_name: rec.full_name || cand?.full_name || '',
-          birth_date: rec.birth_date || cand?.birth_date || '',
-          birth_place: cand?.birth_place || '',
-          citizenship: rec.citizenship || cand?.citizenship || 'РФ',
-          phone: rec.phone || cand?.phone || '',
-          email: rec.email || '',
-          position: rec.position || cand?.position || '',
-          skills: rec.skills || [],
-          work_experience: rec.work_experience || '',
-          salary_expectations: rec.salary_expectations || '',
-          health_notes: rec.health_notes || '',
-          city: rec.city || cand?.city || '',
-          passport_series: rec.passport_series || '',
-          passport_number: rec.passport_number || '',
-          passport_issued_by: rec.passport_issued_by || '',
-          passport_issued_date: rec.passport_issued_date || '',
-          passport_dept_code: rec.passport_dept_code || '',
-          registration_address: rec.registration_address || '',
-          actual_address: rec.actual_address || '',
-          education_level: rec.education_level || '',
-          education_institution: rec.education_institution || '',
-          education_specialty: rec.education_specialty || '',
-          graduation_year: rec.graduation_year || '',
-          additional_certs: rec.additional_certs || '',
-          shift_experience: rec.shift_experience || '',
-          chronic_diseases: rec.chronic_diseases || '',
-          disabilities: rec.disabilities || '',
-          family_status: rec.family_status || '',
-          children_count: rec.children_count || '',
-          emergency_contact_name: rec.emergency_contact_name || '',
-          emergency_contact_phone: rec.emergency_contact_phone || '',
-          emergency_contact_relation: rec.emergency_contact_relation || '',
-          military_rank: rec.military_rank || '',
-          military_unit: rec.military_unit || '',
-          military_specialty: rec.military_specialty || '',
-          has_criminal_record: rec.has_criminal_record || '',
-          criminal_record_details: rec.criminal_record_details || '',
-          motivation: rec.motivation || '',
-          docs_ready: rec.docs_ready || [],
-          ready_to_start_date: rec.ready_to_start_date || '',
-          consent_given: rec.consent_given || false,
-        }));
-        if (editMode) {
-          setIsEditing(true);
-        } else {
-          setSubmitted(true);
-        }
+        setForm({ ...EMPTY_FORM, ...prefillFromRecord(rec, cand) });
+        setIsEditing(editMode);
+        setSubmitted(!editMode);
       } else {
-        // Pre-fill from candidate record only
-        setForm(f => ({
-          ...EMPTY_FORM,
-          full_name: cand?.full_name || '',
-          birth_date: cand?.birth_date || '',
-          birth_place: cand?.birth_place || '',
-          citizenship: cand?.citizenship || 'РФ',
-          phone: cand?.phone || '',
-          city: cand?.city || '',
-          position: cand?.position || '',
-        }));
+        setForm({ ...EMPTY_FORM, ...prefillFromCandidate(cand) });
         setIsEditing(true);
       }
       setLoading(false);
@@ -196,6 +179,8 @@ export default function CandidateOnboarding() {
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
+  const currentSkills = SKILLS_BY_POSITION[form.position] || DEFAULT_SKILLS;
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (!form.consent_given) { alert('Необходимо дать согласие на обработку персональных данных'); return; }
@@ -204,26 +189,68 @@ export default function CandidateOnboarding() {
     }
     setSubmitting(true);
     const now = new Date().toISOString();
-    const saveData = {
-      ...form,
-      consent_timestamp: now,
-      submitted_at: now,
-      status: 'completed',
-    };
+
+    const saveData = { ...form, consent_timestamp: now, submitted_at: now, status: 'completed' };
     await base44.entities.CandidateForm.update(formRecord.id, saveData);
+
     if (formRecord.candidate_id) {
       await base44.entities.Candidate.update(formRecord.candidate_id, {
         full_name: form.full_name,
         birth_date: form.birth_date,
-        birth_place: form.birth_place || candidate?.birth_place,
+        birth_place: form.birth_place,
         phone: form.phone,
-        city: form.city || candidate?.city,
+        city: form.city,
         citizenship: form.citizenship,
-        position: form.position || candidate?.position,
+        position: form.position,
+        arrival_date: form.arrival_date,
+        assembly_point: form.assembly_point,
+        health_details: form.health_notes,
         form_status: 'completed',
         form_submitted_at: now,
       });
     }
+
+    // Отправка уведомлений
+    try {
+      const agencyName = candidate?.agency_name || 'Агентство';
+      const candidateName = form.full_name;
+      const subject = `Анкета заполнена: ${candidateName}`;
+      const body = `Кандидат ${candidateName} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть анкету: ${window.location.origin}/form/${token}?edit=1`;
+
+      // Получаем emails из базы (агентство + администраторы)
+      const emailPromises = [];
+
+      // Email агентства
+      if (candidate?.agency_id) {
+        const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });
+        if (agencies[0]?.email) {
+          emailPromises.push(
+            base44.integrations.Core.SendEmail({ to: agencies[0].email, subject, body, from_name: 'Bratouveriye SNB' })
+          );
+        }
+        if (agencies[0]?.manager_email) {
+          emailPromises.push(
+            base44.integrations.Core.SendEmail({ to: agencies[0].manager_email, subject, body, from_name: 'Bratouveriye SNB' })
+          );
+        }
+      }
+
+      // Администраторы
+      const admins = await base44.entities.User.filter({ role: 'admin' });
+      admins.forEach(admin => {
+        if (admin.email) {
+          emailPromises.push(
+            base44.integrations.Core.SendEmail({ to: admin.email, subject, body, from_name: 'Bratouveriye SNB' })
+          );
+        }
+      });
+
+      await Promise.allSettled(emailPromises);
+    } catch (err) {
+      // Уведомление не критично — не блокируем сохранение
+    }
+
+    setFormRecord(prev => ({ ...prev, submitted_at: now, status: 'completed' }));
     setSubmitted(true);
     setIsEditing(false);
     setSubmitting(false);
@@ -275,7 +302,6 @@ export default function CandidateOnboarding() {
   return (
     <div className="min-h-screen bg-[#05070A] text-white py-10 px-4">
       <div className="max-w-2xl mx-auto">
-        {/* Header */}
         <div className="text-center mb-8">
           <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png"
             className="w-12 h-12 object-contain mx-auto mb-4" alt="logo" />
@@ -286,45 +312,57 @@ export default function CandidateOnboarding() {
           )}
           {formRecord?.status === 'completed' && (
             <div className="mt-3 inline-flex items-center gap-2 px-3 py-1.5 rounded-full bg-green-500/10 border border-green-500/20 text-xs text-green-400">
-              <CheckCircle size={12} /> Анкета заполнена — редактирование
+              <CheckCircle size={12} /> Анкета заполнена — режим редактирования
             </div>
           )}
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-4">
 
-          {/* РАЗДЕЛ 1: Персональные данные */}
+          {/* РАЗДЕЛ 1 */}
           <Section title="Раздел 1. Персональные данные">
-            <div className="grid grid-cols-1 gap-4">
+            <div>
+              <label className={lbl}>ФИО <span className="text-red-400">*</span></label>
+              <input className={inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" required />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
               <div>
-                <label className={lbl}>ФИО <span className="text-red-400">*</span></label>
-                <input className={inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" required />
-              </div>
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className={lbl}>Дата рождения <span className="text-red-400">*</span></label>
-                  <input className={inp} type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} required />
-                </div>
-                <div>
-                  <label className={lbl}>Гражданство</label>
-                  <input className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)} placeholder="РФ" />
-                </div>
+                <label className={lbl}>Дата рождения <span className="text-red-400">*</span></label>
+                <input className={inp} type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} required />
               </div>
               <div>
-                <label className={lbl}>Место рождения</label>
-                <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
-              </div>
-              <div>
-                <label className={lbl}>Адрес регистрации</label>
-                <input className={inp} value={form.registration_address} onChange={e => set('registration_address', e.target.value)} placeholder="г. Хабаровск, ул. Примерная, д. 1, кв. 1" />
-              </div>
-              <div>
-                <label className={lbl}>Фактический адрес проживания</label>
-                <input className={inp} value={form.actual_address} onChange={e => set('actual_address', e.target.value)} placeholder="Если отличается от регистрации" />
+                <label className={lbl}>Гражданство</label>
+                <input className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)} placeholder="РФ" />
               </div>
             </div>
+            <div>
+              <label className={lbl}>Место рождения</label>
+              <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className={lbl}>Город проживания</label>
+                <input className={inp} value={form.city} onChange={e => set('city', e.target.value)} placeholder="г. Хабаровск" />
+              </div>
+              <div>
+                <label className={lbl}>Пункт сбора</label>
+                <input className={inp} value={form.assembly_point} onChange={e => set('assembly_point', e.target.value)} placeholder="г. Хабаровск" />
+              </div>
+            </div>
+            <div>
+              <label className={lbl}>Адрес регистрации</label>
+              <input className={inp} value={form.registration_address} onChange={e => set('registration_address', e.target.value)} placeholder="г. Хабаровск, ул. Примерная, д. 1, кв. 1" />
+            </div>
+            <div>
+              <label className={lbl}>Фактический адрес проживания</label>
+              <input className={inp} value={form.actual_address} onChange={e => set('actual_address', e.target.value)} placeholder="Если отличается от регистрации" />
+            </div>
+            <div>
+              <label className={lbl}>Запланированная дата прибытия</label>
+              <input className={inp} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+            </div>
 
-            <div className="mt-2 pt-4 border-t border-white/6">
+            <div className="pt-4 border-t border-white/6">
               <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-3">Паспорт гражданина РФ</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
@@ -350,7 +388,7 @@ export default function CandidateOnboarding() {
               </div>
             </div>
 
-            <div className="mt-2 pt-4 border-t border-white/6">
+            <div className="pt-4 border-t border-white/6">
               <p className="text-xs font-bold text-white/50 uppercase tracking-widest mb-3">Контактные данные</p>
               <div className="grid grid-cols-1 gap-3">
                 <div>
@@ -365,11 +403,11 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 2: Специализация */}
+          {/* РАЗДЕЛ 2 */}
           <Section title="Раздел 2. Специализация и квалификация">
             <div>
               <label className={lbl}>Желаемая должность</label>
-              <select className={inp} value={form.position} onChange={e => set('position', e.target.value)}>
+              <select className={inp} value={form.position} onChange={e => { set('position', e.target.value); set('skills', []); }}>
                 <option value="">Выберите должность...</option>
                 {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
               </select>
@@ -400,9 +438,10 @@ export default function CandidateOnboarding() {
               <textarea className={inp + ' resize-none'} rows={2} value={form.additional_certs} onChange={e => set('additional_certs', e.target.value)} placeholder="Удостоверение сварщика, водительские права категории C, допуск к работе на высоте..." />
             </div>
             <div>
-              <label className={lbl}>Профессиональные навыки</label>
+              <label className={lbl}>Профессиональные навыки{form.position ? ` — ${form.position}` : ''}</label>
+              {!form.position && <p className="text-xs text-white/30 mb-2">Выберите должность выше для персонализированного списка навыков</p>}
               <div className="flex flex-wrap gap-2 mt-1">
-                {SKILLS_LIST.map(skill => (
+                {currentSkills.map(skill => (
                   <button key={skill} type="button" onClick={() => toggleArr('skills', skill)}
                     className={`px-3 py-1.5 rounded-lg text-xs transition-all border ${form.skills.includes(skill) ? 'bg-[#7B3FBF]/30 border-[#7B3FBF]/60 text-[#C9A84C]' : 'bg-white/4 border-white/10 text-white/50 hover:border-white/25'}`}>
                     {skill}
@@ -412,7 +451,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 3: Опыт работы */}
+          {/* РАЗДЕЛ 3 */}
           <Section title="Раздел 3. Опыт работы вахтовым методом">
             <div>
               <label className={lbl}>Общий опыт работы</label>
@@ -424,7 +463,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 4: Здоровье */}
+          {/* РАЗДЕЛ 4 */}
           <Section title="Раздел 4. Состояние здоровья" defaultOpen={false}>
             <div>
               <label className={lbl}>Хронические заболевания</label>
@@ -440,7 +479,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 5: Семья */}
+          {/* РАЗДЕЛ 5 */}
           <Section title="Раздел 5. Семья и близкие" defaultOpen={false}>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -476,7 +515,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 6: Воинский учёт */}
+          {/* РАЗДЕЛ 6 */}
           <Section title="Раздел 6. Воинский учёт (для мужчин)" defaultOpen={false}>
             <div className="grid grid-cols-2 gap-3">
               <div>
@@ -497,14 +536,14 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 7: Судимость */}
+          {/* РАЗДЕЛ 7 */}
           <Section title="Раздел 7. Судимость" defaultOpen={false}>
             <div>
               <label className={lbl}>Наличие судимостей</label>
-              <div className="flex gap-3 mt-1">
+              <div className="flex gap-3 mt-1 flex-wrap">
                 {['Нет','Да, погашена','Да, действующая'].map(opt => (
                   <button key={opt} type="button" onClick={() => set('has_criminal_record', opt)}
-                    className={`flex-1 py-2.5 rounded-xl text-sm border transition-all ${form.has_criminal_record === opt ? 'bg-[#7B3FBF]/25 border-[#7B3FBF]/50 text-white' : 'bg-white/3 border-white/8 text-white/40 hover:border-white/20'}`}>
+                    className={`flex-1 min-w-[100px] py-2.5 rounded-xl text-sm border transition-all ${form.has_criminal_record === opt ? 'bg-[#7B3FBF]/25 border-[#7B3FBF]/50 text-white' : 'bg-white/3 border-white/8 text-white/40 hover:border-white/20'}`}>
                     {opt}
                   </button>
                 ))}
@@ -518,7 +557,7 @@ export default function CandidateOnboarding() {
             )}
           </Section>
 
-          {/* РАЗДЕЛ 8: Мотивация */}
+          {/* РАЗДЕЛ 8 */}
           <Section title="Раздел 8. Мотивация и ожидания" defaultOpen={false}>
             <div>
               <label className={lbl}>Ожидаемая заработная плата</label>
@@ -530,7 +569,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 9: Готовность документов */}
+          {/* РАЗДЕЛ 9 */}
           <Section title="Раздел 9. Готовность документов" defaultOpen={false}>
             <div>
               <label className={lbl}>Имеющиеся документы (отметьте)</label>
@@ -549,7 +588,7 @@ export default function CandidateOnboarding() {
             </div>
           </Section>
 
-          {/* РАЗДЕЛ 10: Согласие */}
+          {/* РАЗДЕЛ 10 */}
           <div className="bg-white/3 border border-white/8 rounded-2xl p-5">
             <h2 className="text-sm font-bold text-[#7B3FBF] uppercase tracking-widest mb-4">Раздел 10. Подпись и согласие</h2>
             <p className="text-xs text-white/40 leading-relaxed mb-4">
@@ -560,10 +599,8 @@ export default function CandidateOnboarding() {
               className="inline-flex items-center gap-1.5 text-xs text-[#7B3FBF] hover:underline mb-4">
               <ExternalLink size={12} /> Ознакомиться с полным текстом согласия на обработку ПДн
             </a>
-            <label className="flex items-start gap-3 cursor-pointer group mt-3">
-              <div
-                onClick={() => set('consent_given', !form.consent_given)}
-                className={`mt-0.5 w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all ${form.consent_given ? 'bg-[#7B3FBF] border-[#7B3FBF]' : 'border-white/25 group-hover:border-[#7B3FBF]/60'}`}>
+            <label className="flex items-start gap-3 cursor-pointer group mt-3" onClick={() => set('consent_given', !form.consent_given)}>
+              <div className={`mt-0.5 w-5 h-5 rounded flex-shrink-0 border-2 flex items-center justify-center transition-all ${form.consent_given ? 'bg-[#7B3FBF] border-[#7B3FBF]' : 'border-white/25 group-hover:border-[#7B3FBF]/60'}`}>
                 {form.consent_given && <CheckCircle size={12} className="text-white" />}
               </div>
               <span className="text-sm text-white/70 leading-relaxed">
@@ -579,9 +616,7 @@ export default function CandidateOnboarding() {
               ? <><Loader2 size={18} className="animate-spin" /> Сохранение...</>
               : formRecord?.status === 'completed' ? 'Сохранить изменения' : 'Подписать и отправить анкету'}
           </button>
-          <p className="text-center text-xs text-white/20 pb-4">
-            * — обязательные для заполнения поля
-          </p>
+          <p className="text-center text-xs text-white/20 pb-4">* — обязательные для заполнения поля</p>
         </form>
       </div>
     </div>
