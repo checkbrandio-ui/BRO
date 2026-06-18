@@ -102,7 +102,10 @@ export default function AgencyWorkspace() {
   };
 
   const getFormStatusBadge = (c) => {
-    if (c.form_status === 'completed') return <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap">✓ Заполнена</span>;
+    if (c.form_status === 'completed') return (
+      <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+        className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all">✓ Заполнена</a>
+    );
     if (c.form_status === 'pending' || c.form_token) return <span className="text-xs px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/80 border border-[#C9A84C]/20 whitespace-nowrap">Ожидает</span>;
     return null;
   };

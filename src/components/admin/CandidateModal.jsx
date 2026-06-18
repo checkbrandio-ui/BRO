@@ -12,20 +12,20 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     position: candidate?.position || '',
     agency_id: candidate?.agency_id || lockedAgencyId || '',
     agency_name: candidate?.agency_name || (agencies?.find(a => a.id === lockedAgencyId)?.name || ''),
-    birth_date: candidate?.birth_date || '',
-    citizenship: candidate?.citizenship || '',
-    birth_place: candidate?.birth_place || '',
-    health_status: candidate?.health_status || 'Без замечаний',
-    health_details: candidate?.health_details || '',
-    city: candidate?.city || '',
-    assembly_point: candidate?.assembly_point || '',
-    arrival_date: candidate?.arrival_date || '',
-    sb_check: candidate?.sb_check || 'Не проверялся',
-    medical_check: candidate?.medical_check || 'Не проверялся',
-    comment: candidate?.comment || '',
-    phone: candidate?.phone || '',
-    payment_basis: candidate?.payment_basis || '',
-    payment_made: candidate?.payment_made || 'Нет',
+    birth_date: candidate?.birth_date ?? '',
+    citizenship: candidate?.citizenship ?? '',
+    birth_place: candidate?.birth_place ?? '',
+    health_status: candidate?.health_status ?? '',
+    health_details: candidate?.health_details ?? '',
+    city: candidate?.city ?? '',
+    assembly_point: candidate?.assembly_point ?? '',
+    arrival_date: candidate?.arrival_date ?? '',
+    sb_check: candidate?.sb_check ?? '',
+    medical_check: candidate?.medical_check ?? '',
+    comment: candidate?.comment ?? '',
+    phone: candidate?.phone ?? '',
+    payment_basis: candidate?.payment_basis ?? '',
+    payment_made: candidate?.payment_made ?? '',
     documents: candidate?.documents || [],
   });
 
@@ -184,6 +184,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Состояние здоровья</label>
               <select className={inp} value={form.health_status} onChange={e => set('health_status', e.target.value)}>
+                <option value="">Не указано</option>
                 <option value="Без замечаний">Без замечаний</option>
                 <option value="Ограничения/жалобы">Ограничения/жалобы</option>
               </select>
@@ -204,17 +205,19 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                 <div>
                   <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Проверка СБ</label>
                   <select className={inp} value={form.sb_check} onChange={e => set('sb_check', e.target.value)}>
-                    <option>Не проверялся</option>
-                    <option>Согласован</option>
-                    <option>Не согласован</option>
+                    <option value="">Не указано</option>
+                    <option value="Не проверялся">Не проверялся</option>
+                    <option value="Согласован">Согласован</option>
+                    <option value="Не согласован">Не согласован</option>
                   </select>
                 </div>
                 <div>
                   <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Медкомиссия</label>
                   <select className={inp} value={form.medical_check} onChange={e => set('medical_check', e.target.value)}>
-                    <option>Не проверялся</option>
-                    <option>Прошёл</option>
-                    <option>Не прошёл</option>
+                    <option value="">Не указано</option>
+                    <option value="Не проверялся">Не проверялся</option>
+                    <option value="Прошёл">Прошёл</option>
+                    <option value="Не прошёл">Не прошёл</option>
                   </select>
                 </div>
                 <div>
@@ -230,6 +233,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                     Выплачено <span className="text-[#C9A84C]">({paymentAmount})</span>
                   </label>
                   <select className={inp} value={form.payment_made} onChange={e => set('payment_made', e.target.value)}>
+                    <option value="">Не указано</option>
                     <option value="Нет">Нет</option>
                     <option value="Да">Да</option>
                   </select>

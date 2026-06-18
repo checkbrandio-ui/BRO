@@ -158,6 +158,13 @@ export default function Candidates() {
   const filteredArchived = applyFilters(archived);
   const displayed = showArchive ? filteredArchived : filteredActive;
 
+  const generateFormToken = async (c) => {
+    const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+    await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
+    await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+    load();
+  };
+
   const copyFormLink = (c) => {
     if (!c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
@@ -384,14 +391,16 @@ export default function Candidates() {
                         </td>
                         <td className="px-4 py-3">
                           {c.form_status === 'completed'
-                            ? <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap">✓ Заполнена</span>
+                            ? <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+                                className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
                             : c.form_token
                               ? <button onClick={() => copyFormLink(c)} title="Скопировать ссылку"
                                   className="flex items-center gap-1 text-xs text-[#7B3FBF]/70 hover:text-[#7B3FBF] transition-all">
                                   {copiedId === c.id ? <CheckCircle size={12} className="text-green-400" /> : <ClipboardCopy size={12} />}
                                   <span>{copiedId === c.id ? 'Скопировано' : 'Ссылка'}</span>
                                 </button>
-                              : <span className="text-[#F8FAFC]/20 text-xs">—</span>}
+                              : <button onClick={() => generateFormToken(c)} title="Создать анкету"
+                                  className="text-xs text-white/30 hover:text-[#7B3FBF] transition-all">+ Создать</button>}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
