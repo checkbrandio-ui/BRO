@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2 } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { logCandidateAction } from '@/lib/candidateLogger';
@@ -36,6 +36,7 @@ export default function Candidates() {
   const [showArchive, setShowArchive] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
   const [searchParams] = useSearchParams();
 
   const load = useCallback(async () => {
@@ -84,7 +85,13 @@ export default function Candidates() {
       await base44.entities.Candidate.update(id, data);
       await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
     } else {
-      const created = await base44.entities.Candidate.create(data);
+      // Generate unique form token
+      const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+      const created = await base44.entities.Candidate.create({ ...data, form_token: token, form_status: 'pending' });
+      // Create linked CandidateForm record
+      if (created?.id) {
+        await base44.entities.CandidateForm.create({ candidate_id: created.id, form_token: token, status: 'pending' });
+      }
       await logCandidateAction({ action: 'create', candidate: { ...data, id: created?.id }, actor: getActor() });
     }
     setModalOpen(false);
@@ -150,6 +157,14 @@ export default function Candidates() {
   const filteredActive   = applyFilters(active);
   const filteredArchived = applyFilters(archived);
   const displayed = showArchive ? filteredArchived : filteredActive;
+
+  const copyFormLink = (c) => {
+    if (!c.form_token) return;
+    const url = `${window.location.origin}/form/${c.form_token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(c.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
   const inp = "px-3 py-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg text-sm text-[#F8FAFC] focus:outline-none focus:border-[#7B3FBF]";
@@ -301,6 +316,7 @@ export default function Candidates() {
                     <th className="px-4 py-3"><Tooltip text="Выплачено"><CheckCircle size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Добавлен</th>
                     <th className="px-4 py-3"><Tooltip text="Комментарий"><MessageSquare size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap"><Tooltip text="Онлайн-анкета"><Link2 size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">Действия</th>
                   </tr>
                 </thead>
@@ -365,6 +381,17 @@ export default function Candidates() {
                               <MessageSquare size={14} className="text-[#7B3FBF] cursor-help" />
                             </Tooltip>
                           ) : <span className="text-[#F8FAFC]/20">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          {c.form_status === 'completed'
+                            ? <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap">✓ Заполнена</span>
+                            : c.form_token
+                              ? <button onClick={() => copyFormLink(c)} title="Скопировать ссылку"
+                                  className="flex items-center gap-1 text-xs text-[#7B3FBF]/70 hover:text-[#7B3FBF] transition-all">
+                                  {copiedId === c.id ? <CheckCircle size={12} className="text-green-400" /> : <ClipboardCopy size={12} />}
+                                  <span>{copiedId === c.id ? 'Скопировано' : 'Ссылка'}</span>
+                                </button>
+                              : <span className="text-[#F8FAFC]/20 text-xs">—</span>}
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">

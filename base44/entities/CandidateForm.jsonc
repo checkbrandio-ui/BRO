@@ -1,0 +1,79 @@
+{
+  "name": "CandidateForm",
+  "type": "object",
+  "properties": {
+    "candidate_id": {
+      "type": "string",
+      "description": "ID \u043a\u0430\u043d\u0434\u0438\u0434\u0430\u0442\u0430"
+    },
+    "form_token": {
+      "type": "string",
+      "description": "\u0423\u043d\u0438\u043a\u0430\u043b\u044c\u043d\u044b\u0439 \u0442\u043e\u043a\u0435\u043d \u0444\u043e\u0440\u043c\u044b"
+    },
+    "full_name": {
+      "type": "string"
+    },
+    "birth_date": {
+      "type": "string",
+      "format": "date"
+    },
+    "passport_number": {
+      "type": "string",
+      "description": "\u0421\u0435\u0440\u0438\u044f \u0438 \u043d\u043e\u043c\u0435\u0440 \u043f\u0430\u0441\u043f\u043e\u0440\u0442\u0430"
+    },
+    "email": {
+      "type": "string"
+    },
+    "phone": {
+      "type": "string"
+    },
+    "city": {
+      "type": "string"
+    },
+    "citizenship": {
+      "type": "string"
+    },
+    "position": {
+      "type": "string"
+    },
+    "work_experience": {
+      "type": "string"
+    },
+    "skills": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "\u041f\u0440\u043e\u0444\u0435\u0441\u0441\u0438\u043e\u043d\u0430\u043b\u044c\u043d\u044b\u0435 \u043d\u0430\u0432\u044b\u043a\u0438"
+    },
+    "salary_expectations": {
+      "type": "string"
+    },
+    "health_notes": {
+      "type": "string"
+    },
+    "consent_given": {
+      "type": "boolean",
+      "default": false,
+      "description": "\u0421\u043e\u0433\u043b\u0430\u0441\u0438\u0435 \u043d\u0430 \u043e\u0431\u0440\u0430\u0431\u043e\u0442\u043a\u0443 \u041f\u0414\u043d"
+    },
+    "consent_timestamp": {
+      "type": "string"
+    },
+    "submitted_at": {
+      "type": "string"
+    },
+    "status": {
+      "type": "string",
+      "enum": [
+        "pending",
+        "completed"
+      ],
+      "default": "pending"
+    }
+  },
+  "required": [
+    "candidate_id",
+    "form_token"
+  ]
+}

@@ -17,6 +17,7 @@ import Blog from './pages/Blog';
 import BlogPost from './pages/BlogPost';
 import AgencyLogin from './pages/AgencyLogin';
 import AgencyWorkspace from './pages/AgencyWorkspace';
+import CandidateOnboarding from './pages/CandidateOnboarding';
 
 // Protected pages
 import Agencies from './pages/admin/Agencies';
@@ -44,6 +45,7 @@ function App() {
             {/* Agency access — public, no auth required */}
             <Route path="/agency-login" element={<AgencyLogin />} />
             <Route path="/agency/workspace" element={<AgencyWorkspace />} />
+            <Route path="/form/:token" element={<CandidateOnboarding />} />
 
             {/* Protected routes (any authenticated user) */}
             <Route element={<ProtectedRoute />}>

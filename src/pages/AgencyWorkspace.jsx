@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, FileDown } from 'lucide-react';
+import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, Link2, ClipboardCopy } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import { logCandidateAction } from '@/lib/candidateLogger';
 
@@ -36,6 +36,7 @@ export default function AgencyWorkspace() {
   const [filters, setFilters]     = useState({ position: '', sb_check: '', medical_check: '' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
+  const [copiedId, setCopiedId] = useState(null);
 
   useEffect(() => {
     if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
@@ -72,7 +73,11 @@ export default function AgencyWorkspace() {
       await base44.entities.Candidate.update(id, dataWithAgency);
       await logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor: getActor() });
     } else {
-      const created = await base44.entities.Candidate.create(dataWithAgency);
+      const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+      const created = await base44.entities.Candidate.create({ ...dataWithAgency, form_token: token, form_status: 'pending' });
+      if (created?.id) {
+        await base44.entities.CandidateForm.create({ candidate_id: created.id, form_token: token, status: 'pending' });
+      }
       await logCandidateAction({ action: 'create', candidate: { ...dataWithAgency, id: created?.id }, actor: getActor() });
     }
     setModalOpen(false);
@@ -86,6 +91,20 @@ export default function AgencyWorkspace() {
     await base44.entities.Candidate.delete(id);
     await logCandidateAction({ action: 'delete', candidate: { ...cand }, actor: getActor() });
     setCandidates(prev => prev.filter(c => c.id !== id));
+  };
+
+  const copyFormLink = (c) => {
+    if (!c.form_token) return;
+    const url = `${window.location.origin}/form/${c.form_token}`;
+    navigator.clipboard.writeText(url);
+    setCopiedId(c.id);
+    setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const getFormStatusBadge = (c) => {
+    if (c.form_status === 'completed') return <span className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap">✓ Заполнена</span>;
+    if (c.form_status === 'pending' || c.form_token) return <span className="text-xs px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/80 border border-[#C9A84C]/20 whitespace-nowrap">Ожидает</span>;
+    return null;
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -174,29 +193,6 @@ export default function AgencyWorkspace() {
           </div>
         )}
 
-        {/* Documents download */}
-        <div className="glass-card rounded-xl px-5 py-4 mb-4">
-          <div className="text-xs text-[#F8FAFC]/40 uppercase tracking-widest font-bold mb-3">Документы для скачивания</div>
-          <div className="flex flex-wrap gap-3">
-            <a
-              href="https://docs.google.com/document/d/1zkxK4XVZ7uDdiqln69jWsDpiqq5aAV1U/export?format=docx"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[rgba(123,63,191,0.12)] border border-[rgba(123,63,191,0.25)] text-sm text-[#F8FAFC]/80 hover:text-[#F8FAFC] hover:bg-[rgba(123,63,191,0.2)] hover:border-[#7B3FBF]/50 transition-all">
-              <FileDown size={14} className="text-[#7B3FBF]" />
-              Согласие на обработку ПДн
-            </a>
-            <a
-              href="https://docs.google.com/document/d/186PQl9GidflFfLJV24W42hEvYsyBT0Va/export?format=docx"
-              target="_blank"
-              rel="noreferrer"
-              className="flex items-center gap-2 px-4 py-2.5 rounded-lg bg-[rgba(123,63,191,0.12)] border border-[rgba(123,63,191,0.25)] text-sm text-[#F8FAFC]/80 hover:text-[#F8FAFC] hover:bg-[rgba(123,63,191,0.2)] hover:border-[#7B3FBF]/50 transition-all">
-              <FileDown size={14} className="text-[#7B3FBF]" />
-              Анкета кандидата
-            </a>
-          </div>
-        </div>
-
         {/* Actions bar + filters */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[200px]">
@@ -252,6 +248,7 @@ export default function AgencyWorkspace() {
                     <th className="px-4 py-3"><Tooltip text="Основание для выплаты"><Banknote size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Выплачено"><CheckCircle size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Комментарий"><MessageSquare size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Анкета</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">Действия</th>
                   </tr>
                 </thead>
@@ -288,24 +285,36 @@ export default function AgencyWorkspace() {
                         </span>
                       </td>
                       <td className="px-4 py-3">
-                        {c.comment ? (
-                          <Tooltip text={c.comment}>
-                            <MessageSquare size={14} className="text-[#7B3FBF] cursor-help" />
-                          </Tooltip>
-                        ) : <span className="text-[#F8FAFC]/20">—</span>}
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="flex items-center gap-2">
-                          <button onClick={() => { setEditCandidate(c); setModalOpen(true); }}
-                            className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
-                            <Edit2 size={14} />
-                          </button>
-                          <button onClick={() => handleDelete(c.id)}
-                            className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
-                            <Trash2 size={14} />
-                          </button>
-                        </div>
-                      </td>
+                          {c.comment ? (
+                            <Tooltip text={c.comment}>
+                              <MessageSquare size={14} className="text-[#7B3FBF] cursor-help" />
+                            </Tooltip>
+                          ) : <span className="text-[#F8FAFC]/20">—</span>}
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            {getFormStatusBadge(c)}
+                            {c.form_token && c.form_status !== 'completed' && (
+                              <button onClick={() => copyFormLink(c)} title="Скопировать ссылку на анкету"
+                                className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/40 hover:text-[#7B3FBF] transition-all flex-shrink-0">
+                                {copiedId === c.id ? <CheckCircle size={13} className="text-green-400" /> : <ClipboardCopy size={13} />}
+                              </button>
+                            )}
+                            {!c.form_token && <span className="text-xs text-[#F8FAFC]/20">—</span>}
+                          </div>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-2">
+                            <button onClick={() => { setEditCandidate(c); setModalOpen(true); }}
+                              className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
+                              <Edit2 size={14} />
+                            </button>
+                            <button onClick={() => handleDelete(c.id)}
+                              className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
+                              <Trash2 size={14} />
+                            </button>
+                          </div>
+                        </td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
