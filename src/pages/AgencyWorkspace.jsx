@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore } from 'lucide-react';
+import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import { logCandidateAction } from '@/lib/candidateLogger';
 
@@ -180,6 +180,10 @@ export default function AgencyWorkspace() {
               <span className="text-sm font-bold text-[#F8FAFC]">{session.name}</span>
             </div>
             <span className="text-xs px-2.5 py-1 rounded bg-[#7B3FBF]/15 text-[#7B3FBF] border border-[#7B3FBF]/25">Рабочая область</span>
+            <a href="/handbook" target="_blank" rel="noreferrer"
+              className="flex items-center gap-1.5 text-xs text-[#F8FAFC]/40 hover:text-[#C9A84C] transition-colors border-l border-[rgba(255,255,255,0.08)] pl-3 ml-1">
+              <BookOpen size={13} /> Руководство
+            </a>
           </div>
           <div className="flex items-center gap-2">
             <button onClick={load} title="Обновить данные"

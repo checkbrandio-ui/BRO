@@ -19,6 +19,7 @@ import AgencyLogin from './pages/AgencyLogin';
 import AgencyWorkspace from './pages/AgencyWorkspace';
 import CandidateOnboarding from './pages/CandidateOnboarding';
 import ConsentPage from './pages/ConsentPage';
+import ManagerHandbook from './pages/ManagerHandbook';
 
 // Protected pages
 import Agencies from './pages/admin/Agencies';
@@ -48,6 +49,7 @@ function App() {
             <Route path="/agency/workspace" element={<AgencyWorkspace />} />
             <Route path="/form/:token" element={<CandidateOnboarding />} />
             <Route path="/consent" element={<ConsentPage />} />
+            <Route path="/handbook" element={<ManagerHandbook />} />
 
             {/* Protected routes (any authenticated user) */}
             <Route element={<ProtectedRoute />}>
