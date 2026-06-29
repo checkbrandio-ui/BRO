@@ -1,7 +1,8 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, Loader2, ExternalLink, ChevronDown, ChevronUp, Info, Upload, FileText, Trash2, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Info, Upload, FileText, Trash2, Download } from 'lucide-react';
+import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -160,6 +161,7 @@ export default function CandidateOnboarding() {
   const [showAssemblyTip, setShowAssemblyTip] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [uploading, setUploading] = useState(false);
+  const [uploadError, setUploadError] = useState(null);
 
   useEffect(() => {
     const loadForm = async () => {
@@ -222,14 +224,20 @@ export default function CandidateOnboarding() {
 
   const handleDocUpload = async (docType, docLabel, file) => {
     if (!file) return;
+    setUploadError(null);
+    const validationError = validateFile(file);
+    if (validationError) { setUploadError(validationError); return; }
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    const newDoc = { doc_type: docType, name: docLabel + ': ' + file.name, url: file_url, uploaded_at: new Date().toISOString() };
-    setUploadedDocs(prev => {
-      // Заменяем если уже есть этот тип
-      const filtered = prev.filter(d => d.doc_type !== docType);
-      return [...filtered, newDoc];
-    });
+    try {
+      const file_url = await uploadWithRetry(file);
+      const newDoc = { doc_type: docType, name: docLabel + ': ' + file.name, url: file_url, uploaded_at: new Date().toISOString() };
+      setUploadedDocs(prev => {
+        const filtered = prev.filter(d => d.doc_type !== docType);
+        return [...filtered, newDoc];
+      });
+    } catch (e) {
+      setUploadError(`Не удалось загрузить «${file.name}». Проверьте подключение к интернету и попробуйте снова.`);
+    }
     setUploading(false);
   };
 
@@ -700,6 +708,12 @@ export default function CandidateOnboarding() {
             {uploading && (
               <div className="flex items-center gap-2 text-xs text-[#666]">
                 <Loader2 size={12} className="animate-spin" /> Загрузка файла...
+              </div>
+            )}
+            {uploadError && (
+              <div className="flex items-start gap-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-xs text-red-400">
+                <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                <span>{uploadError}</span>
               </div>
             )}
           </Section>

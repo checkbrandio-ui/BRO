@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { X, Upload, Trash2, Download, FileText, AlertTriangle, ExternalLink } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -30,6 +31,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   });
 
   const [uploading, setUploading]   = useState(false);
+  const [uploadErrors, setUploadErrors] = useState([]);
   const [dragOver, setDragOver]     = useState(false);
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
@@ -78,14 +80,41 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
 
   const uploadFiles = async (files) => {
     setUploading(true);
-    const newDocs = [];
+    setUploadErrors([]);
+
+    // Клиентская валидация — отсеиваем проблемные файлы до сетевого запроса
+    const valid = [];
+    const errors = [];
     for (const file of files) {
-      if (file.name.endsWith('.exe')) continue;
-      if (file.size > 20 * 1024 * 1024) continue;
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      newDocs.push({ name: file.name, url: file_url, type: file.type, uploaded_at: new Date().toISOString().split('T')[0] });
+      const err = validateFile(file);
+      if (err) { errors.push(err); continue; }
+      valid.push(file);
     }
-    set('documents', [...(form.documents || []), ...newDocs]);
+
+    // Параллельная загрузка — файлы отправляются одновременно,
+    // сбой одного не блокирует остальные
+    const results = await Promise.allSettled(
+      valid.map(file =>
+        uploadWithRetry(file).then(file_url => ({
+          name: file.name,
+          url: file_url,
+          type: file.type,
+          uploaded_at: new Date().toISOString().split('T')[0],
+        }))
+      )
+    );
+
+    const newDocs = [];
+    results.forEach((r, i) => {
+      if (r.status === 'fulfilled') {
+        newDocs.push(r.value);
+      } else {
+        errors.push(`Не удалось загрузить «${valid[i].name}» — проверьте подключение и попробуйте снова`);
+      }
+    });
+
+    if (newDocs.length) set('documents', [...(form.documents || []), ...newDocs]);
+    if (errors.length) setUploadErrors(errors);
     setUploading(false);
   };
 
@@ -296,6 +325,17 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               </label>
               <p className="text-xs text-[#F8FAFC]/25 mt-2">PDF, DOC, JPG, PNG — до 20 МБ каждый</p>
             </div>
+
+            {uploadErrors.length > 0 && (
+              <div className="mt-3 space-y-1 px-3 py-2.5 bg-red-500/8 border border-red-500/25 rounded-lg">
+                {uploadErrors.map((err, i) => (
+                  <div key={i} className="flex items-start gap-2 text-xs text-red-300/80">
+                    <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
+                    <span>{err}</span>
+                  </div>
+                ))}
+              </div>
+            )}
 
             {form.documents && form.documents.length > 0 && (
               <div className="mt-3 space-y-2">
