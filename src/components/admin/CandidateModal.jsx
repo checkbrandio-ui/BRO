@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { X, Upload, Trash2, Download, FileText, AlertTriangle, ExternalLink } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
+import CandidateFormView from './CandidateFormView';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -36,6 +37,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
   const [formDocs, setFormDocs]     = useState([]); // документы из анкеты
+  const [activeTab, setActiveTab]   = useState('card');
 
   useEffect(() => {
     if (!candidate?.id) return;
@@ -149,7 +151,20 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
         </div>
 
-        <div className="p-6 space-y-5">
+        {candidate?.id && (
+          <div className="flex border-b border-[rgba(123,63,191,0.15)] bg-[#0D1B3E]">
+            <button onClick={() => setActiveTab('card')}
+              className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'card' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
+              Карточка
+            </button>
+            <button onClick={() => setActiveTab('questionnaire')}
+              className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'questionnaire' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
+              Анкета кандидата
+            </button>
+          </div>
+        )}
+
+        <div className={`p-6 space-y-5 ${activeTab === 'card' || !candidate?.id ? '' : 'hidden'}`}>
           {/* Стоп-лист предупреждение */}
           {stopList && (
             <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -245,6 +260,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                   <select className={inp} value={form.sb_check} onChange={e => set('sb_check', e.target.value)}>
                     <option value="">Не указано</option>
                     <option value="Не проверялся">Не проверялся</option>
+                    <option value="На проверке">На проверке</option>
                     <option value="Согласован">Согласован</option>
                     <option value="Не согласован">Не согласован</option>
                   </select>
@@ -321,9 +337,9 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               <p className="text-sm text-[#F8FAFC]/50 mb-2">Перетащите файлы или</p>
               <label className="inline-flex items-center gap-2 px-4 py-2 bg-[rgba(123,63,191,0.15)] border border-[rgba(123,63,191,0.3)] rounded-lg text-sm text-[#7B3FBF] cursor-pointer hover:bg-[rgba(123,63,191,0.25)] transition-all">
                 <Upload size={14} /> {uploading ? 'Загрузка...' : 'Выбрать файлы'}
-                <input type="file" className="hidden" multiple onChange={handleFileInput} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png" />
+                <input type="file" className="hidden" multiple onChange={handleFileInput} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.gif,.tiff" />
               </label>
-              <p className="text-xs text-[#F8FAFC]/25 mt-2">PDF, DOC, JPG, PNG — до 20 МБ каждый</p>
+              <p className="text-xs text-[#F8FAFC]/25 mt-2">PDF, DOC, JPG, PNG, HEIC — до 20 МБ каждый</p>
             </div>
 
             {uploadErrors.length > 0 && (
@@ -370,6 +386,12 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             </button>
           </div>
         </div>
+
+        {activeTab === 'questionnaire' && candidate?.id && (
+          <div className="p-6">
+            <CandidateFormView candidateId={candidate.id} />
+          </div>
+        )}
       </div>
     </div>
   );

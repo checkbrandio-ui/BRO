@@ -5,9 +5,10 @@ import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stetho
 import CandidateModal from '../../components/admin/CandidateModal';
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { logCandidateAction } from '@/lib/candidateLogger';
+import { notifyStatusChange } from '@/lib/notifyStatusChange';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
-const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
+const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
 const MED_COLORS = { 'Не проверялся':'text-[#F8FAFC]/40', 'Прошёл':'text-green-400', 'Не прошёл':'text-red-400' };
 const PAY_COLORS = { 'Готовится к отправке':'text-green-400', 'Отказался от отправки':'text-red-400/70' };
 
@@ -84,6 +85,7 @@ export default function Candidates() {
       const old = candidates.find(c => c.id === id);
       await base44.entities.Candidate.update(id, data);
       await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
+      await notifyStatusChange({ ...data, id }, old);
     } else {
       // Generate unique form token
       const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
@@ -286,7 +288,7 @@ export default function Candidates() {
           </select>
           <select value={filters.sb_check} onChange={e => setF('sb_check', e.target.value)} className={inp}>
             <option value="">Проверка СБ</option>
-            {['Не проверялся','Согласован','Не согласован'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['Не проверялся','На проверке','Согласован','Не согласован'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={filters.medical_check} onChange={e => setF('medical_check', e.target.value)} className={inp}>
             <option value="">Медкомиссия</option>
@@ -356,7 +358,7 @@ export default function Candidates() {
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs font-medium ${SB_COLORS[c.sb_check] || 'text-[#F8FAFC]/40'}`}>
-                            {c.sb_check === 'Согласован' ? '✓' : c.sb_check === 'Не согласован' ? '✗' : '—'}
+                            {c.sb_check === 'Согласован' ? '✓' : c.sb_check === 'Не согласован' ? '✗' : c.sb_check === 'На проверке' ? '⏳' : '—'}
                           </span>
                         </td>
                         <td className="px-4 py-3">

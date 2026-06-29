@@ -160,8 +160,8 @@ export default function CandidateOnboarding() {
   const [actualSameAsReg, setActualSameAsReg] = useState(false);
   const [showAssemblyTip, setShowAssemblyTip] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
-  const [uploading, setUploading] = useState(false);
-  const [uploadError, setUploadError] = useState(null);
+  const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [uploadErrors, setUploadErrors] = useState({});
 
   useEffect(() => {
     const loadForm = async () => {
@@ -219,15 +219,14 @@ export default function CandidateOnboarding() {
     { id: 'diploma', label: 'Диплом об образовании', required: false },
     { id: 'medical', label: 'Медицинская книжка', required: false },
     { id: 'certs', label: 'Допуски / сертификаты', required: false },
-    { id: 'photo', label: 'Фото 3×4 (цветное)', required: true },
   ];
 
   const handleDocUpload = async (docType, docLabel, file) => {
     if (!file) return;
-    setUploadError(null);
+    setUploadErrors(prev => ({ ...prev, [docType]: null }));
     const validationError = validateFile(file);
-    if (validationError) { setUploadError(validationError); return; }
-    setUploading(true);
+    if (validationError) { setUploadErrors(prev => ({ ...prev, [docType]: validationError })); return; }
+    setUploadingDocType(docType);
     try {
       const file_url = await uploadWithRetry(file);
       const newDoc = { doc_type: docType, name: docLabel + ': ' + file.name, url: file_url, uploaded_at: new Date().toISOString() };
@@ -236,9 +235,9 @@ export default function CandidateOnboarding() {
         return [...filtered, newDoc];
       });
     } catch (e) {
-      setUploadError(`Не удалось загрузить «${file.name}». Проверьте подключение к интернету и попробуйте снова.`);
+      setUploadErrors(prev => ({ ...prev, [docType]: `Не удалось загрузить «${file.name}». Проверьте подключение.` }));
     }
-    setUploading(false);
+    setUploadingDocType(null);
   };
 
   const removeDoc = (docType) => setUploadedDocs(prev => prev.filter(d => d.doc_type !== docType));
@@ -663,7 +662,7 @@ export default function CandidateOnboarding() {
           {/* РАЗДЕЛ 10: Загрузка документов */}
           <Section title="Раздел 10. Загрузка документов" defaultOpen={false}>
             <p className="text-xs text-[#666] leading-relaxed">
-              Загрузите сканы или фотографии документов. Форматы: JPG, PNG, PDF. Обязательные документы отмечены <span className="text-red-500">*</span>
+              Загрузите сканы или фотографии документов. Форматы: JPG, PNG, PDF, HEIC (iPhone). Обязательные документы отмечены <span className="text-red-500">*</span>
             </p>
             <div className="space-y-2">
               {REQUIRED_DOC_TYPES.map(dt => {
@@ -680,40 +679,53 @@ export default function CandidateOnboarding() {
                           <span className="text-xs text-green-500 truncate">{uploaded.name.split(': ')[1] || uploaded.name}</span>
                         </div>
                       )}
+                      {uploadErrors[dt.id] && (
+                        <div className="flex items-start gap-1.5 mt-1">
+                          <AlertTriangle size={11} className="text-red-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs text-red-400">{uploadErrors[dt.id]}</span>
+                        </div>
+                      )}
                     </div>
                     <div className="flex items-center gap-1.5 flex-shrink-0">
-                      {uploaded && (
+                      {uploadingDocType === dt.id ? (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#666]">
+                          <Loader2 size={12} className="animate-spin" /> Загрузка...
+                        </div>
+                      ) : (
                         <>
-                          <a href={uploaded.url} target="_blank" rel="noreferrer"
-                            className="p-1.5 rounded border border-[#333] text-[#666] hover:text-[#aaa] transition-colors">
-                            <Download size={12} />
-                          </a>
-                          <button type="button" onClick={() => removeDoc(dt.id)}
-                            className="p-1.5 rounded border border-[#333] text-[#666] hover:text-red-400 transition-colors">
-                            <Trash2 size={12} />
-                          </button>
+                          {uploaded && (
+                            <>
+                              <a href={uploaded.url} target="_blank" rel="noreferrer"
+                                className="p-1.5 rounded border border-[#333] text-[#666] hover:text-[#aaa] transition-colors">
+                                <Download size={12} />
+                              </a>
+                              <button type="button" onClick={() => removeDoc(dt.id)}
+                                className="p-1.5 rounded border border-[#333] text-[#666] hover:text-red-400 transition-colors">
+                                <Trash2 size={12} />
+                              </button>
+                            </>
+                          )}
+                          <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs cursor-pointer transition-colors ${uploaded ? 'border-[#333] text-[#666] hover:border-[#555]' : 'border-[#444] text-[#aaa] hover:border-[#666]'}`}>
+                            <Upload size={11} />
+                            {uploaded ? 'Заменить' : 'Загрузить'}
+                            <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.heic,.heif,.webp,.bmp,.gif,.tiff"
+                              onChange={e => e.target.files?.[0] && handleDocUpload(dt.id, dt.label, e.target.files[0])} />
+                          </label>
                         </>
                       )}
-                      <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs cursor-pointer transition-colors ${uploaded ? 'border-[#333] text-[#666] hover:border-[#555]' : 'border-[#444] text-[#aaa] hover:border-[#666]'}`}>
-                        <Upload size={11} />
-                        {uploaded ? 'Заменить' : 'Загрузить'}
-                        <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf"
-                          onChange={e => e.target.files?.[0] && handleDocUpload(dt.id, dt.label, e.target.files[0])} />
-                      </label>
                     </div>
                   </div>
                 );
               })}
             </div>
-            {uploading && (
-              <div className="flex items-center gap-2 text-xs text-[#666]">
-                <Loader2 size={12} className="animate-spin" /> Загрузка файла...
-              </div>
-            )}
-            {uploadError && (
-              <div className="flex items-start gap-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-xs text-red-400">
-                <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-                <span>{uploadError}</span>
+            {uploadErrors && Object.values(uploadErrors).some(Boolean) && (
+              <div className="space-y-1">
+                {Object.entries(uploadErrors).filter(([, v]) => v).map(([docType, err]) => (
+                  <div key={docType} className="flex items-start gap-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-xs text-red-400">
+                    <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
+                    <span>{err}</span>
+                  </div>
+                ))}
               </div>
             )}
           </Section>
