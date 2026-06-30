@@ -10,9 +10,6 @@
       ]
     }
   },
-  "required": [
-    "role"
-  ],
   "name": "User",
   "type": "object"
 }

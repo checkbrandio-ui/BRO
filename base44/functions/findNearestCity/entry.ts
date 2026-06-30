@@ -25,7 +25,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Параметр city_name обязателен' }, { status: 400 });
     }
 
-    const cities = await base44.asServiceRole.entities.City.list('-created_date', 500);
+    const cities = await base44.entities.City.list('-created_date', 500);
 
     // Ищем исходный город в справочнике
     const targetCity = cities.find(
