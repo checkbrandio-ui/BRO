@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Send, Loader2, Sparkles, RefreshCw, Ticket, AlertCircle } from 'lucide-react';
+import { Send, Loader2, Sparkles, RefreshCw, Ticket, AlertCircle, Zap } from 'lucide-react';
 import MessageBubble from '@/components/admin/AssistantMessage';
 
 const AGENT_NAME = 'crm_helper';
@@ -22,6 +22,7 @@ export default function Assistant() {
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
+  const [fallbackMode, setFallbackMode] = useState(false);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -36,11 +37,12 @@ export default function Assistant() {
   const initConversation = useCallback(async () => {
     setLoading(true);
     setError(null);
+    setFallbackMode(false);
     try {
-      const existing = base44.agents.listConversations({ agent_name: AGENT_NAME });
+      const existing = await base44.agents.listConversations({ agent_name: AGENT_NAME });
       let conv = existing && existing.length > 0 ? existing[0] : null;
       if (!conv) {
-        conv = base44.agents.createConversation({
+        conv = await base44.agents.createConversation({
           agent_name: AGENT_NAME,
           metadata: { name: 'CRM Helper Chat' },
         });
@@ -67,18 +69,41 @@ export default function Assistant() {
     return () => { if (cleanup) cleanup(); };
   }, [initConversation]);
 
+  const sendViaLLM = async (content) => {
+    const res = await base44.integrations.Core.InvokeLLM({
+      prompt: `Ты — ИИ-помощник CRM-системы "Братоуверие-СНБ" (программа восстановления ЛНР/ДНР). Отвечай кратко и по-делу на русском языке.\n\nВопрос пользователя: ${content}`,
+      add_context_from_internet: false,
+    });
+    if (typeof res === 'string') return res;
+    if (res?.data && typeof res.data === 'string') return res.data;
+    return typeof res === 'object' ? JSON.stringify(res) : String(res);
+  };
+
   const handleSend = async (text) => {
     const content = text || input.trim();
-    if (!content || !conversation || sending) return;
+    if (!content || sending) return;
 
+    setMessages(prev => [...prev, { role: 'user', content }]);
     setSending(true);
     setInput('');
-    try {
-      base44.agents.addMessage(conversation, { role: 'user', content });
-    } catch (e) {
-      setError(e.message);
-      setSending(false);
+
+    if (conversation && !fallbackMode) {
+      try {
+        await base44.agents.addMessage(conversation, { role: 'user', content });
+        return;
+      } catch (e) {
+        setFallbackMode(true);
+      }
     }
+
+    try {
+      const response = await sendViaLLM(content);
+      setMessages(prev => [...prev, { role: 'assistant', content: response }]);
+    } catch (e) {
+      setError(e.message || 'Ошибка отправки');
+      setMessages(prev => [...prev, { role: 'assistant', content: '⚠️ ИИ временно недоступен. Попробуйте обновить страницу.' }]);
+    }
+    setSending(false);
   };
 
   const handleKeyDown = (e) => {
@@ -122,6 +147,7 @@ export default function Assistant() {
                 <Sparkles size={14} className="text-[#7B3FBF]" />
               </div>
               <h1 className="text-sm font-bold text-[#F8FAFC]">ИИ-помощник CRM</h1>
+              {fallbackMode && <span className="text-[10px] px-2 py-0.5 rounded bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/30 flex items-center gap-1"><Zap size={9} /> Запасной режим</span>}
             </div>
           </div>
           <div className="flex items-center gap-2">

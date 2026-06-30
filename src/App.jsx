@@ -27,6 +27,7 @@ import Candidates from './pages/admin/Candidates';
 import CandidateLogs from './pages/admin/CandidateLogs';
 import Assistant from './pages/admin/Assistant';
 import Users from './pages/admin/Users';
+import AssistantWidget from '@/components/admin/AssistantWidget';
 
 function App() {
   return (
@@ -67,6 +68,7 @@ function App() {
 
             <Route path="*" element={<PageNotFound />} />
           </Routes>
+          <AssistantWidget />
         </Router>
         <Toaster />
       </QueryClientProvider>
