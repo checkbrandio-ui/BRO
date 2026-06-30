@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
+import AgencyNotificationBell from '../components/admin/AgencyNotificationBell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
@@ -219,6 +220,7 @@ export default function AgencyWorkspace() {
             </a>
           </div>
           <div className="flex items-center gap-2">
+            <AgencyNotificationBell agencyId={session?.id} />
             <button onClick={load} title="Обновить данные"
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <RefreshCw size={14} />
