@@ -3,6 +3,7 @@ import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
+import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
@@ -190,6 +191,27 @@ export default function Candidates() {
   const filteredActive   = applyFilters(active);
   const filteredArchived = applyFilters(archived);
   const displayed = showArchive ? filteredArchived : filteredActive;
+
+  const handleAutoAssembly = async (c) => {
+    if (!c.city) { alert('У кандидата не указан город проживания'); return; }
+    try {
+      const res = await base44.functions.invoke('findNearestCity', { city_name: c.city });
+      const data = res.data;
+      if (!data?.found || !data.nearest_cities?.length) {
+        alert('Не удалось найти ближайшую точку сбора. Город кандидата может отсутствовать в справочнике.');
+        return;
+      }
+      const nearest = data.nearest_cities[0];
+      const autoComment = `🤖 Точка сбора определена автоматически: ${nearest.name} (${nearest.distance_km} км). Уточните возможность прибытия кандидата на медкомиссию и дату прибытия.`;
+      const newComment = c.comment ? `${c.comment}\n\n${autoComment}` : autoComment;
+      const updated = { assembly_point: nearest.name, comment: newComment };
+      await base44.entities.Candidate.update(c.id, updated);
+      await logCandidateAction({ action: 'update', candidate: { ...c, ...updated }, oldData: c, actor: getActor() });
+      setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x));
+    } catch (e) {
+      alert('Ошибка при определении точки сбора: ' + e.message);
+    }
+  };
 
   const generateFormToken = async (c) => {
     const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
@@ -472,11 +494,7 @@ export default function Candidates() {
                             : '—'}
                         </td>
                         <td className="px-4 py-3">
-                          {c.comment ? (
-                            <Tooltip text={c.comment}>
-                              <MessageSquare size={14} className="text-[#7B3FBF] cursor-help" />
-                            </Tooltip>
-                          ) : <span className="text-[#F8FAFC]/20">—</span>}
+                          <InlineCommentCell candidate={c} onUpdate={(id, data) => setCandidates(prev => prev.map(x => x.id === id ? { ...x, ...data } : x))} />
                         </td>
                         <td className="px-4 py-3">
                           {c.form_status === 'completed'
@@ -500,6 +518,12 @@ export default function Candidates() {
                               </button>
                             ) : (
                               <>
+                                {c.form_status === 'completed' && c.city && (
+                                  <button onClick={() => handleAutoAssembly(c)} title="Авто-подбор точки сбора"
+                                    className="p-1.5 rounded hover:bg-[#C9A84C]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
+                                    <MapPin size={14}/>
+                                  </button>
+                                )}
                                 <button onClick={() => { setEditCandidate(c); setModalOpen(true); }}
                                   className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
                                   <Edit2 size={14}/>

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Send, Loader2, Sparkles, X, AlertCircle, RefreshCw, Zap } from 'lucide-react';
+import { Send, Loader2, Sparkles, X, AlertCircle, RefreshCw, Zap, MapPin } from 'lucide-react';
 import MessageBubble from '@/components/admin/AssistantMessage';
 
 const AGENT_NAME = 'crm_helper';
@@ -22,6 +22,7 @@ export default function AssistantWidget() {
   const [sending, setSending] = useState(false);
   const [errorMsg, setErrorMsg] = useState(null);
   const [isAuthed, setIsAuthed] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const [fallbackMode, setFallbackMode] = useState(false);
   const messagesEndRef = useRef(null);
   const unsubscribeRef = useRef(null);
@@ -29,10 +30,15 @@ export default function AssistantWidget() {
 
   const isCRMPage = location.pathname.startsWith('/admin/') || location.pathname.startsWith('/agency/workspace');
   const isFullAssistantPage = location.pathname === '/admin/assistant';
-  const shouldShow = isAuthed && isCRMPage && !isFullAssistantPage;
+  const shouldShow = isAuthed && isCRMPage && !isFullAssistantPage && (userRole === 'admin' || userRole === 'moderator');
 
   useEffect(() => {
-    base44.auth.isAuthenticated().then(setIsAuthed).catch(() => setIsAuthed(false));
+    base44.auth.isAuthenticated().then(async (authed) => {
+      setIsAuthed(authed);
+      if (authed) {
+        try { const u = await base44.auth.me(); setUserRole(u.role); } catch (_) {}
+      }
+    }).catch(() => setIsAuthed(false));
   }, []);
 
   useEffect(() => {
@@ -191,6 +197,17 @@ export default function AssistantWidget() {
                   <Sparkles size={20} className="text-[#7B3FBF]" />
                 </div>
                 <p className="text-xs text-[#F8FAFC]/40 mb-4 max-w-[260px]">Задайте вопрос о CRM, кандидатах или логистике</p>
+                {userRole === 'admin' && (
+                  <button onClick={() => handleSend('Обнови список точек сбора: найди новые города кандидатов, добавь в справочник и покажи актуальный список городов-точек сбора')}
+                    className="w-full flex items-center gap-2 px-3 py-2 rounded-lg border border-[#C9A84C]/30 bg-[#C9A84C]/8 text-xs text-[#C9A84C] hover:bg-[#C9A84C]/15 transition-all mb-1.5">
+                    <MapPin size={12} /> Обновить точки сбора
+                  </button>
+                )}
+                {userRole === 'moderator' && (
+                  <div className="px-3 py-2 rounded-lg bg-[#7B3FBF]/8 border border-[#7B3FBF]/20 text-[10px] text-[#F8FAFC]/40 text-center mb-1.5">
+                    Только информационные функции
+                  </div>
+                )}
                 <div className="space-y-1.5 w-full">
                   {SUGGESTED_PROMPTS.map((p, i) => (
                     <button key={i} onClick={() => handleSend(p)}

@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Send, Loader2, Sparkles, RefreshCw, Ticket, AlertCircle, Zap } from 'lucide-react';
+import { Send, Loader2, Sparkles, RefreshCw, Ticket, AlertCircle, Zap, MapPin } from 'lucide-react';
 import MessageBubble from '@/components/admin/AssistantMessage';
 
 const AGENT_NAME = 'crm_helper';
@@ -23,6 +23,7 @@ export default function Assistant() {
   const [sending, setSending] = useState(false);
   const [error, setError] = useState(null);
   const [fallbackMode, setFallbackMode] = useState(false);
+  const [userRole, setUserRole] = useState(null);
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
 
@@ -66,6 +67,7 @@ export default function Assistant() {
   useEffect(() => {
     let cleanup;
     initConversation().then(fn => { cleanup = fn; });
+    base44.auth.me().then(u => setUserRole(u.role)).catch(() => {});
     return () => { if (cleanup) cleanup(); };
   }, [initConversation]);
 
@@ -151,7 +153,7 @@ export default function Assistant() {
             </div>
           </div>
           <div className="flex items-center gap-2">
-            <Link to="/admin/candidate-logs" className="flex items-center gap-2 px-3 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
+            <Link to="/admin/tickets" className="flex items-center gap-2 px-3 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <Ticket size={13}/> Тикеты
             </Link>
             <button onClick={initConversation} title="Новый диалог"
@@ -174,6 +176,19 @@ export default function Assistant() {
               <p className="text-sm text-[#F8FAFC]/40 max-w-md mx-auto mb-8">
                 Задайте вопрос о работе CRM, условиях программы, кандидатах или логистике. Агент имеет доступ к актуальным данным системы.
               </p>
+              {userRole === 'admin' && (
+                <div className="mb-4 max-w-xl mx-auto">
+                  <button onClick={() => handleSend('Обнови список точек сбора: найди новые города кандидатов, добавь в справочник и покажи актуальный список городов-точек сбора')}
+                    className="w-full flex items-center gap-2 justify-center px-4 py-3 rounded-xl border border-[#C9A84C]/30 bg-[#C9A84C]/8 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/15 transition-all">
+                    <MapPin size={15} /> Обновить список точек сбора
+                  </button>
+                </div>
+              )}
+              {userRole === 'moderator' && (
+                <div className="mb-4 max-w-xl mx-auto px-3 py-2 rounded-lg bg-[#7B3FBF]/8 border border-[#7B3FBF]/20 text-xs text-[#F8FAFC]/50 text-center">
+                  Режим: только информационные функции
+                </div>
+              )}
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 max-w-xl mx-auto">
                 {SUGGESTED_PROMPTS.map((prompt, i) => (
                   <button key={i} onClick={() => handleSend(prompt)}

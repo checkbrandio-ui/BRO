@@ -143,6 +143,10 @@ Deno.serve(async (req) => {
       crm_stats: stats,
       candidates_without_assembly_point: withoutAssembly,
       candidate_cities_not_in_catalog: newCities,
+      assembly_points: cities
+        .filter(c => c.lat != null && c.lon != null)
+        .map(c => ({ name: c.name, region: c.region || '' }))
+        .sort((a, b) => a.name.localeCompare(b.name)),
       open_tickets: tickets.slice(0, 10).map(t => ({
         id: t.id, question: t.question, asked_by: t.asked_by_name,
         category: t.category, priority: t.priority, created_date: t.created_date,
