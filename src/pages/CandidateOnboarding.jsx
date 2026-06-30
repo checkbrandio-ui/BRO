@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Info, Upload, FileText, Trash2, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, FileText, Trash2, Download } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CitySelect from '@/components/CitySelect';
 import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
@@ -160,7 +160,6 @@ export default function CandidateOnboarding() {
   const [form, setForm] = useState(EMPTY_FORM);
   const [birthPlaceSameAsCity, setBirthPlaceSameAsCity] = useState(false);
   const [actualSameAsReg, setActualSameAsReg] = useState(false);
-  const [showAssemblyTip, setShowAssemblyTip] = useState(false);
   const [uploadedDocs, setUploadedDocs] = useState([]);
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadErrors, setUploadErrors] = useState({});
@@ -434,24 +433,16 @@ export default function CandidateOnboarding() {
             <div className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-4 space-y-3">
               <p className="text-xs text-[#555] uppercase tracking-wide font-semibold">Место и дата прибытия</p>
               <div>
-                <div className="flex items-center gap-2 mb-1.5">
-                  <label className={lbl + ' mb-0'}>Пункт сбора</label>
-                  <div className="relative">
-                    <button type="button" onMouseEnter={() => setShowAssemblyTip(true)} onMouseLeave={() => setShowAssemblyTip(false)}
-                      onTouchStart={() => setShowAssemblyTip(v => !v)} className="text-[#555] hover:text-[#888] transition-colors">
-                      <Info size={13} />
-                    </button>
-                    {showAssemblyTip && (
-                      <div className="absolute left-0 top-5 z-20 w-64 bg-[#1e1e1e] border border-[#333] rounded p-3 text-xs text-[#aaa] leading-relaxed shadow-xl">
-                        Ближайший пункт сбора (место прохождения медкомиссии) будет определён после согласования кандидатуры.
-                      </div>
-                    )}
-                  </div>
-                </div>
-                <input className={inpRO} value={form.assembly_point || 'Будет определён после согласования'} readOnly />
+                <label className={lbl}>Пункт сбора</label>
+                <CitySelect
+                  value={form.assembly_point}
+                  onChange={val => set('assembly_point', val)}
+                  inputClassName={inp}
+                  placeholder="Выберите город..."
+                />
               </div>
               <div>
-                <label className={lbl}>Запланированная дата прибытия <span className="text-[#555] font-normal normal-case tracking-normal">— укажите дату</span></label>
+                <label className={lbl}>Запланированная дата прибытия</label>
                 <input className={inp} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
               </div>
             </div>

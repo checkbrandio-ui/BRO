@@ -26,7 +26,6 @@ import Agencies from './pages/admin/Agencies';
 import Candidates from './pages/admin/Candidates';
 import CandidateLogs from './pages/admin/CandidateLogs';
 import Users from './pages/admin/Users';
-import AssemblyPoints from './pages/admin/AssemblyPoints';
 
 function App() {
   return (
@@ -57,7 +56,7 @@ function App() {
               <Route path="/admin/agencies" element={<Agencies />} />
               <Route path="/admin/candidates" element={<Candidates />} />
               <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
-              <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
+
             </Route>
 
             {/* Admin-only routes */}

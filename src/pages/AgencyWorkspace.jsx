@@ -6,7 +6,6 @@ import CandidateModal from '../components/admin/CandidateModal';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
-import { findNearestAssemblyPoint, formatDistance } from '@/lib/geoUtils';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -42,7 +41,6 @@ export default function AgencyWorkspace() {
   const [editCandidate, setEditCandidate] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
-  const [assemblyPoints, setAssemblyPoints] = useState([]);
   const [cityCache, setCityCache] = useState({});
 
   useEffect(() => {
@@ -58,8 +56,7 @@ export default function AgencyWorkspace() {
       base44.entities.Candidate.filter({ agency_id: session.id }, '-created_date', 500),
     ]);
     // Загружаем пункты сбора, справочник городов и анкеты
-    const [aps, cities, forms] = await Promise.all([
-      base44.entities.AssemblyPoint.filter({ is_active: true }),
+    const [cities, forms] = await Promise.all([
       base44.entities.City.list('-created_date', 500),
       base44.entities.CandidateForm.filter({ status: 'completed' }, '-created_date', 500),
     ]);
@@ -83,7 +80,6 @@ export default function AgencyWorkspace() {
     cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
     setAgency(agencyList[0] || null);
     setCandidates(mergedCands);
-    setAssemblyPoints(aps);
     setCityCache(cityMap);
     setLoading(false);
   };
@@ -392,20 +388,14 @@ export default function AgencyWorkspace() {
                             <HoverCardContent className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
                               {(() => {
                                 const cityInfo = cityCache[c.city.toLowerCase()];
-                                const nearest = cityInfo?.lat != null ? findNearestAssemblyPoint(cityInfo.lat, cityInfo.lon, assemblyPoints) : null;
                                 return (
                                   <div className="space-y-2 text-xs">
                                     <div className="font-bold text-[#F8FAFC]">{c.city}</div>
                                     {cityInfo?.region && <div className="text-[#F8FAFC]/60">Регион: {cityInfo.region}</div>}
-                                    {nearest ? (
-                                      <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] space-y-1">
-                                        <div className="text-[#F8FAFC]/50">Ближайший пункт сбора:</div>
-                                        <div className="text-[#7B3FBF] font-bold">{nearest.point.name}</div>
-                                        <div className="text-[#C9A84C] font-bold">{formatDistance(nearest.distance)}</div>
-                                      </div>
-                                    ) : (
-                                      <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] text-[#F8FAFC]/30">
-                                        {cityInfo ? 'Нет активных пунктов сбора' : 'Координаты не определены'}
+                                    {c.assembly_point && (
+                                      <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
+                                        <div className="text-[#F8FAFC]/50">Пункт сбора:</div>
+                                        <div className="text-[#7B3FBF] font-bold">{c.assembly_point}</div>
                                       </div>
                                     )}
                                   </div>
