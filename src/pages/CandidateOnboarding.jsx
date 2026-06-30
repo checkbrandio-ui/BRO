@@ -265,6 +265,7 @@ export default function CandidateOnboarding() {
         birth_date: form.birth_date,
         birth_place: form.birth_place,
         phone: form.phone,
+        email: form.email,
         city: form.city,
         citizenship: form.citizenship,
         position: form.position,
@@ -287,7 +288,27 @@ export default function CandidateOnboarding() {
       }
       const admins = await base44.entities.User.filter({ role: 'admin' });
       admins.forEach(admin => { if (admin.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: admin.email, subject, body, from_name: 'Bratouveriye SNB' })); });
+      try {
+        const moderators = await base44.entities.User.filter({ role: 'moderator' });
+        moderators.forEach(mod => { if (mod.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: mod.email, subject, body, from_name: 'Bratouveriye SNB' })); });
+      } catch (_) {}
+      if (form.email) {
+        emailPromises.push(base44.integrations.Core.SendEmail({ to: form.email, subject: 'Анкета получена', body: `Здравствуйте, ${form.full_name}!\n\nВаша анкета получена и передана в кадровый отдел.\n\nДата: ${new Date().toLocaleString('ru-RU')}`, from_name: 'Bratouveriye SNB' }));
+      }
       await Promise.allSettled(emailPromises);
+      // Создаём in-app уведомление
+      try {
+        await base44.entities.Notification.create({
+          agency_id: candidate?.agency_id || '',
+          agency_name: candidate?.agency_name || '',
+          candidate_id: formRecord.candidate_id || '',
+          candidate_name: form.full_name,
+          message: 'Анкета кандидата заполнена и отправлена',
+          link: '/admin/candidates',
+          is_read: false,
+          category: 'form',
+        });
+      } catch (_) {}
     } catch (_) {}
     setFormRecord(prev => ({ ...prev, submitted_at: now, status: 'completed' }));
     setSubmitted(true);

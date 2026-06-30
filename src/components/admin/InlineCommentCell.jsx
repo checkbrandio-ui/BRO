@@ -58,11 +58,18 @@ export default function InlineCommentCell({ candidate, onUpdate }) {
   }
 
   return (
-    <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs max-w-[140px] group">
-      <MessageSquare size={13} className={candidate.comment ? 'text-[#7B3FBF] flex-shrink-0' : 'text-[#F8FAFC]/20 flex-shrink-0 group-hover:text-[#7B3FBF]/50'} />
-      <span className={candidate.comment ? 'text-[#F8FAFC]/55 truncate' : 'text-[#F8FAFC]/20 group-hover:text-[#F8FAFC]/40'}>
-        {candidate.comment || 'Добавить...'}
-      </span>
-    </button>
+    <div className="relative group/tip">
+      <button onClick={() => setEditing(true)} className="flex items-center gap-1 text-xs max-w-[140px] group">
+        <MessageSquare size={13} className={candidate.comment ? 'text-[#7B3FBF] flex-shrink-0' : 'text-[#F8FAFC]/20 flex-shrink-0 group-hover:text-[#7B3FBF]/50'} />
+        <span className={candidate.comment ? 'text-[#F8FAFC]/55 truncate' : 'text-[#F8FAFC]/20 group-hover:text-[#F8FAFC]/40'}>
+          {candidate.comment || 'Добавить...'}
+        </span>
+      </button>
+      {candidate.comment && (
+        <div className="absolute top-full right-0 mt-1 px-3 py-2 rounded-lg bg-[#0D1B3E] border border-[rgba(123,63,191,0.3)] text-xs text-[#F8FAFC]/80 whitespace-pre-wrap break-words w-64 max-h-48 overflow-y-auto opacity-0 pointer-events-none group-hover/tip:opacity-100 transition-opacity z-50 shadow-lg">
+          {candidate.comment}
+        </div>
+      )}
+    </div>
   );
 }

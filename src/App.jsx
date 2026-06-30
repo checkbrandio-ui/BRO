@@ -29,7 +29,9 @@ import Assistant from './pages/admin/Assistant';
 import Tickets from './pages/admin/Tickets';
 import AssemblyPoints from './pages/admin/AssemblyPoints';
 import Users from './pages/admin/Users';
+import Notifications from './pages/admin/Notifications';
 import AssistantWidget from '@/components/admin/AssistantWidget';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 function App() {
   return (
@@ -63,6 +65,7 @@ function App() {
               <Route path="/admin/assistant" element={<Assistant />} />
               <Route path="/admin/tickets" element={<Tickets />} />
               <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
+              <Route path="/admin/notifications" element={<Notifications />} />
             </Route>
 
             {/* Admin-only routes */}
@@ -73,6 +76,7 @@ function App() {
             <Route path="*" element={<PageNotFound />} />
           </Routes>
           <AssistantWidget />
+          <NotificationBell />
         </Router>
         <Toaster />
       </QueryClientProvider>

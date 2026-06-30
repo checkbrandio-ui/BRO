@@ -28,6 +28,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     medical_check: candidate?.medical_check ?? '',
     comment: candidate?.comment ?? '',
     phone: candidate?.phone ?? '',
+    email: candidate?.email ?? '',
     payment_basis: candidate?.payment_basis ?? '',
     payment_made: candidate?.payment_made ?? '',
   });
@@ -200,6 +201,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               <input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
             </div>
             <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Email</label>
+              <input className={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="example@mail.ru" />
+            </div>
+            <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Должность</label>
               <select className={inp} value={form.position} onChange={e => set('position', e.target.value)}>
                 <option value="">Выберите...</option>
@@ -315,7 +320,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
           {/* Comment */}
           <div>
             <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Комментарий</label>
-            <textarea className={inp + ' resize-none'} rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
+            <textarea className={inp + ' resize-y min-h-[100px]'} rows={4} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
           </div>
 
           {/* Documents — типизированные слоты, сохраняются в анкету */}

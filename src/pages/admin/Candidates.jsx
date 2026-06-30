@@ -8,7 +8,6 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
-import { notifyStatusChange } from '@/lib/notifyStatusChange';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -115,7 +114,6 @@ export default function Candidates() {
       const old = candidates.find(c => c.id === id);
       await base44.entities.Candidate.update(id, data);
       await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
-      await notifyStatusChange({ ...data, id }, old);
     } else {
       const response = await base44.functions.invoke('createCandidateSafe', {
         candidate_data: data,
@@ -224,8 +222,15 @@ export default function Candidates() {
     const distanceKm = result.distance;
 
     const autoComment = `🤖 Точка сбора определена автоматически: ${nearest.name} (${distanceKm} км). Уточните возможность прибытия кандидата на медкомиссию и дату прибытия.`;
-    const newComment = c.comment ? `${c.comment}\n\n${autoComment}` : autoComment;
-    const updated = { assembly_point: nearest.name, comment: newComment };
+    // Удаляем старый авто-комментарий перед добавлением нового
+    let baseComment = c.comment || '';
+    const marker = '🤖 Точка сбора определена автоматически:';
+    const markerIdx = baseComment.indexOf(marker);
+    if (markerIdx !== -1) {
+      baseComment = baseComment.substring(0, markerIdx).replace(/\n{2,}$/, '').trim();
+    }
+    const newComment = baseComment ? `${baseComment}\n\n${autoComment}` : autoComment;
+    const updated = { assembly_point: nearest.name, assembly_distance: String(distanceKm), comment: newComment };
 
     try {
       await base44.entities.Candidate.update(c.id, updated);
@@ -471,7 +476,7 @@ export default function Candidates() {
                               <HoverCardTrigger asChild>
                                 <span className="cursor-help underline decoration-dotted underline-offset-2 hover:text-[#7B3FBF] transition-colors">{c.city}</span>
                               </HoverCardTrigger>
-                              <HoverCardContent className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
+                              <HoverCardContent sideOffset={4} className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
                                 {(() => {
                                   const cityInfo = cityCache[c.city.toLowerCase()];
                                   return (
@@ -482,6 +487,7 @@ export default function Candidates() {
                                         <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
                                           <div className="text-[#F8FAFC]/50">Пункт сбора:</div>
                                           <div className="text-[#7B3FBF] font-bold">{c.assembly_point}</div>
+                                          {c.assembly_distance && <div className="text-[#C9A84C] mt-1">Расстояние: {c.assembly_distance} км</div>}
                                         </div>
                                       )}
                                     </div>
@@ -547,7 +553,7 @@ export default function Candidates() {
                               <>
                                 {c.form_status === 'completed' && c.city && (
                                   <button onClick={() => handleAutoAssembly(c)} title="Авто-подбор точки сбора"
-                                    className="p-1.5 rounded hover:bg-[#C9A84C]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
+                                    className={`p-1.5 rounded transition-all ${c.assembly_point ? 'bg-[#C9A84C]/15 text-[#C9A84C] hover:bg-[#C9A84C]/25' : 'text-[#F8FAFC]/50 hover:bg-[#C9A84C]/20 hover:text-[#C9A84C]'}`}>
                                     <MapPin size={14}/>
                                   </button>
                                 )}
