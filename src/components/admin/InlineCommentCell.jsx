@@ -26,7 +26,9 @@ export default function InlineCommentCell({ candidate, onUpdate }) {
     savingRef.current = true;
     setSaving(true);
     try {
+      // Обновляем комментарий в кандидате
       await base44.entities.Candidate.update(candidate.id, { comment: trimmed });
+      // Триггер notifyCandidateChanges сработает автоматически через entity automation
       if (onUpdate) onUpdate(candidate.id, { comment: trimmed });
     } catch (e) {
       setValue(candidate.comment || '');

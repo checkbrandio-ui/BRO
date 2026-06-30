@@ -32,6 +32,7 @@ import Users from './pages/admin/Users';
 import Notifications from './pages/admin/Notifications';
 import AgencyNotifications from './pages/AgencyNotifications';
 import AssistantWidget from '@/components/admin/AssistantWidget';
+import NotificationBell from '@/components/admin/NotificationBell';
 
 function App() {
   return (
@@ -77,6 +78,7 @@ function App() {
             <Route path="*" element={<PageNotFound />} />
           </Routes>
           <AssistantWidget />
+          <NotificationBell />
         </Router>
         <Toaster />
       </QueryClientProvider>
