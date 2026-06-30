@@ -3,9 +3,11 @@ import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2 } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
+import { findNearestAssemblyPoint, formatDistance } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -38,6 +40,8 @@ export default function Candidates() {
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
+  const [assemblyPoints, setAssemblyPoints] = useState([]);
+  const [cityCache, setCityCache] = useState({});
   const [searchParams] = useSearchParams();
 
   const load = useCallback(async () => {
@@ -46,12 +50,21 @@ export default function Candidates() {
       base44.entities.Candidate.list('-created_date', 500),
       base44.entities.Agency.list('-created_date', 200),
     ]);
+    // Параллельно загружаем пункты сбора и справочник городов
+    const [aps, cities] = await Promise.all([
+      base44.entities.AssemblyPoint.filter({ is_active: true }),
+      base44.entities.City.list('-created_date', 500),
+    ]);
+    const cityMap = {};
+    cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
     const activeAg = ag.filter(a => !a.deleted_at);
     const activeAgIds = new Set(activeAg.map(a => a.id));
     const filtered = cand.filter(c => !c.agency_id || activeAgIds.has(c.agency_id));
     setCandidates(filtered);
     setDuplicateIds(findDuplicateIds(filtered));
     setAgencies(activeAg);
+    setAssemblyPoints(aps);
+    setCityCache(cityMap);
     setLoading(false);
   }, []);
 
@@ -215,6 +228,10 @@ export default function Candidates() {
               className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <ClipboardList size={13}/> Журнал
             </Link>
+            <Link to="/admin/assembly-points"
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
+              <MapPin size={13}/> Пункты сбора
+            </Link>
             <button onClick={load} title="Обновить данные"
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <RefreshCw size={14} />
@@ -359,9 +376,38 @@ export default function Candidates() {
                         </td>
                         <td className="px-4 py-3 text-[#F8FAFC]/60 text-xs whitespace-nowrap">{c.position || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#F8FAFC]/55">
-                          {c.city && <div>{c.city}</div>}
-                          {c.assembly_point && <div className="text-[#F8FAFC]/30">{c.assembly_point}</div>}
-                          {!c.city && !c.assembly_point && '—'}
+                          {c.city ? (
+                            <HoverCard>
+                              <HoverCardTrigger asChild>
+                                <span className="cursor-help underline decoration-dotted underline-offset-2 hover:text-[#7B3FBF] transition-colors">{c.city}</span>
+                              </HoverCardTrigger>
+                              <HoverCardContent className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
+                                {(() => {
+                                  const cityInfo = cityCache[c.city.toLowerCase()];
+                                  const nearest = cityInfo?.lat != null ? findNearestAssemblyPoint(cityInfo.lat, cityInfo.lon, assemblyPoints) : null;
+                                  return (
+                                    <div className="space-y-2 text-xs">
+                                      <div className="font-bold text-[#F8FAFC]">{c.city}</div>
+                                      {cityInfo?.region && <div className="text-[#F8FAFC]/60">Регион: {cityInfo.region}</div>}
+                                      {nearest ? (
+                                        <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] space-y-1">
+                                          <div className="text-[#F8FAFC]/50">Ближайший пункт сбора:</div>
+                                          <div className="text-[#7B3FBF] font-bold">{nearest.point.name}</div>
+                                          <div className="text-[#C9A84C] font-bold">{formatDistance(nearest.distance)}</div>
+                                          {nearest.point.city && <div className="text-[#F8FAFC]/40">{nearest.point.city}</div>}
+                                        </div>
+                                      ) : (
+                                        <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] text-[#F8FAFC]/30">
+                                          {cityInfo ? 'Нет активных пунктов сбора' : 'Координаты не определены'}
+                                        </div>
+                                      )}
+                                    </div>
+                                  );
+                                })()}
+                              </HoverCardContent>
+                            </HoverCard>
+                          ) : '—'}
+                          {c.assembly_point && <div className="text-[#F8FAFC]/30 mt-0.5">{c.assembly_point}</div>}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs font-medium ${SB_COLORS[c.sb_check] || 'text-[#F8FAFC]/40'}`}>

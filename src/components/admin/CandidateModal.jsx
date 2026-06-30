@@ -136,7 +136,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
 
   const handleSaveClick = () => {
     if (stopList) return; // блокируем сохранение
-    onSave(form, candidate?.id);
+    // Синхронизируем документы из анкеты в массив documents кандидата
+    const existingUrls = new Set((form.documents || []).map(d => d.url));
+    const syncedDocs = [...(form.documents || [])];
+    for (const fd of formDocs) {
+      if (fd.url && !existingUrls.has(fd.url)) {
+        syncedDocs.push({ ...fd, type: fd.doc_type || 'form' });
+      }
+    }
+    onSave({ ...form, documents: syncedDocs }, candidate?.id);
   };
 
   const inp = "w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg px-3 py-2.5 text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/25 focus:outline-none focus:border-[#7B3FBF] transition-all";
@@ -302,31 +310,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             <textarea className={inp + ' resize-none'} rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
           </div>
 
-          {/* Документы из анкеты */}
-          {formDocs.length > 0 && (
-            <div className="border-t border-[rgba(123,63,191,0.15)] pt-4">
-              <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-3">Документы из анкеты</div>
-              <div className="space-y-2">
-                {formDocs.map((doc, i) => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
-                    <FileText size={13} className="text-[#C9A84C] flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-[#F8FAFC]/80 truncate">{doc.name}</div>
-                      {doc.uploaded_at && <div className="text-xs text-[#F8FAFC]/25">{new Date(doc.uploaded_at).toLocaleDateString('ru-RU')}</div>}
-                    </div>
-                    <a href={doc.url} target="_blank" rel="noreferrer"
-                      className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
-                      <ExternalLink size={13} />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Documents */}
+          {/* Documents — единый список */}
           <div className="border-t border-[rgba(123,63,191,0.15)] pt-4">
-            <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-3">Документы (прикреплённые вручную)</div>
+            <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-3">
+              Документы {formDocs.length > 0 && <span className="text-[#F8FAFC]/40 normal-case font-normal">({formDocs.length} из анкеты, {(form.documents || []).length} прикреплено)</span>}
+            </div>
             <div
               onDragOver={e => { e.preventDefault(); setDragOver(true); }}
               onDragLeave={() => setDragOver(false)}
@@ -353,10 +341,31 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               </div>
             )}
 
+            {/* Документы из анкеты (только просмотр) */}
+            {formDocs.length > 0 && (
+              <div className="mt-3 space-y-2">
+                {formDocs.map((doc, i) => (
+                  <div key={`form-${i}`} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(201,168,76,0.04)] border border-[rgba(201,168,76,0.15)] rounded-lg">
+                    <FileText size={14} className="text-[#C9A84C] flex-shrink-0" />
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[#F8FAFC]/80 truncate">{doc.name}</div>
+                      <div className="text-xs text-[#F8FAFC]/30">{doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('ru-RU') : ''}</div>
+                    </div>
+                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/70 border border-[#C9A84C]/20 whitespace-nowrap">из анкеты</span>
+                    <a href={doc.url} target="_blank" rel="noreferrer"
+                      className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
+                      <Download size={13} />
+                    </a>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {/* Прикреплённые вручную */}
             {form.documents && form.documents.length > 0 && (
               <div className="mt-3 space-y-2">
                 {form.documents.map((doc, i) => (
-                  <div key={i} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
+                  <div key={`manual-${i}`} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
                     <FileText size={14} className="text-[#7B3FBF] flex-shrink-0" />
                     <div className="flex-1 min-w-0">
                       <div className="text-sm text-[#F8FAFC]/80 truncate">{doc.name}</div>

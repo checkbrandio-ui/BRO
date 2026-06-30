@@ -682,7 +682,7 @@ export default function CandidateOnboarding() {
               {REQUIRED_DOC_TYPES.map(dt => {
                 const uploaded = uploadedDocs.find(d => d.doc_type === dt.id);
                 return (
-                  <div key={dt.id} className="flex items-center gap-3 p-3 bg-[#161616] border border-[#2a2a2a] rounded">
+                  <div key={dt.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-[#161616] border border-[#2a2a2a] rounded">
                     <div className="flex-1 min-w-0">
                       <div className="text-xs text-[#888] font-medium">
                         {dt.label}{dt.required && <span className="text-red-500 ml-1">*</span>}
@@ -700,7 +700,7 @@ export default function CandidateOnboarding() {
                         </div>
                       )}
                     </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0">
+                    <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto">
                       {uploadingDocType === dt.id ? (
                         <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#666]">
                           <Loader2 size={12} className="animate-spin" /> Загрузка...

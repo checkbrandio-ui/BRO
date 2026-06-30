@@ -3,8 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
+import { findNearestAssemblyPoint, formatDistance } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся': 'text-[#F8FAFC]/40', 'На проверке': 'text-yellow-400', 'Согласован': 'text-green-400', 'Не согласован': 'text-red-400' };
@@ -39,6 +41,8 @@ export default function AgencyWorkspace() {
   const [editCandidate, setEditCandidate] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
+  const [assemblyPoints, setAssemblyPoints] = useState([]);
+  const [cityCache, setCityCache] = useState({});
 
   useEffect(() => {
     if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
@@ -52,8 +56,17 @@ export default function AgencyWorkspace() {
       base44.entities.Agency.filter({ id: session.id }),
       base44.entities.Candidate.filter({ agency_id: session.id }, '-created_date', 500),
     ]);
+    // Загружаем пункты сбора и справочник городов
+    const [aps, cities] = await Promise.all([
+      base44.entities.AssemblyPoint.filter({ is_active: true }),
+      base44.entities.City.list('-created_date', 500),
+    ]);
+    const cityMap = {};
+    cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
     setAgency(agencyList[0] || null);
     setCandidates(cands);
+    setAssemblyPoints(aps);
+    setCityCache(cityMap);
     setLoading(false);
   };
 
@@ -326,8 +339,36 @@ export default function AgencyWorkspace() {
                       </td>
                       <td className="px-4 py-3 text-[#F8FAFC]/60 text-xs whitespace-nowrap">{c.position || '—'}</td>
                       <td className="px-4 py-3 text-xs text-[#F8FAFC]/55">
-                        {c.city && <div>{c.city}</div>}
-                        {!c.city && '—'}
+                        {c.city ? (
+                          <HoverCard>
+                            <HoverCardTrigger asChild>
+                              <span className="cursor-help underline decoration-dotted underline-offset-2 hover:text-[#7B3FBF] transition-colors">{c.city}</span>
+                            </HoverCardTrigger>
+                            <HoverCardContent className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
+                              {(() => {
+                                const cityInfo = cityCache[c.city.toLowerCase()];
+                                const nearest = cityInfo?.lat != null ? findNearestAssemblyPoint(cityInfo.lat, cityInfo.lon, assemblyPoints) : null;
+                                return (
+                                  <div className="space-y-2 text-xs">
+                                    <div className="font-bold text-[#F8FAFC]">{c.city}</div>
+                                    {cityInfo?.region && <div className="text-[#F8FAFC]/60">Регион: {cityInfo.region}</div>}
+                                    {nearest ? (
+                                      <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] space-y-1">
+                                        <div className="text-[#F8FAFC]/50">Ближайший пункт сбора:</div>
+                                        <div className="text-[#7B3FBF] font-bold">{nearest.point.name}</div>
+                                        <div className="text-[#C9A84C] font-bold">{formatDistance(nearest.distance)}</div>
+                                      </div>
+                                    ) : (
+                                      <div className="pt-2 border-t border-[rgba(123,63,191,0.15)] text-[#F8FAFC]/30">
+                                        {cityInfo ? 'Нет активных пунктов сбора' : 'Координаты не определены'}
+                                      </div>
+                                    )}
+                                  </div>
+                                );
+                              })()}
+                            </HoverCardContent>
+                          </HoverCard>
+                        ) : '—'}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs font-medium ${SB_COLORS[c.sb_check] || 'text-[#F8FAFC]/40'}`}>
