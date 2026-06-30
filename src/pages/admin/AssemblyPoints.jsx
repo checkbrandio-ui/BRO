@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Plus, Edit2, Trash2, MapPin, RefreshCw, CheckCircle, XCircle } from 'lucide-react';
+import CitySelect from '@/components/CitySelect';
 
 export default function AssemblyPoints() {
   const [points, setPoints] = useState([]);
@@ -72,7 +73,7 @@ export default function AssemblyPoints() {
         <div className="glass-card rounded-xl p-4 mb-6">
           <p className="text-sm text-[#F8FAFC]/60 leading-relaxed">
             Пункты сбора используются для автоматического расчёта расстояния от города проживания кандидата.
-            Координаты городов определяются автоматически через OpenStreetMap.
+            Координаты городов определяются автоматически при выборе города из каталога.
           </p>
         </div>
 
@@ -153,25 +154,18 @@ function AssemblyPointModal({ point, onSave, onClose }) {
     is_active: point?.is_active !== false,
     comment: point?.comment || '',
   });
-  const [geocoding, setGeocoding] = useState(false);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
-  const handleGeocode = async () => {
-    if (!form.city) return;
-    setGeocoding(true);
-    try {
-      const resp = await base44.functions.invoke('getCityCoordinates', { city: form.city });
-      if (resp.data?.lat != null) {
-        set('lat', resp.data.lat);
-        set('lon', resp.data.lon);
-      } else {
-        alert('Не удалось определить координаты для города: ' + form.city);
-      }
-    } catch (e) {
-      alert('Ошибка геокодирования: ' + e.message);
-    }
-    setGeocoding(false);
+  // При выборе города из каталога — автоматически подставляем координаты и название
+  const handleCitySelect = (city) => {
+    setForm(f => ({
+      ...f,
+      city: city.name,
+      lat: city.lat,
+      lon: city.lon,
+      name: f.name || city.name,
+    }));
   };
 
   const inp = "w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg px-3 py-2.5 text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/25 focus:outline-none focus:border-[#7B3FBF] transition-all";
@@ -186,40 +180,26 @@ function AssemblyPointModal({ point, onSave, onClose }) {
         </div>
         <div className="p-6 space-y-4">
           <div>
-            <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Название *</label>
-            <input className={inp} value={form.name} onChange={e => set('name', e.target.value)} placeholder="Хабаровск — основной" />
-          </div>
-          <div>
-            <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город</label>
-            <div className="flex gap-2">
-              <input className={inp} value={form.city} onChange={e => set('city', e.target.value)} placeholder="Хабаровск" />
-              <button onClick={handleGeocode} disabled={geocoding || !form.city}
-                className="px-3 py-2 text-xs rounded-lg border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.15)] transition-all disabled:opacity-40 whitespace-nowrap">
-                {geocoding ? 'Поиск...' : 'Найти координаты'}
-              </button>
-            </div>
+            <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город <span className="text-red-400">*</span></label>
+            <CitySelect
+              value={form.city}
+              onChange={val => set('city', val)}
+              onCitySelect={handleCitySelect}
+              inputClassName={inp}
+              placeholder="Начните вводить город..."
+            />
           </div>
           <div>
             <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Адрес</label>
             <input className={inp} value={form.address} onChange={e => set('address', e.target.value)} placeholder="г. Хабаровск, ул. Примерная, д. 1" />
           </div>
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Широта</label>
-              <input className={inp} type="number" step="0.0001" value={form.lat} onChange={e => set('lat', parseFloat(e.target.value) || '')} placeholder="48.4726" />
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Долгота</label>
-              <input className={inp} type="number" step="0.0001" value={form.lon} onChange={e => set('lon', parseFloat(e.target.value) || '')} placeholder="135.0577" />
-            </div>
-          </div>
-          <div>
-            <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Комментарий</label>
-            <textarea className={inp + ' resize-none'} rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
-          </div>
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={onClose} className="px-6 py-2.5 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-all">Отмена</button>
-            <button onClick={() => { if (!form.name) { alert('Укажите название'); return; } onSave(form, point?.id); }}
+            <button onClick={() => {
+                if (!form.city) { alert('Укажите город'); return; }
+                const saveData = { ...form, name: form.name || form.city };
+                onSave(saveData, point?.id);
+              }}
               className="px-6 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold transition-all">
               {point ? 'Сохранить' : 'Создать'}
             </button>

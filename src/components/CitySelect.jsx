@@ -4,18 +4,20 @@ import { MapPin, Loader2 } from 'lucide-react';
 
 /**
  * Компонент автодополнения городов.
- * Использует backend-функцию searchCities (Nominatim + локальный кэш City).
+ * Использует backend-функцию searchCities (статичный JSON с GitHub + локальный кэш City).
  *
  * @param {string} value — текущее значение (название города)
- * @param {function} onChange — вызывается с названием города при выборе или ручном вводе
+ * @param {function} onChange — вызывается с названием города при ручном вводе
+ * @param {function} onCitySelect — (опционально) вызывается с полным объектом города { name, region, lat, lon } при выборе из списка
  * @param {string} inputClassName — CSS-классы для input (наследуются от родительской формы)
  * @param {string} placeholder
  * @param {boolean} readOnly
- * @param {string} dropdownClassName — опциональный класс для dropdown (по умолчанию тёмная тема)
+ * @param {string} dropdownClassName — опциональный класс для dropdown
  */
 export default function CitySelect({
   value,
   onChange,
+  onCitySelect,
   inputClassName = '',
   placeholder = 'Начните вводить город...',
   readOnly = false,
@@ -71,6 +73,7 @@ export default function CitySelect({
   const selectCity = (city) => {
     setQuery(city.name);
     onChange(city.name);
+    if (onCitySelect) onCitySelect(city);
     setShowDropdown(false);
     setHighlighted(-1);
   };
