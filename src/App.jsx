@@ -25,6 +25,7 @@ import ManagerHandbook from './pages/ManagerHandbook';
 import Agencies from './pages/admin/Agencies';
 import Candidates from './pages/admin/Candidates';
 import CandidateLogs from './pages/admin/CandidateLogs';
+import Assistant from './pages/admin/Assistant';
 import Users from './pages/admin/Users';
 
 function App() {
@@ -56,7 +57,7 @@ function App() {
               <Route path="/admin/agencies" element={<Agencies />} />
               <Route path="/admin/candidates" element={<Candidates />} />
               <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
-
+              <Route path="/admin/assistant" element={<Assistant />} />
             </Route>
 
             {/* Admin-only routes */}
