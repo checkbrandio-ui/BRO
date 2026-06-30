@@ -40,6 +40,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [uploadErrors, setUploadErrors] = useState({});
   const [activeTab, setActiveTab]   = useState('card');
   const [cityObject, setCityObject] = useState(null);
+  const [assemblyPoints, setAssemblyPoints] = useState([]);
+
+  useEffect(() => {
+    base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200)
+      .then(setAssemblyPoints)
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     if (!candidate?.id) return;
@@ -234,12 +241,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Пункт сбора</label>
-              <CitySelect
-                value={form.assembly_point}
-                onChange={val => set('assembly_point', val)}
-                inputClassName={inp}
-                placeholder="Выберите город..."
-              />
+              <select className={inp} value={form.assembly_point} onChange={e => set('assembly_point', e.target.value)}>
+                <option value="">Выберите...</option>
+                {assemblyPoints.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата прибытия</label>

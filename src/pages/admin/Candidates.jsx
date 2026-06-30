@@ -289,6 +289,10 @@ export default function Candidates() {
               className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <Sparkles size={13}/> ИИ-помощник
             </Link>
+            <Link to="/admin/assembly-points"
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+              <MapPin size={13}/> Точки сбора
+            </Link>
             <Link to="/admin/candidate-logs"
               className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <ClipboardList size={13}/> Журнал

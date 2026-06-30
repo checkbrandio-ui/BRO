@@ -27,6 +27,7 @@ import Candidates from './pages/admin/Candidates';
 import CandidateLogs from './pages/admin/CandidateLogs';
 import Assistant from './pages/admin/Assistant';
 import Tickets from './pages/admin/Tickets';
+import AssemblyPoints from './pages/admin/AssemblyPoints';
 import Users from './pages/admin/Users';
 import AssistantWidget from '@/components/admin/AssistantWidget';
 
@@ -61,6 +62,7 @@ function App() {
               <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
               <Route path="/admin/assistant" element={<Assistant />} />
               <Route path="/admin/tickets" element={<Tickets />} />
+              <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
             </Route>
 
             {/* Admin-only routes */}
