@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Info, Upload, FileText, Trash2, Download } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CitySelect from '@/components/CitySelect';
-import { getMissingRequiredDocs } from '@/lib/docUtils';
+import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -223,19 +223,7 @@ export default function CandidateOnboarding() {
 
   const currentSkills = SKILLS_BY_POSITION[form.position] || DEFAULT_SKILLS;
 
-  // Требуемые типы документов
-  const REQUIRED_DOC_TYPES = [
-    { id: 'passport_main', label: 'Паспорт (разворот с фото)', required: true },
-    { id: 'passport_reg', label: 'Паспорт (страница с пропиской)', required: true },
-    { id: 'snils', label: 'СНИЛС', required: true },
-    { id: 'inn', label: 'ИНН', required: false },
-    { id: 'military', label: 'Военный билет / приписное', required: false },
-    { id: 'work_book', label: 'Трудовая книжка (первая страница)', required: false },
-    { id: 'driver_license', label: 'Водительское удостоверение', required: false },
-    { id: 'diploma', label: 'Диплом об образовании', required: false },
-    { id: 'medical', label: 'Медицинская книжка', required: false },
-    { id: 'certs', label: 'Допуски / сертификаты', required: false },
-  ];
+  // Типы документов импортируются из docUtils (ALL_DOC_TYPES)
 
   const handleDocUpload = async (docType, docLabel, file) => {
     if (!file) return;
@@ -282,7 +270,6 @@ export default function CandidateOnboarding() {
         health_details: form.health_notes,
         form_status: 'completed',
         form_submitted_at: now,
-        documents: uploadedDocs,
       });
     }
     try {
@@ -698,7 +685,7 @@ export default function CandidateOnboarding() {
               Загрузите сканы или фотографии документов. Форматы: JPG, PNG, PDF, HEIC (iPhone). Обязательные документы отмечены <span className="text-red-500">*</span>
             </p>
             <div className="space-y-2">
-              {REQUIRED_DOC_TYPES.map(dt => {
+              {ALL_DOC_TYPES.map(dt => {
                 const uploaded = uploadedDocs.find(d => d.doc_type === dt.id);
                 return (
                   <div key={dt.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-[#161616] border border-[#2a2a2a] rounded">

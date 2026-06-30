@@ -1,10 +1,10 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, ExternalLink } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
 import CitySelect from '@/components/CitySelect';
-import { getMissingRequiredDocs } from '@/lib/docUtils';
+import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -30,22 +30,30 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     phone: candidate?.phone ?? '',
     payment_basis: candidate?.payment_basis ?? '',
     payment_made: candidate?.payment_made ?? '',
-    documents: candidate?.documents || [],
   });
 
-  const [uploading, setUploading]   = useState(false);
-  const [uploadErrors, setUploadErrors] = useState([]);
-  const [dragOver, setDragOver]     = useState(false);
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
-  const [formDocs, setFormDocs]     = useState([]); // документы из анкеты
+  const [formDocs, setFormDocs]     = useState([]); // документы из анкеты (единый источник)
+  const [candidateFormId, setCandidateFormId] = useState(null);
+  const [uploadingDocType, setUploadingDocType] = useState(null);
+  const [uploadErrors, setUploadErrors] = useState({});
   const [activeTab, setActiveTab]   = useState('card');
 
   useEffect(() => {
     if (!candidate?.id) return;
-    base44.entities.CandidateForm.filter({ candidate_id: candidate.id }).then(records => {
-      const rec = records.find(r => r.status === 'completed');
-      if (rec?.uploaded_docs?.length) setFormDocs(rec.uploaded_docs);
+    base44.entities.CandidateForm.filter({ candidate_id: candidate.id }).then(async records => {
+      if (records.length > 0) {
+        const rec = records.find(r => r.status === 'completed') || records[0];
+        setCandidateFormId(rec.id);
+        setFormDocs(rec.uploaded_docs || []);
+      } else {
+        // Создаём анкету, если её нет — чтобы админ мог загружать документы
+        const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+        const newForm = await base44.entities.CandidateForm.create({ candidate_id: candidate.id, form_token: token, status: 'pending' });
+        await base44.entities.Candidate.update(candidate.id, { form_token: token, form_status: 'pending' });
+        setCandidateFormId(newForm.id);
+      }
     });
   }, [candidate?.id]);
 
@@ -82,77 +90,41 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     checkStopList(form.full_name, v);
   };
 
-  const uploadFiles = async (files) => {
-    setUploading(true);
-    setUploadErrors([]);
-
-    // Клиентская валидация — отсеиваем проблемные файлы до сетевого запроса
-    const valid = [];
-    const errors = [];
-    for (const file of files) {
-      const err = validateFile(file);
-      if (err) { errors.push(err); continue; }
-      valid.push(file);
+  const handleDocUpload = async (docType, docLabel, file) => {
+    if (!file) return;
+    setUploadErrors(prev => ({ ...prev, [docType]: null }));
+    const validationError = validateFile(file);
+    if (validationError) { setUploadErrors(prev => ({ ...prev, [docType]: validationError })); return; }
+    setUploadingDocType(docType);
+    try {
+      const file_url = await uploadWithRetry(file);
+      const newDoc = { doc_type: docType, name: docLabel + ': ' + file.name, url: file_url, uploaded_at: new Date().toISOString() };
+      setFormDocs(prev => {
+        const filtered = prev.filter(d => d.doc_type !== docType);
+        return [...filtered, newDoc];
+      });
+    } catch (e) {
+      setUploadErrors(prev => ({ ...prev, [docType]: `Не удалось загрузить «${file.name}». Проверьте подключение.` }));
     }
-
-    // Параллельная загрузка — файлы отправляются одновременно,
-    // сбой одного не блокирует остальные
-    const results = await Promise.allSettled(
-      valid.map(file =>
-        uploadWithRetry(file).then(file_url => ({
-          name: file.name,
-          url: file_url,
-          type: file.type,
-          uploaded_at: new Date().toISOString().split('T')[0],
-        }))
-      )
-    );
-
-    const newDocs = [];
-    results.forEach((r, i) => {
-      if (r.status === 'fulfilled') {
-        newDocs.push(r.value);
-      } else {
-        errors.push(`Не удалось загрузить «${valid[i].name}» — проверьте подключение и попробуйте снова`);
-      }
-    });
-
-    if (newDocs.length) set('documents', [...(form.documents || []), ...newDocs]);
-    if (errors.length) setUploadErrors(errors);
-    setUploading(false);
+    setUploadingDocType(null);
   };
 
-  const handleFileInput = (e) => { if (e.target.files) uploadFiles(Array.from(e.target.files)); };
+  const removeDoc = (docType) => setFormDocs(prev => prev.filter(d => d.doc_type !== docType));
 
-  const handleDrop = (e) => {
-    e.preventDefault();
-    setDragOver(false);
-    if (e.dataTransfer.files) uploadFiles(Array.from(e.dataTransfer.files));
-  };
-
-  const removeDoc = (i) => {
-    const docs = [...(form.documents || [])];
-    docs.splice(i, 1);
-    set('documents', docs);
-  };
-
-  const handleSaveClick = () => {
-    if (stopList) return; // блокируем сохранение
-    // Синхронизируем документы из анкеты в массив documents кандидата
-    const existingUrls = new Set((form.documents || []).map(d => d.url));
-    const syncedDocs = [...(form.documents || [])];
-    for (const fd of formDocs) {
-      if (fd.url && !existingUrls.has(fd.url)) {
-        syncedDocs.push({ ...fd, type: fd.doc_type || 'form' });
-      }
+  const handleSaveClick = async () => {
+    if (stopList) return;
+    // Сохраняем документы в анкету (единый источник истины)
+    if (candidateFormId) {
+      await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
     }
-    onSave({ ...form, documents: syncedDocs }, candidate?.id);
+    // Сохраняем карточку кандидата (без поля documents — оно формируется из анкеты)
+    const { documents, ...candidateData } = form;
+    onSave(candidateData, candidate?.id);
   };
 
   const inp = "w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg px-3 py-2.5 text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/25 focus:outline-none focus:border-[#7B3FBF] transition-all";
   const paymentAmount = form.payment_basis === 'Готовится к отправке' ? '100 000 ₽' : form.payment_basis === 'Отказался от отправки' ? 'Не предусмотрена' : '—';
-  const allDocs = [...(form.documents || []), ...formDocs];
-  const missingDocs = getMissingRequiredDocs(allDocs);
+  const missingDocs = getMissingRequiredDocs(formDocs);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -332,79 +304,68 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             <textarea className={inp + ' resize-none'} rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
           </div>
 
-          {/* Documents — единый список */}
+          {/* Documents — типизированные слоты, сохраняются в анкету */}
           <div className="border-t border-[rgba(123,63,191,0.15)] pt-4">
-            <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-3">
-              Документы {formDocs.length > 0 && <span className="text-[#F8FAFC]/40 normal-case font-normal">({formDocs.length} из анкеты, {(form.documents || []).length} прикреплено)</span>}
+            <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-1">
+              Документы кандидата {formDocs.length > 0 && <span className="text-[#F8FAFC]/40 normal-case font-normal">({formDocs.length} загружено)</span>}
             </div>
-            <div
-              onDragOver={e => { e.preventDefault(); setDragOver(true); }}
-              onDragLeave={() => setDragOver(false)}
-              onDrop={handleDrop}
-              className={`border-2 border-dashed rounded-xl p-6 text-center transition-all ${dragOver ? 'border-[#7B3FBF] bg-[#7B3FBF]/10' : 'border-[rgba(123,63,191,0.25)] hover:border-[#7B3FBF]/50'}`}
-            >
-              <Upload size={20} className="mx-auto mb-2 text-[#F8FAFC]/30" />
-              <p className="text-sm text-[#F8FAFC]/50 mb-2">Перетащите файлы или</p>
-              <label className="inline-flex items-center gap-2 px-4 py-2 bg-[rgba(123,63,191,0.15)] border border-[rgba(123,63,191,0.3)] rounded-lg text-sm text-[#7B3FBF] cursor-pointer hover:bg-[rgba(123,63,191,0.25)] transition-all">
-                <Upload size={14} /> {uploading ? 'Загрузка...' : 'Выбрать файлы'}
-                <input type="file" className="hidden" multiple onChange={handleFileInput} accept=".pdf,.doc,.docx,.jpg,.jpeg,.png,.heic,.heif,.webp,.bmp,.gif,.tiff" />
-              </label>
-              <p className="text-xs text-[#F8FAFC]/25 mt-2">PDF, DOC, JPG, PNG, HEIC — до 20 МБ каждый</p>
+            <p className="text-xs text-[#F8FAFC]/40 mb-3">
+              Сохраняются в анкете. Обязательные поля отмечены <span className="text-red-400">*</span>
+            </p>
+            <div className="space-y-2">
+              {ALL_DOC_TYPES.map(dt => {
+                const uploaded = formDocs.find(d => d.doc_type === dt.id);
+                return (
+                  <div key={dt.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
+                    <div className="flex-1 min-w-0">
+                      <div className="text-sm text-[#F8FAFC]/80 font-medium">
+                        {dt.label}{dt.required && <span className="text-red-400 ml-1">*</span>}
+                      </div>
+                      {uploaded && (
+                        <div className="flex items-center gap-1.5 mt-1">
+                          <FileText size={12} className="text-green-400 flex-shrink-0" />
+                          <span className="text-xs text-green-400 truncate">{uploaded.name.split(': ')[1] || uploaded.name}</span>
+                        </div>
+                      )}
+                      {uploadErrors[dt.id] && (
+                        <div className="flex items-start gap-1.5 mt-1">
+                          <AlertTriangle size={11} className="text-red-400 flex-shrink-0 mt-0.5" />
+                          <span className="text-xs text-red-400">{uploadErrors[dt.id]}</span>
+                        </div>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto">
+                      {uploadingDocType === dt.id ? (
+                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#F8FAFC]/50">
+                          <Loader2 size={12} className="animate-spin" /> Загрузка...
+                        </div>
+                      ) : (
+                        <>
+                          {uploaded && (
+                            <>
+                              <a href={uploaded.url} target="_blank" rel="noreferrer"
+                                className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
+                                <Download size={13} />
+                              </a>
+                              <button type="button" onClick={() => removeDoc(dt.id)}
+                                className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
+                                <Trash2 size={13} />
+                              </button>
+                            </>
+                          )}
+                          <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs cursor-pointer transition-all ${uploaded ? 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:border-[#7B3FBF]/40' : 'border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)]'}`}>
+                            <Upload size={11} />
+                            {uploaded ? 'Заменить' : 'Загрузить'}
+                            <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.heic,.heif,.webp,.bmp,.gif,.tiff"
+                              onChange={e => e.target.files?.[0] && handleDocUpload(dt.id, dt.label, e.target.files[0])} />
+                          </label>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
             </div>
-
-            {uploadErrors.length > 0 && (
-              <div className="mt-3 space-y-1 px-3 py-2.5 bg-red-500/8 border border-red-500/25 rounded-lg">
-                {uploadErrors.map((err, i) => (
-                  <div key={i} className="flex items-start gap-2 text-xs text-red-300/80">
-                    <AlertTriangle size={12} className="text-red-400 flex-shrink-0 mt-0.5" />
-                    <span>{err}</span>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Документы из анкеты (только просмотр) */}
-            {formDocs.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {formDocs.map((doc, i) => (
-                  <div key={`form-${i}`} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(201,168,76,0.04)] border border-[rgba(201,168,76,0.15)] rounded-lg">
-                    <FileText size={14} className="text-[#C9A84C] flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-[#F8FAFC]/80 truncate">{doc.name}</div>
-                      <div className="text-xs text-[#F8FAFC]/30">{doc.uploaded_at ? new Date(doc.uploaded_at).toLocaleDateString('ru-RU') : ''}</div>
-                    </div>
-                    <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/70 border border-[#C9A84C]/20 whitespace-nowrap">из анкеты</span>
-                    <a href={doc.url} target="_blank" rel="noreferrer"
-                      className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
-                      <Download size={13} />
-                    </a>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Прикреплённые вручную */}
-            {form.documents && form.documents.length > 0 && (
-              <div className="mt-3 space-y-2">
-                {form.documents.map((doc, i) => (
-                  <div key={`manual-${i}`} className="flex items-center gap-3 px-3 py-2.5 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
-                    <FileText size={14} className="text-[#7B3FBF] flex-shrink-0" />
-                    <div className="flex-1 min-w-0">
-                      <div className="text-sm text-[#F8FAFC]/80 truncate">{doc.name}</div>
-                      <div className="text-xs text-[#F8FAFC]/30">{doc.uploaded_at}</div>
-                    </div>
-                    <a href={doc.url} target="_blank" rel="noreferrer"
-                      className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
-                      <Download size={13} />
-                    </a>
-                    <button onClick={() => removeDoc(i)}
-                      className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
-                      <Trash2 size={13} />
-                    </button>
-                  </div>
-                ))}
-              </div>
-            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-2">

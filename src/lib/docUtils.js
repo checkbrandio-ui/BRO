@@ -2,11 +2,20 @@
  * Утилиты для проверки обязательных документов кандидата.
  */
 
-export const REQUIRED_DOC_TYPES = [
-  { id: 'passport_main', label: 'Паспорт (разворот с фото)' },
-  { id: 'passport_reg', label: 'Паспорт (страница с пропиской)' },
-  { id: 'snils', label: 'СНИЛС' },
+export const ALL_DOC_TYPES = [
+  { id: 'passport_main', label: 'Паспорт (разворот с фото)', required: true },
+  { id: 'passport_reg', label: 'Паспорт (страница с пропиской)', required: true },
+  { id: 'snils', label: 'СНИЛС', required: true },
+  { id: 'inn', label: 'ИНН', required: false },
+  { id: 'military', label: 'Военный билет / приписное', required: false },
+  { id: 'work_book', label: 'Трудовая книжка (первая страница)', required: false },
+  { id: 'driver_license', label: 'Водительское удостоверение', required: false },
+  { id: 'diploma', label: 'Диплом об образовании', required: false },
+  { id: 'medical', label: 'Медицинская книжка', required: false },
+  { id: 'certs', label: 'Допуски / сертификаты', required: false },
 ];
+
+export const REQUIRED_DOC_TYPES = ALL_DOC_TYPES.filter(d => d.required);
 
 /**
  * Возвращает список обязательных документов, которых нет в загруженных.
