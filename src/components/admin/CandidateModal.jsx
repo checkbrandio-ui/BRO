@@ -3,6 +3,7 @@ import { X, Upload, Trash2, Download, FileText, AlertTriangle, ExternalLink } fr
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
+import CitySelect from '@/components/CitySelect';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -230,7 +231,12 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город проживания</label>
-              <input className={inp} value={form.city} onChange={e => set('city', e.target.value)} placeholder="г. Хабаровск" />
+              <CitySelect
+                value={form.city}
+                onChange={val => set('city', val)}
+                inputClassName={inp}
+                placeholder="г. Хабаровск"
+              />
             </div>
             {!isAgencyMode && (
               <div>

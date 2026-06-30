@@ -3,6 +3,7 @@ import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Info, Upload, FileText, Trash2, Download } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
+import CitySelect from '@/components/CitySelect';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -392,7 +393,12 @@ export default function CandidateOnboarding() {
             {/* Город проживания — первый, чтобы на него можно было сослаться */}
             <div>
               <label className={lbl}>Город проживания</label>
-              <input className={inp} value={form.city} onChange={e => { set('city', e.target.value); if (birthPlaceSameAsCity) set('birth_place', e.target.value); }} placeholder="г. Хабаровск" />
+              <CitySelect
+                value={form.city}
+                onChange={val => { set('city', val); if (birthPlaceSameAsCity) set('birth_place', val); }}
+                inputClassName={inp}
+                placeholder="г. Хабаровск"
+              />
             </div>
 
             <div>
