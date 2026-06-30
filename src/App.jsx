@@ -30,6 +30,7 @@ import Tickets from './pages/admin/Tickets';
 import AssemblyPoints from './pages/admin/AssemblyPoints';
 import Users from './pages/admin/Users';
 import Notifications from './pages/admin/Notifications';
+import AgencyNotifications from './pages/AgencyNotifications';
 import AssistantWidget from '@/components/admin/AssistantWidget';
 
 function App() {
@@ -52,6 +53,7 @@ function App() {
             {/* Agency access — public, no auth required */}
             <Route path="/agency-login" element={<AgencyLogin />} />
             <Route path="/agency/workspace" element={<AgencyWorkspace />} />
+            <Route path="/agency/notifications" element={<AgencyNotifications />} />
             <Route path="/form/:token" element={<CandidateOnboarding />} />
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/handbook" element={<ManagerHandbook />} />

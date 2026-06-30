@@ -30,7 +30,7 @@ export default function AgencyNotificationBell({ agencyId }) {
 
   return (
     <Link
-      to="/admin/notifications"
+      to="/agency/notifications"
       title="Уведомления"
       className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all relative flex items-center justify-center w-10 h-10"
     >
