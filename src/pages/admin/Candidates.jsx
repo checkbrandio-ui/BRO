@@ -9,6 +9,7 @@ import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
+import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -194,22 +195,44 @@ export default function Candidates() {
 
   const handleAutoAssembly = async (c) => {
     if (!c.city) { alert('У кандидата не указан город проживания'); return; }
+
+    // 1. Находим город кандидата в справочнике (cityCache уже загружен)
+    const candidateCity = cityCache[c.city.toLowerCase()];
+    if (!candidateCity || candidateCity.lat == null || candidateCity.lon == null) {
+      alert(`Город «${c.city}» не найден в справочнике или у него нет координат. Добавьте город в справочник через ИИ-помощник.`);
+      return;
+    }
+
+    // 2. Список городов-точек сбора = все города справочника с координатами, кроме города самого кандидата
+    const assemblyPoints = Object.values(cityCache).filter(
+      city => city.lat != null && city.lon != null && city.name.toLowerCase() !== c.city.toLowerCase()
+    );
+
+    if (!assemblyPoints.length) {
+      alert('В справочнике нет городов с координатами для расчёта расстояний.');
+      return;
+    }
+
+    // 3. Находим ближайший по формуле Гаверсинуса
+    const result = findNearestAssemblyPoint(candidateCity.lat, candidateCity.lon, assemblyPoints);
+    if (!result) {
+      alert('Не удалось рассчитать расстояние до точек сбора.');
+      return;
+    }
+
+    const nearest = result.point;
+    const distanceKm = result.distance;
+
+    const autoComment = `🤖 Точка сбора определена автоматически: ${nearest.name} (${distanceKm} км). Уточните возможность прибытия кандидата на медкомиссию и дату прибытия.`;
+    const newComment = c.comment ? `${c.comment}\n\n${autoComment}` : autoComment;
+    const updated = { assembly_point: nearest.name, comment: newComment };
+
     try {
-      const res = await base44.functions.invoke('findNearestCity', { city_name: c.city });
-      const data = res.data;
-      if (!data?.found || !data.nearest_cities?.length) {
-        alert('Не удалось найти ближайшую точку сбора. Город кандидата может отсутствовать в справочнике.');
-        return;
-      }
-      const nearest = data.nearest_cities[0];
-      const autoComment = `🤖 Точка сбора определена автоматически: ${nearest.name} (${nearest.distance_km} км). Уточните возможность прибытия кандидата на медкомиссию и дату прибытия.`;
-      const newComment = c.comment ? `${c.comment}\n\n${autoComment}` : autoComment;
-      const updated = { assembly_point: nearest.name, comment: newComment };
       await base44.entities.Candidate.update(c.id, updated);
       await logCandidateAction({ action: 'update', candidate: { ...c, ...updated }, oldData: c, actor: getActor() });
       setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x));
     } catch (e) {
-      alert('Ошибка при определении точки сбора: ' + e.message);
+      alert('Ошибка при сохранении точки сбора: ' + e.message);
     }
   };
 
