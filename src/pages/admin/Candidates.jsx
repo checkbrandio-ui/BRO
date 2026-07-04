@@ -254,8 +254,6 @@ export default function Candidates() {
     if (!c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
     navigator.clipboard.writeText(url);
-    const { dismiss } = toast({ title: '✓ Ссылка скопирована', description: 'Отправьте её кандидату для заполнения анкеты' });
-    setTimeout(dismiss, 3500);
   };
 
   const sendFormEmail = async (c) => {

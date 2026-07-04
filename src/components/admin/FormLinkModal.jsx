@@ -15,7 +15,6 @@ export default function FormLinkModal({ candidate, onClose }) {
   const handleCopy = () => {
     navigator.clipboard.writeText(formUrl);
     setCopied(true);
-    toast({ title: '✓ Ссылка скопирована', description: 'Отправьте её кандидату для заполнения анкеты' });
   };
 
   const handleSendEmail = async () => {
