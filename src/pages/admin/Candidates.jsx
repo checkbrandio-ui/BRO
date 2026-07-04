@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2 } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -9,6 +9,7 @@ import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
+import FormLinkModal from '@/components/admin/FormLinkModal';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -44,6 +45,7 @@ export default function Candidates() {
   const [cityCache, setCityCache] = useState({});
   const [searchParams] = useSearchParams();
   const [animatingId, setAnimatingId] = useState(null);
+  const [linkModalCandidate, setLinkModalCandidate] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -92,18 +94,6 @@ export default function Candidates() {
     base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
     const agencyParam = searchParams.get('agency');
     if (agencyParam) setFilters(f => ({ ...f, agency: agencyParam }));
-
-    // Периодическая проверка дублей каждые 2 минуты
-    const interval = setInterval(async () => {
-      const cand = await base44.entities.Candidate.list('-created_date', 500);
-      const activeCand = cand.filter(c => !c.deleted_at);
-      setDuplicateIds(findDuplicateIds(activeCand));
-      setCandidates(prev => {
-        if (prev.length !== activeCand.length) return activeCand;
-        return prev;
-      });
-    }, 120000);
-    return () => clearInterval(interval);
   }, []);
 
   const getActor = () => ({
@@ -112,24 +102,53 @@ export default function Candidates() {
   });
 
   const handleSave = async (data, id) => {
-    if (id) {
-      const old = candidates.find(c => c.id === id);
-      await base44.entities.Candidate.update(id, data);
-      await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
-    } else {
-      const response = await base44.functions.invoke('createCandidateSafe', {
-        candidate_data: data,
-        actor: getActor(),
-      });
-      if (response.data?.error === 'duplicate') {
-        const ex = response.data.existing_candidate;
-        alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
-        return;
+    try {
+      if (id) {
+        const old = candidates.find(c => c.id === id);
+        await base44.entities.Candidate.update(id, data);
+        await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
+        setModalOpen(false);
+        setEditCandidate(null);
+        load();
+      } else {
+        const response = await base44.functions.invoke('createCandidateSafe', {
+          candidate_data: data,
+          actor: getActor(),
+        });
+        if (response.data?.error === 'duplicate') {
+          const ex = response.data.existing_candidate;
+          alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
+          return;
+        }
+        if (response.error) {
+          alert(`Ошибка создания: ${response.error}`);
+          return;
+        }
+        await load();
+        // Show form link modal after first save
+        const newCandidate = response.data?.candidate;
+        if (newCandidate?.form_token) {
+          setLinkModalCandidate({ ...newCandidate, ...data });
+        } else if (data.form_token) {
+          setLinkModalCandidate({ ...data, id: newCandidate?.id || 'new' });
+        } else {
+          // No token — try to find the created candidate and create a token
+          const all = await base44.entities.Candidate.list('-created_date', 5);
+          const created = all.find(c => !c.deleted_at && c.full_name === data.full_name && c.birth_date === data.birth_date);
+          if (created?.id && !created.form_token) {
+            const token = 'cf-' + Math.random().toString(36).substring(2,10) + '-' + Math.random().toString(36).substring(2,10);
+            await base44.entities.Candidate.update(created.id, { form_token: token, form_status: 'pending' });
+            await base44.entities.CandidateForm.create({ candidate_id: created.id, form_token: token, status: 'pending' });
+            await load();
+            const updated = candidates.find(c => c.id === created.id) || { ...created, form_token: token };
+            setLinkModalCandidate({ ...updated, ...data });
+          }
+        }
       }
+    } catch(e) {
+      console.error('handleSave error:', e);
+      alert(`Ошибка сохранения: ${e.message || e}`);
     }
-    setModalOpen(false);
-    setEditCandidate(null);
-    load();
   };
 
   const handleDelete = async (id) => {
@@ -255,8 +274,35 @@ export default function Candidates() {
     if (!c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
     navigator.clipboard.writeText(url);
+    // Visual feedback via toast-like inline text for 2 seconds
     setCopiedId(c.id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const sendFormEmail = async (c) => {
+    if (!c.email || !c.form_token) return;
+    const url = `${window.location.origin}/form/${c.form_token}`;
+    setCopiedId(c.id + '-sending');
+    try {
+      const response = await base44.functions.invoke('sendFormLink', {
+        to: c.email,
+        candidate_name: c.full_name,
+        form_url: url,
+      });
+      if (response.error) throw new Error(response.error);
+      setCopiedId(c.id + '-sent');
+      setTimeout(() => setCopiedId(null), 3000);
+    } catch(e) {
+      console.error('sendFormEmail error:', e);
+      // Fallback: open mailto
+      const subject = encodeURIComponent('Заполнение анкеты кандидата — Bratouveriye SNB');
+      const body = encodeURIComponent(
+        `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`
+      );
+      window.open(`mailto:${c.email}?subject=${subject}&body=${body}`, '_blank');
+      setCopiedId(c.id + '-sent');
+      setTimeout(() => setCopiedId(null), 3000);
+    }
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -385,11 +431,11 @@ export default function Candidates() {
           </select>
           <select value={filters.sb_check} onChange={e => setF('sb_check', e.target.value)} className={inp}>
             <option value="">Проверка СБ</option>
-            {['Не проверялся','На проверке','Согласован','Не согласован'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['На проверке','Согласован','Не согласован'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={filters.medical_check} onChange={e => setF('medical_check', e.target.value)} className={inp}>
             <option value="">Медкомиссия</option>
-            {['Не проверялся','Прошёл','Не прошёл'].map(s => <option key={s} value={s}>{s}</option>)}
+            {['Прошёл','Не прошёл'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <select value={filters.form_status} onChange={e => setF('form_status', e.target.value)} className={inp}>
             <option value="">Анкета: все</option>
@@ -418,7 +464,7 @@ export default function Candidates() {
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" /></div>
         ) : (
           <div className="glass-card rounded-xl overflow-visible">
-            <div className="overflow-x-auto overflow-y-visible">
+            <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">
@@ -537,17 +583,30 @@ export default function Candidates() {
                           <InlineCommentCell candidate={c} onUpdate={(id, data) => setCandidates(prev => prev.map(x => x.id === id ? { ...x, ...data } : x))} />
                         </td>
                         <td className="px-4 py-3">
-                          {c.form_status === 'completed'
-                            ? <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
-                                className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
-                            : c.form_token
-                              ? <button onClick={() => copyFormLink(c)} title="Скопировать ссылку"
-                                  className="flex items-center gap-1 text-xs text-[#7B3FBF]/70 hover:text-[#7B3FBF] transition-all">
-                                  {copiedId === c.id ? <CheckCircle size={12} className="text-green-400" /> : <ClipboardCopy size={12} />}
-                                  <span>{copiedId === c.id ? 'Скопировано' : 'Ссылка'}</span>
+                          <div className="flex items-center gap-1.5">
+                          {c.form_status === 'completed' && (
+                            <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+                              className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
+                          )}
+                          {c.form_token && c.form_status !== 'completed' && (
+                            <>
+                              <button onClick={() => copyFormLink(c)} title="Копировать ссылку на анкету"
+                                className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
+                                {copiedId === c.id ? <CheckCircle size={13} className="text-green-400" /> : <ClipboardCopy size={13} />}
+                              </button>
+                              {c.email && (
+                                <button onClick={() => sendFormEmail(c)} title={`Отправить на ${c.email}`}
+                                  className={`p-1.5 rounded transition-all ${copiedId === c.id + '-sent' ? 'text-green-400' : 'text-[#F8FAFC]/50 hover:text-[#C9A84C] hover:bg-[#C9A84C]/20'}`}>
+                                  {copiedId === c.id + '-sent' ? <CheckCircle size={13} /> : <Mail size={13} />}
                                 </button>
-                              : <button onClick={() => generateFormToken(c)} title="Создать анкету"
-                                  className="text-xs text-white/30 hover:text-[#7B3FBF] transition-all">+ Создать</button>}
+                              )}
+                            </>
+                          )}
+                          {!c.form_token && (
+                            <button onClick={() => generateFormToken(c)} title="Создать анкету"
+                              className="text-xs text-white/30 hover:text-[#7B3FBF] transition-all">+ Создать</button>
+                          )}
+                        </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
@@ -603,6 +662,13 @@ export default function Candidates() {
           agencies={agencies}
           onSave={handleSave}
           onClose={() => { setModalOpen(false); setEditCandidate(null); }}
+        />
+      )}
+
+      {linkModalCandidate && (
+        <FormLinkModal
+          candidate={linkModalCandidate}
+          onClose={() => setLinkModalCandidate(null)}
         />
       )}
     </div>
