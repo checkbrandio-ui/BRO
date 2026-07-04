@@ -44,6 +44,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [cityObject, setCityObject] = useState(null);
   const [assemblyPoints, setAssemblyPoints] = useState([]);
   const [saving, setSaving] = useState(false);
+  const [errors, setErrors] = useState({});
   const [cityCache, setCityCache] = useState({});
   const [user, setUser] = useState(null);
 
@@ -158,6 +159,14 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
 
   const handleSaveClick = async () => {
     if (stopList) return;
+    const newErrors = {};
+    if (!form.full_name?.trim()) newErrors.full_name = true;
+    if (!form.birth_date) newErrors.birth_date = true;
+    if (Object.keys(newErrors).length > 0) {
+      setErrors(newErrors);
+      return;
+    }
+    setErrors({});
     if (form.city && !cityObject) {
       alert('Пожалуйста, выберите населённый пункт из списка. Текстовый ввод не допускается — выберите ближайший из каталога.');
       return;
@@ -234,8 +243,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
           {/* Base info */}
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">ФИО *</label>
-              <input className={inp} value={form.full_name} onChange={e => handleNameChange(e.target.value)} placeholder="Иванов Иван Иванович" />
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">ФИО <span className="text-red-400">*</span></label>
+              <input className={inp + (errors.full_name ? ' !border-red-500' : '')} value={form.full_name} onChange={e => { handleNameChange(e.target.value); if (errors.full_name) setErrors(p => ({ ...p, full_name: false })); }} placeholder="Иванов Иван Иванович" />
+            </div>
+            <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата рождения <span className="text-red-400">*</span></label>
+              <input className={inp + (errors.birth_date ? ' !border-red-500' : '')} type="date" value={form.birth_date} onChange={e => { handleBirthDateChange(e.target.value); if (errors.birth_date) setErrors(p => ({ ...p, birth_date: false })); }} />
+              {checking && <p className="text-xs text-[#F8FAFC]/30 mt-1">Проверка стоп-листа...</p>}
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
@@ -262,11 +276,6 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                 </select>
               </div>
             )}
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата рождения</label>
-              <input className={inp} type="date" value={form.birth_date} onChange={e => handleBirthDateChange(e.target.value)} />
-              {checking && <p className="text-xs text-[#F8FAFC]/30 mt-1">Проверка стоп-листа...</p>}
-            </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Гражданство</label>
               <input className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)} placeholder="РФ" />
