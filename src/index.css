@@ -43,7 +43,7 @@
     @apply border-border outline-ring/50;
   }
   html {
-    scroll-behavior: smooth;
+    scroll-behavior: auto;
   }
   body {
     background-color: var(--void);
@@ -106,7 +106,6 @@
   }
   /* Отключаем smooth-скролл для контейнеров таблиц — устраняет «дёрганье» при первой прокрутке */
   .table-scroll {
-    scroll-behavior: auto;
-    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
   }
 }
