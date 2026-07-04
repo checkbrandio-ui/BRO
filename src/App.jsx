@@ -7,7 +7,6 @@ import { AuthProvider } from '@/lib/AuthContext';
 import ProtectedRoute, { AdminRoute } from '@/components/ProtectedRoute';
 
 // Public pages
-import Login from './pages/Login';
 import Home from './pages/Home';
 import Privacy from './pages/Privacy';
 import Presentation from './pages/Presentation';
@@ -43,7 +42,6 @@ function App() {
           <Routes>
             {/* Public routes */}
             <Route path="/" element={<Home />} />
-            <Route path="/login" element={<Login />} />
             <Route path="/privacy" element={<Privacy />} />
             <Route path="/presentation" element={<Presentation />} />
             <Route path="/application" element={<Application />} />

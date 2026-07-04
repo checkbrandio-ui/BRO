@@ -44,7 +44,7 @@ export const AuthProvider = ({ children }) => {
     } catch {
       // Если logout не работает — просто редирект
       localStorage.removeItem('base44_access_token');
-      window.location.href = '/login';
+      window.location.href = '/';
     }
   };
 
