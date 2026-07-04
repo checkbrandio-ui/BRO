@@ -104,4 +104,9 @@
   .vanguard-line {
     border-top: 1px solid rgba(123, 63, 191, 0.2);
   }
+  /* Отключаем smooth-скролл для контейнеров таблиц — устраняет «дёрганье» при первой прокрутке */
+  .table-scroll {
+    scroll-behavior: auto;
+    overscroll-behavior: contain;
+  }
 }

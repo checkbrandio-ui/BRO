@@ -338,7 +338,7 @@ export default function AgencyWorkspace() {
           </div>
         ) : (
           <div className="glass-card rounded-xl overflow-visible">
-            <div className="overflow-x-auto overflow-y-visible">
+            <div className="overflow-x-auto overflow-y-visible table-scroll">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">

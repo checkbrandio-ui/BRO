@@ -88,6 +88,6 @@ module.exports = {
   plugins: [require("tailwindcss-animate")],
   safelist: [
     'text-gold', 'text-purple', 'bg-void', 'bg-deep', 'border-gold', 'border-purple',
-    'glass-card', 'glass-card-gold', 'glow-purple', 'glow-gold', 'heading-xl', 'section-padding', 'vanguard-line'
+    'glass-card', 'glass-card-gold', 'glow-purple', 'glow-gold', 'heading-xl', 'section-padding', 'vanguard-line', 'table-scroll'
   ]
 }
