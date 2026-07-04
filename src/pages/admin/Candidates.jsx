@@ -276,35 +276,16 @@ export default function Candidates() {
     if (!c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
     navigator.clipboard.writeText(url);
-    // Visual feedback via toast-like inline text for 2 seconds
-    setCopiedId(c.id);
-    setTimeout(() => setCopiedId(null), 2000);
   };
 
-  const sendFormEmail = async (c) => {
+  const sendFormEmail = (c) => {
     if (!c.email || !c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
-    setCopiedId(c.id + '-sending');
-    try {
-      const response = await base44.functions.invoke('sendFormLink', {
-        to: c.email,
-        candidate_name: c.full_name,
-        form_url: url,
-      });
-      if (response.error) throw new Error(response.error);
-      setCopiedId(c.id + '-sent');
-      setTimeout(() => setCopiedId(null), 3000);
-    } catch(e) {
-      console.error('sendFormEmail error:', e);
-      // Fallback: open mailto
-      const subject = encodeURIComponent('Заполнение анкеты кандидата — Bratouveriye SNB');
-      const body = encodeURIComponent(
-        `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`
-      );
-      window.open(`mailto:${c.email}?subject=${subject}&body=${body}`, '_blank');
-      setCopiedId(c.id + '-sent');
-      setTimeout(() => setCopiedId(null), 3000);
-    }
+    const subject = encodeURIComponent('Заполнение анкеты кандидата — Bratouveriye SNB');
+    const body = encodeURIComponent(
+      `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`
+    );
+    window.open(`mailto:${c.email}?subject=${subject}&body=${body}`, '_blank');
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
