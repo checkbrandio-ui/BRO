@@ -28,7 +28,7 @@ export default function Agencies() {
 
   useEffect(() => { load(); }, []);
 
-  const getCandidatesForAgency = (agencyId) => candidates.filter(c => c.agency_id === agencyId);
+  const getCandidatesForAgency = (agencyId) => candidates.filter(c => c.agency_id === agencyId && !c.deleted_at);
 
   // Soft-delete: помечаем deleted_at, кандидатов не трогаем
   const handleDelete = async (agency) => {
@@ -79,7 +79,7 @@ export default function Agencies() {
 
   // Кандидаты только активных агентств (для статистики)
   const activeAgencyIds = new Set(activeAgencies.map(a => a.id));
-  const activeCandidates = candidates.filter(c => activeAgencyIds.has(c.agency_id));
+  const activeCandidates = candidates.filter(c => activeAgencyIds.has(c.agency_id) && !c.deleted_at);
 
   const cities = [...new Set(activeAgencies.map(a => a.city).filter(Boolean))].sort();
 
