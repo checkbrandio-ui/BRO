@@ -45,6 +45,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [assemblyPoints, setAssemblyPoints] = useState([]);
   const [saving, setSaving] = useState(false);
   const [cityCache, setCityCache] = useState({});
+  const [fieldErrors, setFieldErrors] = useState({});
   const [user, setUser] = useState(null);
 
   useEffect(() => {
@@ -161,10 +162,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     const missing = [];
     if (!form.full_name?.trim()) missing.push('ФИО');
     if (!form.birth_date?.trim()) missing.push('Дата рождения');
-    if (missing.length > 0) {
+    const newErrors = {};
+    if (!form.full_name?.trim()) newErrors.full_name = true;
+    if (!form.birth_date?.trim()) newErrors.birth_date = true;
+    if (Object.keys(newErrors).length > 0) {
+      setFieldErrors(newErrors);
       alert('Заполните обязательные поля: ' + missing.join(', '));
       return;
     }
+    setFieldErrors({});
     if (stopList) return;
     if (form.city && !cityObject) {
       alert('Пожалуйста, выберите населённый пункт из списка. Текстовый ввод не допускается — выберите ближайший из каталога.');
@@ -243,7 +249,8 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
           <div className="grid sm:grid-cols-2 gap-4">
             <div className="sm:col-span-2">
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">ФИО *</label>
-              <input className={inp} value={form.full_name} onChange={e => handleNameChange(e.target.value)} placeholder="Иванов Иван Иванович" />
+              <input className={`${inp} ${fieldErrors.full_name ? '!border-red-500 !bg-red-500/5' : ''}`} value={form.full_name} onChange={e => { handleNameChange(e.target.value); if (fieldErrors.full_name) setFieldErrors(e => ({ ...e, full_name: false })); }} placeholder="Иванов Иван Иванович" />
+              {fieldErrors.full_name && <p className="text-xs text-red-400 mt-1">Введите ФИО кандидата</p>}
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
@@ -272,8 +279,9 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             )}
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата рождения</label>
-              <input className={inp} type="date" value={form.birth_date} onChange={e => handleBirthDateChange(e.target.value)} />
+              <input className={`${inp} ${fieldErrors.birth_date ? '!border-red-500 !bg-red-500/5' : ''}`} type="date" value={form.birth_date} onChange={e => { handleBirthDateChange(e.target.value); if (fieldErrors.birth_date) setFieldErrors(e => ({ ...e, birth_date: false })); }} />
               {checking && <p className="text-xs text-[#F8FAFC]/30 mt-1">Проверка стоп-листа...</p>}
+              {fieldErrors.birth_date && <p className="text-xs text-red-400 mt-1">Заполните дату рождения</p>}
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Гражданство</label>
