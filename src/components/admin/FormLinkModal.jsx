@@ -1,157 +1,85 @@
-import { useState, useEffect } from 'react';
-import { ClipboardCopy, Mail, ExternalLink, X, CheckCircle } from 'lucide-react';
+import { useState } from 'react';
+import { X, Copy, Mail, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function FormLinkModal({ candidate, onClose }) {
+  const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
-  const [sent, setSent] = useState(false);
+  const [emailSent, setEmailSent] = useState(false);
+  const [emailError, setEmailError] = useState(null);
 
-  const url = `${window.location.origin}/form/${candidate.form_token}`;
+  const formUrl = candidate?.form_token ? `${window.location.origin}/form/${candidate.form_token}` : '';
 
   const handleCopy = () => {
-    navigator.clipboard.writeText(url).then(() => {
-      setCopied(true);
-    });
+    navigator.clipboard.writeText(formUrl);
+    setCopied(true);
+    toast({ title: '✓ Ссылка скопирована', description: 'Отправьте её кандидату для заполнения анкеты' });
   };
 
   const handleSendEmail = async () => {
-    if (!candidate.email) return;
+    if (!candidate?.email) return;
     setSending(true);
+    setEmailError(null);
     try {
-      const response = await base44.functions.invoke('sendFormLink', {
+      await base44.integrations.Core.SendEmail({
         to: candidate.email,
-        candidate_name: candidate.full_name,
-        form_url: url,
+        subject: 'Заполнение анкеты кандидата — Bratouveriye SNB',
+        body: `Здравствуйте, ${candidate.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${formUrl}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+        from_name: 'Bratouveriye SNB',
       });
-      if (response.error) throw new Error(response.error);
-      setSent(true);
+      setEmailSent(true);
+      toast({ title: '✓ Письмо отправлено', description: `На адрес ${candidate.email}` });
     } catch (e) {
-      console.error('sendFormLink error:', e);
-      // Fallback: open mailto
-      const subject = encodeURIComponent('Заполнение анкеты кандидата — Bratouveriye SNB');
-      const body = encodeURIComponent(
-        `Здравствуйте, ${candidate.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`
-      );
-      window.open(`mailto:${candidate.email}?subject=${subject}&body=${body}`, '_blank');
-      setSent(true);
-    } finally {
-      setSending(false);
+      setEmailError('Не удалось отправить письмо. Попробуйте скопировать ссылку.');
     }
+    setSending(false);
   };
 
-  // Auto-close after 30 seconds
-  useEffect(() => {
-    const timer = setTimeout(onClose, 30000);
-    return () => clearTimeout(timer);
-  }, [onClose]);
-
   return (
-    <div className='fixed inset-0 z-50 flex items-center justify-center'>
-      {/* Backdrop */}
-      <div className='absolute inset-0 bg-black/60 backdrop-blur-sm' onClick={onClose} />
-
-      {/* Modal */}
-      <div className='relative w-full max-w-md mx-4 bg-[#0D1B3E] border border-[rgba(123,63,191,0.4)] rounded-2xl shadow-2xl overflow-hidden'>
-        {/* Header */}
-        <div className='flex items-center justify-between px-5 py-4 border-b border-[rgba(123,63,191,0.2)]'>
-          <div>
-            <div className='text-sm font-bold text-[#F8FAFC]'>Анкета кандидата</div>
-            <div className='text-xs text-[#F8FAFC]/40 mt-0.5'>{candidate.full_name}</div>
+    <div className="fixed inset-0 z-[60] flex items-center justify-center p-4">
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative bg-[#0D1B3E] border border-[rgba(123,63,191,0.25)] rounded-2xl w-full max-w-md shadow-2xl">
+        <div className="flex items-center justify-between p-5 border-b border-[rgba(123,63,191,0.15)]">
+          <div className="flex items-center gap-2">
+            <CheckCircle size={18} className="text-green-400" />
+            <h2 className="text-base font-bold text-[#F8FAFC]">Кандидат сохранён</h2>
           </div>
-          <button onClick={onClose} className='p-1.5 rounded-lg hover:bg-[rgba(123,63,191,0.2)] text-[#F8FAFC]/40 hover:text-[#F8FAFC] transition-all'>
-            <X size={16} />
+          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={16} /></button>
+        </div>
+        <div className="p-5 space-y-4">
+          <p className="text-sm text-[#F8FAFC]/60">
+            Карточка кандидата <strong className="text-[#F8FAFC]">«{candidate?.full_name}»</strong> создана.
+            Отправьте ссылку на онлайн-анкету, чтобы кандидат заполнил данные и загрузил документы.
+          </p>
+
+          {/* Copy link */}
+          <button onClick={handleCopy}
+            className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg bg-[#7B3FBF] text-white font-medium text-sm hover:bg-[#8B4FCF] transition-all">
+            {copied ? <CheckCircle size={16} className="text-green-300" /> : <Copy size={16} />}
+            {copied ? 'Ссылка скопирована — отправьте кандидату' : 'Скопировать ссылку на анкету'}
           </button>
-        </div>
 
-        {/* Content */}
-        <div className='p-5 space-y-4'>
-          {/* URL field */}
-          <div>
-            <div className='text-xs text-[#F8FAFC]/40 mb-2'>Ссылка на анкету</div>
-            <div className='flex items-center gap-2'>
-              <input
-                type='text'
-                readOnly
-                value={url}
-                className='flex-1 px-3 py-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg text-xs text-[#F8FAFC]/70 font-mono'
-              />
-              <button
-                onClick={handleCopy}
-                className={`flex items-center gap-1.5 px-3 py-2 rounded-lg text-xs font-medium transition-all ${
-                  copied
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : 'bg-[#7B3FBF]/20 text-[#7B3FBF] border border-[#7B3FBF]/30 hover:bg-[#7B3FBF]/30'
-                }`}
-              >
-                {copied ? <CheckCircle size={13} /> : <ClipboardCopy size={13} />}
-                {copied ? 'Скопировано' : 'Копировать'}
-              </button>
-            </div>
-          </div>
-
-          {/* Success message */}
-          {copied && (
-            <div className='flex items-center gap-2 px-3 py-2 rounded-lg bg-green-500/10 border border-green-500/20 text-xs text-green-400'>
-              <CheckCircle size={13} className='flex-shrink-0' />
-              Ссылка скопирована — отправьте её кандидату любым способом
-            </div>
-          )}
-
-          {/* Buttons */}
-          <div className='flex items-center gap-3'>
-            <button
-              onClick={handleCopy}
-              className='flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] transition-all flex-1 justify-center'
-            >
-              <ClipboardCopy size={13} />
-              Копировать ссылку
+          {/* Send email */}
+          {candidate?.email ? (
+            <button onClick={handleSendEmail} disabled={sending || emailSent}
+              className="w-full flex items-center justify-center gap-2 px-4 py-3 rounded-lg border border-[rgba(201,168,76,0.3)] text-[#C9A84C] font-medium text-sm hover:bg-[#C9A84C]/10 transition-all disabled:opacity-50">
+              {sending ? <Loader2 size={16} className="animate-spin" /> : emailSent ? <CheckCircle size={16} className="text-green-400" /> : <Mail size={16} />}
+              {sending ? 'Отправка...' : emailSent ? 'Письмо отправлено' : `Отправить на ${candidate.email}`}
             </button>
-
-            {candidate.email && (
-              <button
-                onClick={handleSendEmail}
-                disabled={sending || sent}
-                className={`flex items-center gap-2 px-4 py-2.5 rounded-lg text-xs font-bold transition-all flex-1 justify-center ${
-                  sent
-                    ? 'bg-green-500/20 text-green-400 border border-green-500/30'
-                    : sending
-                    ? 'bg-[#C9A84C]/20 text-[#C9A84C] border border-[#C9A84C]/30 opacity-50'
-                    : 'bg-[#C9A84C]/20 text-[#C9A84C] border border-[#C9A84C]/30 hover:bg-[#C9A84C]/30'
-                }`}
-              >
-                {sending ? (
-                  <><div className='w-3 h-3 border-2 border-current border-t-transparent rounded-full animate-spin' />Отправка...</>
-                ) : sent ? (
-                  <><CheckCircle size={13} />Отправлено</>
-                ) : (
-                  <><Mail size={13} />На email</>
-                )}
-              </button>
-            )}
-          </div>
-
-          {/* Open link */}
-          <a
-            href={`/form/${candidate.form_token}`}
-            target='_blank'
-            rel='noreferrer'
-            className='flex items-center gap-2 w-full px-4 py-2.5 rounded-lg text-xs font-medium bg-[rgba(255,255,255,0.04)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] border border-[rgba(255,255,255,0.08)] transition-all justify-center'
-          >
-            <ExternalLink size={13} />
-            Открыть анкету
-          </a>
-
-          {!candidate.email && (
-            <div className='text-xs text-[#F8FAFC]/30 text-center'>
-              У кандидата не указан email — скопируйте ссылку и отправьте вручную
+          ) : (
+            <div className="text-center px-4 py-3 rounded-lg border border-[rgba(255,255,255,0.06)] text-xs text-[#F8FAFC]/30">
+              Email не указан — отправка на почту недоступна. Скопируйте ссылку и отправьте вручную.
             </div>
           )}
-        </div>
+          {emailError && <p className="text-xs text-red-400 text-center">{emailError}</p>}
 
-        {/* Footer */}
-        <div className='px-5 py-3 border-t border-[rgba(123,63,191,0.1)] text-xs text-[#F8FAFC]/25 text-center'>
-          Окно закроется автоматически через 30 секунд
+          {/* Open form link */}
+          <a href={formUrl} target="_blank" rel="noreferrer"
+            className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs text-[#F8FAFC]/35 hover:text-[#7B3FBF] transition-all">
+            <ExternalLink size={12} /> Открыть анкету в новой вкладке
+          </a>
         </div>
       </div>
     </div>

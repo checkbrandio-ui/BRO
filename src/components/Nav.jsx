@@ -2,7 +2,6 @@ import { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Menu, X, LogIn } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
-import { hasAdminToken } from '@/lib/hasBase44Token';
 
 const NAV_LINKS = [
   { label: 'О компании', anchor: 'about' },
@@ -21,12 +20,7 @@ export default function Nav() {
   const location  = useLocation();
 
   useEffect(() => {
-    // ЩИТ: проверяем токен БЕЗ запроса — никогда не вызовет 401
-    if (hasAdminToken()) {
-      base44.auth.me().then(setUser).catch(() => setUser(null));
-    } else {
-      setUser(null);
-    }
+    base44.auth.me().then(setUser).catch(() => setUser(null));
   }, []);
 
   useEffect(() => {

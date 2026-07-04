@@ -10,6 +10,7 @@ import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
+import { useToast } from '@/components/ui/use-toast';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -31,6 +32,7 @@ function Tooltip({ text, children }) {
 }
 
 export default function Candidates() {
+  const { toast } = useToast();
   const [candidates, setCandidates] = useState([]);
   const [agencies, setAgencies]     = useState([]);
   const [loading, setLoading]       = useState(true);
@@ -102,52 +104,30 @@ export default function Candidates() {
   });
 
   const handleSave = async (data, id) => {
-    try {
-      if (id) {
-        const old = candidates.find(c => c.id === id);
-        await base44.entities.Candidate.update(id, data);
-        await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
-        setModalOpen(false);
-        setEditCandidate(null);
-        load();
-      } else {
-        const response = await base44.functions.invoke('createCandidateSafe', {
-          candidate_data: data,
-          actor: getActor(),
-        });
-        if (response.data?.error === 'duplicate') {
-          const ex = response.data.existing_candidate;
-          alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
-          return;
-        }
-        if (response.error) {
-          alert(`Ошибка создания: ${response.error}`);
-          return;
-        }
-        await load();
-        // Show form link modal after first save
-        const newCandidate = response.data?.candidate;
-        if (newCandidate?.form_token) {
-          setLinkModalCandidate({ ...newCandidate, ...data });
-        } else if (data.form_token) {
-          setLinkModalCandidate({ ...data, id: newCandidate?.id || 'new' });
-        } else {
-          // No token — try to find the created candidate and create a token
-          const all = await base44.entities.Candidate.list('-created_date', 5);
-          const created = all.find(c => !c.deleted_at && c.full_name === data.full_name && c.birth_date === data.birth_date);
-          if (created?.id && !created.form_token) {
-            const token = 'cf-' + Math.random().toString(36).substring(2,10) + '-' + Math.random().toString(36).substring(2,10);
-            await base44.entities.Candidate.update(created.id, { form_token: token, form_status: 'pending' });
-            await base44.entities.CandidateForm.create({ candidate_id: created.id, form_token: token, status: 'pending' });
-            await load();
-            const updated = candidates.find(c => c.id === created.id) || { ...created, form_token: token };
-            setLinkModalCandidate({ ...updated, ...data });
-          }
-        }
+    if (id) {
+      const old = candidates.find(c => c.id === id);
+      await base44.entities.Candidate.update(id, data);
+      await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
+      setModalOpen(false);
+      setEditCandidate(null);
+      load();
+    } else {
+      const response = await base44.functions.invoke('createCandidateSafe', {
+        candidate_data: data,
+        actor: getActor(),
+      });
+      if (response.data?.error === 'duplicate') {
+        const ex = response.data.existing_candidate;
+        alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
+        return;
       }
-    } catch(e) {
-      console.error('handleSave error:', e);
-      alert(`Ошибка сохранения: ${e.message || e}`);
+      setModalOpen(false);
+      setEditCandidate(null);
+      await load();
+      const newCandidate = response.data?.candidate;
+      if (newCandidate?.form_token) {
+        setLinkModalCandidate({ ...newCandidate, ...data });
+      }
     }
   };
 
@@ -203,9 +183,7 @@ export default function Candidates() {
       const matchPos    = !filters.position || c.position === filters.position;
       const matchSB     = !filters.sb_check || c.sb_check === filters.sb_check;
       const matchMed    = !filters.medical_check || c.medical_check === filters.medical_check;
-      const matchForm   = !filters.form_status ||
-        filters.form_status === 'not_sent' ? (!c.form_status || c.form_status === 'not_sent') :
-        c.form_status === filters.form_status;
+      const matchForm   = !filters.form_status || c.form_status === filters.form_status;
       const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
       return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs;
     });
@@ -276,16 +254,26 @@ export default function Candidates() {
     if (!c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
     navigator.clipboard.writeText(url);
+    const { dismiss } = toast({ title: '✓ Ссылка скопирована', description: 'Отправьте её кандидату для заполнения анкеты' });
+    setTimeout(dismiss, 3500);
   };
 
-  const sendFormEmail = (c) => {
+  const sendFormEmail = async (c) => {
     if (!c.email || !c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
-    const subject = encodeURIComponent('Заполнение анкеты кандидата — Bratouveriye SNB');
-    const body = encodeURIComponent(
-      `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`
-    );
-    window.open(`mailto:${c.email}?subject=${subject}&body=${body}`, '_blank');
+    try {
+      await base44.integrations.Core.SendEmail({
+        to: c.email,
+        subject: 'Заполнение анкеты кандидата — Bratouveriye SNB',
+        body: `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+        from_name: 'Bratouveriye SNB',
+      });
+      const { dismiss } = toast({ title: '✓ Письмо отправлено', description: `На адрес ${c.email}` });
+      setTimeout(dismiss, 3500);
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка отправки', description: 'Не удалось отправить письмо. Попробуйте скопировать ссылку.', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    }
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
@@ -311,8 +299,8 @@ export default function Candidates() {
     <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
       {/* Header */}
       <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
+        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+          <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Link to="/" className="flex items-center gap-2 text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-colors">
               <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" className="w-7 h-7 object-contain" alt="logo" />
             </Link>
@@ -321,21 +309,17 @@ export default function Candidates() {
             <span className="text-[rgba(123,63,191,0.4)]">/</span>
             <h1 className="text-sm font-bold text-[#F8FAFC]">База кандидатов</h1>
           </div>
-          <div className="flex items-center gap-2">
-            <Link to="/admin/assistant"
-              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+            <Link to="/admin/assistant" className="hidden lg:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <Sparkles size={13}/> ИИ-помощник
             </Link>
-            <Link to="/admin/assembly-points"
-              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+            <Link to="/admin/assembly-points" className="hidden lg:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <MapPin size={13}/> Точки сбора
             </Link>
-            <Link to="/admin/candidate-logs"
-              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
+            <Link to="/admin/candidate-logs" className="hidden md:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(123,63,191,0.25)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <ClipboardList size={13}/> Журнал
             </Link>
-            <Link to="/admin/trash"
-              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400 hover:border-red-500/30 transition-all">
+            <Link to="/admin/trash" className="hidden md:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400 hover:border-red-500/30 transition-all">
               <Trash2 size={13}/> Корзина
             </Link>
 
@@ -362,7 +346,7 @@ export default function Candidates() {
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-6 py-6">
+      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Предупреждение о дублях */}
         {dupCount > 0 && !showArchive && (
           <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm">
@@ -397,7 +381,7 @@ export default function Candidates() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-3 mb-4">
+        <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
             <input type="text" placeholder="Поиск по ФИО, должности, городу, телефону..."
@@ -422,9 +406,8 @@ export default function Candidates() {
           </select>
           <select value={filters.form_status} onChange={e => setF('form_status', e.target.value)} className={inp}>
             <option value="">Анкета: все</option>
-            <option value="not_sent">Не отправлена</option>
-            <option value="pending">Ожидает заполнения</option>
-            <option value="completed">Заполнена</option>
+            <option value="completed">Анкета заполнена</option>
+            <option value="pending">Анкета не заполнена</option>
           </select>
           <button
             onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
@@ -447,8 +430,8 @@ export default function Candidates() {
         {loading ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" /></div>
         ) : (
-          <div className="glass-card rounded-xl overflow-visible">
-            <div style={{ overflowX: 'auto', maxHeight: 'calc(100vh - 280px)', overflowY: 'auto' }}>
+          <div className="glass-card rounded-xl">
+            <div className="overflow-x-auto">
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">
@@ -567,30 +550,30 @@ export default function Candidates() {
                           <InlineCommentCell candidate={c} onUpdate={(id, data) => setCandidates(prev => prev.map(x => x.id === id ? { ...x, ...data } : x))} />
                         </td>
                         <td className="px-4 py-3">
-                          <div className="flex items-center gap-1.5">
-                          {c.form_status === 'completed' && (
-                            <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
-                              className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
-                          )}
-                          {c.form_token && c.form_status !== 'completed' && (
-                            <>
-                              <button onClick={() => copyFormLink(c)} title="Копировать ссылку на анкету"
-                                className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
-                                {copiedId === c.id ? <CheckCircle size={13} className="text-green-400" /> : <ClipboardCopy size={13} />}
-                              </button>
-                              {c.email && (
-                                <button onClick={() => sendFormEmail(c)} title={`Отправить на ${c.email}`}
-                                  className={`p-1.5 rounded transition-all ${copiedId === c.id + '-sent' ? 'text-green-400' : 'text-[#F8FAFC]/50 hover:text-[#C9A84C] hover:bg-[#C9A84C]/20'}`}>
-                                  {copiedId === c.id + '-sent' ? <CheckCircle size={13} /> : <Mail size={13} />}
+                          <div className="flex items-center gap-1">
+                            {c.form_status === 'completed' && (
+                              <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+                                className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
+                            )}
+                            {c.form_token && c.form_status !== 'completed' && (
+                              <>
+                                <button onClick={() => copyFormLink(c)} title="Скопировать ссылку на анкету"
+                                  className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
+                                  <ClipboardCopy size={13} />
                                 </button>
-                              )}
-                            </>
-                          )}
-                          {!c.form_token && (
-                            <button onClick={() => generateFormToken(c)} title="Создать анкету"
-                              className="text-xs text-white/30 hover:text-[#7B3FBF] transition-all">+ Создать</button>
-                          )}
-                        </div>
+                                {c.email && (
+                                  <button onClick={() => sendFormEmail(c)} title={`Отправить на ${c.email}`}
+                                    className="p-1.5 rounded hover:bg-[#C9A84C]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
+                                    <Mail size={13} />
+                                  </button>
+                                )}
+                              </>
+                            )}
+                            {!c.form_token && (
+                              <button onClick={() => generateFormToken(c)} title="Создать анкету"
+                                className="text-xs text-white/30 hover:text-[#7B3FBF] transition-all">+ Создать</button>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">

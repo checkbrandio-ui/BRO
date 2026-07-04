@@ -4,7 +4,7 @@ import { base44 } from '@/api/base44Client';
 import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import AgencyNotificationBell from '../components/admin/AgencyNotificationBell';
-
+import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';

@@ -15,7 +15,8 @@ function haversine(lat1, lon1, lat2, lon2) {
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
-    const sr = base44.asServiceRole;
+    const user = await base44.auth.me();
+    if (!user) return Response.json({ error: 'Unauthorized' }, { status: 401 });
 
     const body = await req.json();
     const { city_name } = body;

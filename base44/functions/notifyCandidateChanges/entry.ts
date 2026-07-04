@@ -31,21 +31,13 @@ Deno.serve(async (req) => {
     const base44 = createClientFromRequest(req);
     const sr = base44.asServiceRole;
 
-    if (!data || (event?.type !== 'update' && event?.type !== 'create')) {
+    if (!data || event?.type !== 'update') {
       return Response.json({ success: true, skipped: true });
     }
 
     // Сравниваем старые и новые данные
     const changes: string[] = [];
-    if (event?.type === 'create') {
-      // При создании показываем все заполненные поля
-      for (const [key, label] of Object.entries(FIELD_LABELS)) {
-        const val = data[key];
-        if (val !== undefined && val !== null && val !== '') {
-          changes.push(`• ${label}: ${val}`);
-        }
-      }
-    } else if (old_data) {
+    if (old_data) {
       for (const [key, label] of Object.entries(FIELD_LABELS)) {
         const oldVal = old_data[key] ?? '';
         const newVal = data[key] ?? '';
@@ -107,9 +99,7 @@ Deno.serve(async (req) => {
     }
 
     // Отправляем email-уведомления
-    const subject = event?.type === 'create'
-      ? ` Новый кандидат: ${candidateName}`
-      : `Изменение карточки: ${candidateName}`;
+    const subject = `Изменение карточки: ${candidateName}`;
     const emailBody = `Кандидат: ${candidateName}\nАгентство: ${agencyName || '—'}\n\nИзменения:\n${changes.join('\n')}\n\nДата: ${new Date().toLocaleString('ru-RU')}`;
 
     const allEmails = [

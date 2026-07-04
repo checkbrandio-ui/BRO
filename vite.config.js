@@ -1,33 +1,13 @@
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
-import { fileURLToPath, URL } from 'node:url'
-import { cpSync, writeFileSync } from 'fs'
+import { fileURLToPath, URL } from 'node:url' // добавляем этот импорт для путей
 
 export default defineConfig({
   base: '/',
-  server: {
-    // Allow all hosts for Base44 preview and GitHub Pages
-    allowedHosts: 'all',
-  },
-  plugins: [
-    react(),
-    {
-      name: 'spa-fallback',
-      closeBundle() {
-        try {
-          // GitHub Pages SPA fallback: index.html as 404.html
-          cpSync('dist/index.html', 'dist/404.html', { force: true });
-          // Prevent Jekyll processing (GitHub Pages uses Jekyll by default)
-          writeFileSync('dist/.nojekyll', '');
-          // _redirects for Netlify/Cloudflare Pages compatibility
-          writeFileSync('dist/_redirects', '/* /index.html 200\n');
-        } catch (_) {}
-      }
-    }
-  ],
+  plugins: [react()],
   resolve: {
     alias: {
-      '@': fileURLToPath(new URL('./src', import.meta.url))
+      '@': fileURLToPath(new URL('./src', import.meta.url)) // жестко прописываем, что @ = папка src
     }
   }
 })
