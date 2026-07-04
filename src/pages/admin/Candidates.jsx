@@ -203,7 +203,9 @@ export default function Candidates() {
       const matchPos    = !filters.position || c.position === filters.position;
       const matchSB     = !filters.sb_check || c.sb_check === filters.sb_check;
       const matchMed    = !filters.medical_check || c.medical_check === filters.medical_check;
-      const matchForm   = !filters.form_status || c.form_status === filters.form_status;
+      const matchForm   = !filters.form_status ||
+        filters.form_status === 'not_sent' ? (!c.form_status || c.form_status === 'not_sent') :
+        c.form_status === filters.form_status;
       const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
       return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs;
     });

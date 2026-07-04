@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, ExternalLink, User, Phone, MapPin, Calendar, Briefcase, Heart, Shield, Banknote, FileCheck, AlertTriangle, MessageSquare } from 'lucide-react';
+import { FileText, Download, ExternalLink, User, Phone, MapPin, Calendar, Briefcase, Heart, Shield, Banknote, FileCheck, AlertTriangle, MessageSquare, ClipboardCopy } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getMissingRequiredDocs } from '@/lib/docUtils';
 
@@ -69,10 +69,18 @@ export default function CandidateFormView({ candidateId, isCandidateView = false
           {f.submitted_at && <span className="text-[#F8FAFC]/40 ml-2">· {new Date(f.submitted_at).toLocaleString('ru-RU')}</span>}
         </span>
         {f.form_token && (
-          <a href={`/form/${f.form_token}?edit=1`} target="_blank" rel="noreferrer"
-            className="ml-auto flex items-center gap-1 text-xs text-[#7B3FBF] hover:text-[#8B4FCF] transition-colors">
-            <ExternalLink size={11} /> Открыть анкету
-          </a>
+          <>
+            <button
+              onClick={() => { navigator.clipboard.writeText(window.location.origin + `/form/${f.form_token}`); }}
+              title="Копировать ссылку на анкету"
+              className="flex items-center gap-1 text-xs text-[#7B3FBF]/60 hover:text-[#7B3FBF] transition-colors">
+              <ClipboardCopy size={11} /> Копировать
+            </button>
+            <a href={`/form/${f.form_token}?edit=1`} target="_blank" rel="noreferrer"
+              className="flex items-center gap-1 text-xs text-[#7B3FBF] hover:text-[#8B4FCF] transition-colors">
+              <ExternalLink size={11} /> Открыть
+            </a>
+          </>
         )}
       </div>
 

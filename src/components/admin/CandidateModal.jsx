@@ -157,6 +157,14 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   };
 
   const handleSaveClick = async () => {
+    // Валидация обязательных полей
+    const missing = [];
+    if (!form.full_name?.trim()) missing.push('ФИО');
+    if (!form.birth_date?.trim()) missing.push('Дата рождения');
+    if (missing.length > 0) {
+      alert('Заполните обязательные поля: ' + missing.join(', '));
+      return;
+    }
     if (stopList) return;
     if (form.city && !cityObject) {
       alert('Пожалуйста, выберите населённый пункт из списка. Текстовый ввод не допускается — выберите ближайший из каталога.');

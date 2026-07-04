@@ -5,6 +5,10 @@ import { cpSync, writeFileSync } from 'fs'
 
 export default defineConfig({
   base: '/',
+  server: {
+    // Allow all hosts for Base44 preview and GitHub Pages
+    allowedHosts: 'all',
+  },
   plugins: [
     react(),
     {
