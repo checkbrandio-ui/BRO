@@ -439,8 +439,9 @@ export default function Candidates() {
           </select>
           <select value={filters.form_status} onChange={e => setF('form_status', e.target.value)} className={inp}>
             <option value="">Анкета: все</option>
-            <option value="completed">Анкета заполнена</option>
-            <option value="pending">Анкета не заполнена</option>
+            <option value="not_sent">Не отправлена</option>
+            <option value="pending">Ожидает заполнения</option>
+            <option value="completed">Заполнена</option>
           </select>
           <button
             onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
