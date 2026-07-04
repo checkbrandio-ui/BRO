@@ -1,310 +1,597 @@
-import { useState } from 'react';
-import { ChevronDown, ChevronUp, CheckSquare, AlertTriangle, BookOpen, Users, ClipboardList, MessageSquare, HelpCircle, XCircle, Zap, ArrowRight } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { BookOpen, Target, Zap, MessageSquare, Shield, ClipboardList, Send, Phone, Star, HelpCircle, CheckSquare, Copy, Check, ArrowRight, MapPin, Clock, Banknote, Mail, Users, TrendingUp, Award, Home, Heart, AlertTriangle, ChevronUp } from 'lucide-react';
+import CopyBlock from '@/components/handbook/CopyBlock';
 
-function Section({ icon: Icon, title, children, defaultOpen = false, accent = 'purple' }) {
-  const [open, setOpen] = useState(defaultOpen);
+const SECTIONS = [
+  { id: 'intro', icon: BookOpen, title: 'Введение' },
+  { id: 'deal', icon: Target, title: 'Анатомия сделки' },
+  { id: 'process', icon: Zap, title: 'Процесс' },
+  { id: 'script', icon: MessageSquare, title: 'Скрипт' },
+  { id: 'objections', icon: Shield, title: 'Антивозражения' },
+  { id: 'crm', icon: ClipboardList, title: 'CRM' },
+  { id: 'followup', icon: Send, title: 'Follow-up' },
+  { id: 'contacts', icon: Phone, title: 'Контакты' },
+  { id: 'reviews', icon: Star, title: 'Отзывы' },
+  { id: 'faq', icon: HelpCircle, title: 'FAQ' },
+  { id: 'checklist', icon: CheckSquare, title: 'Чеклист' },
+];
+
+const POSITIONS = [
+  { icon: '👷', title: 'Разнорабочий', salary: '300–340K ₽/мес', note: 'Подходит всем. Опыт на стройке 3–6 мес.' },
+  { icon: '🧱', title: 'Строитель', salary: '330–390K ₽/мес', note: 'Каменщик, отделочник, плотник, электромонтёр' },
+  { icon: '🚗', title: 'Водитель', salary: '300–380K ₽/мес', note: 'Автобус, грузовик, спецтехника. Кат. B/C/CE/D' },
+  { icon: '🔧', title: 'Автослесарь', salary: '320–360K ₽/мес', note: 'Техобслуживание и ремонт. Свои инструменты — плюс' },
+  { icon: '🩺', title: 'Медработник', salary: '340–380K ₽/мес', note: 'Фельдшер, медсестра, врач. Действующий сертификат' },
+  { icon: '🛡️', title: 'Охранник', salary: '310–350K ₽/мес', note: 'Охрана объектов. Удостоверение ЧОП' },
+  { icon: '🚜', title: 'Оператор спецтехники', salary: '300–380K ₽/мес', note: 'Бульдозер, экскаватор, погрузчик' },
+];
+
+const OBJECTIONS = [
+  { says: '«Это же военный контракт, я не боец?»', answer: 'Нет. Это трудовой договор по ТК РФ с компанией «Братоуверие». Вы не военный, не носите оружие, не воюете. Это гражданская работа — восстановление домов, дорог, школ. ТК РФ защищает вас полностью.' },
+  { says: '«А если там обстрелы? Я погибну?»', answer: 'Базы расположены в 70–100 км от боевых действий. За 2 года среди 1197 участников — 0 смертей, 99% вернулись здоровыми. Страховка 1.5–14.7 млн ₽ вас полностью защищает.' },
+  { says: '«Как я получу деньги? Не обманут?»', answer: 'Всё переводится на вашу карту 2 раза в месяц. Подъёмные 625 000 ₽ — в течение 5 дней после подписания. Компания зарегистрирована в ФНС (ОГРН 1262500006966), имеет благодарности от Правительства РФ.' },
+  { says: '«Я слышал, там держат против воли?»', answer: 'Это не так. Вы можете уйти в любой момент по ТК РФ — заявление за 2 недели. Все деньги выплачиваются полностью. На объектах есть инспектор труда и профсоюз.' },
+  { says: '«Могу вернуться домой на выходной?»', answer: 'Да! Выходные — в городах (Макеевка, Луганск). Интернет на базе, звоните семье каждый день. Раз в месяц — 2–3 дня отпуска домой.' },
+  { says: '«А если заболею? Оплатят?»', answer: 'Больничный 60–80% от оклада по ТК РФ. На базе — медпункт и врач, осмотр и лечение бесплатно. Серьёзное — отправим в больницу в городе.' },
+  { says: '«Какие документы? Можно подделать?»', answer: 'Нужны: паспорт, СНИЛС, ИНН, справка о несудимости, резюме. Ничего подделывать нельзя — всё проверяет СБ. Если документ неполный — просто переснимаете.' },
+  { says: '«Жильё нормальное? Не казарма?»', answer: 'Комната на 2–3 человека. Интернет, ТВ, кровати, шкафы. Не 5-звёздочный отель, но комфортно. Столовая рядом, спортзал, психолог.' },
+  { says: '«Оборудование своё или выдают?»', answer: 'Всё предоставляется: спецодежда, инструменты, защита, техника. Приходите с паспортом и чемоданом — остальное выдадут.' },
+  { says: '«Сколько часов работаю? Выходные?»', answer: '8–12 часов, 5–6 дней в неделю. Ритм: подъём 06:30, на объекте 08:00, возврат 17:00–17:30, вечер свободный. Выходные — в городе.' },
+  { says: '«Я не гражданин РФ. Можно?»', answer: 'Граждане СНГ рассматриваются индивидуально. Нужно согласование с СБ. Гарантий нет, но попытаться стоит — оставьте заявку.' },
+  { says: '«Я в запасе. Могут забрать в армию?»', answer: 'Нет. Участники программы имеют иммунитет от мобилизации — прописано в договоре. Защита на время контракта и 3 месяца после.' },
+  { says: '«Сколько получу на руки конкретно?»', answer: 'Разнорабочий — 261K на руки (после 13% НДФЛ). Строитель — до 340K. Плюс 625K подъёмных без налога. За 3 месяца — от 1.4 млн ₽.' },
+  { says: '«Можно с другом/напарником?»', answer: 'Да! Приводите — будете вместе на объекте. Иван и Пётр приехали вдвоём и заработали 2.9 млн ₽. Создам карточки на обоих прямо сейчас.' },
+  { says: '«Давайте я позвоню завтра?»', answer: 'Понимаю, но сегодня есть свободное место, а завтра может быть занято. Мест 200, осталось 47. Внесу в систему за 5 минут — если что, откажетесь. Давайте зафиксируем сегодня?' },
+];
+
+const PROCESS = [
+  { day: 'День 1', title: 'Первый звонок', desc: 'Менеджер звонит → берёт ФИО, номер, город, должность. 5 минут.', color: 'purple' },
+  { day: 'День 2–3', title: 'Телефонное интервью', desc: '10–15 минут по скрипту: опыт, мотивация, условия, семья, здоровье. Завершение: «Внесу в систему, получите ссылку на анкету».', color: 'purple' },
+  { day: 'День 4', title: 'Карточка в CRM', desc: 'Менеджер создаёт карточку: ФИО + дата рождения + телефон + должность + город. СТОП-ЛИСТ проверяет дубли. Генерируется ссылка на анкету.', color: 'gold' },
+  { day: 'День 5–6', title: 'Кандидат заполняет анкету', desc: 'Менеджер отправляет ссылку в WhatsApp/Telegram. Follow-up: «Заполнили? Если вопросы — помогу». Статус: «Ожидает» → «Заполнена».', color: 'gold' },
+  { day: 'День 7', title: 'Передача на СБ', desc: 'Менеджер пишет координатору: «[Агентство] — Заявка — [ФИ] — [категория] — [кол-во]».', color: 'gold' },
+  { day: 'День 8–10', title: 'Проверка СБ', desc: '2–3 рабочих дня. Проверка судимости, воинского учёта. Координатор обновляет статус в CRM. Кандидату: «Проверка пройдена, выезжаешь в точку сбора».', color: 'gold' },
+  { day: 'День 11–12', title: 'Прибытие в точку сбора', desc: 'Тамбов, Воронеж, Ростов и т.д. Жильё бесплатное (общежитие). Кандидат пишет координатору адрес.', color: 'green' },
+  { day: 'День 13–14', title: 'Медкомиссия', desc: 'ВТ–ПТ, 08:00–16:00. 2–3 часа: кровь, рентген, ЭКГ, осмотры, психолог. Результаты за 3–5 дней. Не отбраковка, а документирование.', color: 'green' },
+  { day: 'День 15', title: 'Подписание договора', desc: 'ТК РФ, 2 экземпляра. Кандидат видит: зарплату, подъёмные, гарантии, страховку.', color: 'green' },
+  { day: 'День 16', title: 'Выплата подъёмных', desc: '625 000 ₽ на карту, без налога, в течение 5 дней.', color: 'green' },
+  { day: 'День 17–18', title: 'Отправка в Ростов-на-Дону', desc: 'Самолёт или поезд за счёт программы. Билеты сохранить — компенсация на объекте.', color: 'green' },
+  { day: 'День 19–21', title: 'Приезд в Макеевку', desc: 'Инструктажи, выдача спецодежды, получение пропуска. Распределение на объекты.', color: 'green' },
+  { day: 'День 22', title: 'Первый день работы', desc: 'Зарплата начислится в конце месяца.', color: 'green' },
+];
+
+const REVIEWS = [
+  { name: 'Максим О.', role: 'Фельдшер', earned: '1.4 млн ₽', story: 'Заработал 1.4 млн за 3 месяца. Купил машину, вернулся во второй раз. Говорит — лучшее решение, которое он принял.' },
+  { name: 'Игорь Л.', role: 'Машинист бульдозера', earned: '1.5 млн ₽', story: 'Купил квартиру за счёт этих денег. Третий контракт готовит. «Дома таких денег не заработать».' },
+  { name: 'Павел Г.', role: 'Автослесарь', earned: '1.45 млн ₽', story: 'Купил однушку. Постоянная вахта — второй контракт уже подписан.' },
+  { name: 'Иван и Пётр', role: 'Рабочие', earned: '2.9 млн ₽ вдвоём', story: 'Приехали вместе, заработали 2.9 млн. Сейчас готовят документы на второй контракт.' },
+];
+
+const FAQ = [
+  { q: 'Это легально?', a: 'Да. Постановление Правительства РФ. Официальное трудоустройство по ТК РФ. ОГРН 1262500006966.' },
+  { q: 'Когда придут подъёмные?', a: '625 000 ₽ в течение 5 дней после подписания договора. На карту, без налога.' },
+  { q: 'Нас не мобилизуют?', a: 'Участники программы имеют иммунитет от мобилизации. Прописано в договоре. Защита на время контракта + 3 месяца после.' },
+  { q: 'Можно с семьёй?', a: 'Нет. Комната на 2–3 человека. Это вахта, не ПМЖ. Но выходные в городе, интернет для звонков семье — каждый день.' },
+  { q: 'Какой график?', a: '8–12 часов, 5–6 дней в неделю. Подъём 06:30, объект 08:00, возврат 17:00–17:30. Вечер свободный.' },
+  { q: 'Сколько человек в комнате?', a: '2–3. Интернет, ТВ, кровати, шкафы. Столовая, спортзал, психолог — всё рядом.' },
+  { q: 'Компенсация проезда?', a: '100%. Билеты сохранить, компенсация при трудоустройстве на объекте.' },
+  { q: 'Какая страховка?', a: '1.5–14.7 млн ₽, включена в условия. Полная защита.' },
+  { q: 'Что с больничным?', a: '60–80% от оклада по ТК РФ. На базе — медпункт и врач, лечение бесплатно.' },
+  { q: 'Какие документы нужны?', a: 'Паспорт, СНИЛС, ИНН, справка о несудимости, резюме. Ничего подделывать нельзя — всё проверяет СБ.' },
+];
+
+const CONTACTS = [
+  { icon: '👨‍💼', title: 'Координатор', phone: '+7 (4212) 51-59-30 доб. 702', email: 'partner@bratouverie-snb.ru', hours: 'Пн–Чт 09:00–18:00, Пт до 17:00', desc: 'Согласование кандидатов, распределение на объекты' },
+  { icon: '🧠', title: 'Психолог', phone: '+7 (4212) 51-59-30 доб. 704', hours: '24/7', desc: 'Тоска по дому, страх, стресс, семейные проблемы' },
+  { icon: '⚖️', title: 'Юрист', phone: '+7 (4212) 51-59-30 доб. 704', hours: 'На базе 24/7', desc: 'Защита прав, консультация, помощь при конфликте. Бесплатно' },
+  { icon: '🔔', title: 'Горячая линия', phone: '8-800-222-84-63', hours: '24/7', desc: 'Проблемы, жалобы, неотложные ситуации' },
+];
+
+const FOLLOWUPS = [
+  { title: 'Сразу после создания карточки', text: `Здравствуйте, [ФИО]!\n\nВот ваша личная анкета для участия в программе восстановления ДНР/ЛНР:\n[ссылка]\n\nЗаполнение займёт около 15 минут. Если возникнут вопросы — пишите, я помогу.` },
+  { title: 'Через 2 дня (если не заполнил)', text: `[ФИО], добрый день!\n\nПроверил — анкета пока не заполнена. Не забудьте, пожалуйста, заполнить сегодня-завтра.\n\nЕсли что-то непонятно — звоните, подскажу. Это займёт всего 15 минут.` },
+  { title: 'Проверка СБ пройдена', text: `[ФИО], отличные новости!\n\nПроверка безопасности пройдена ✓\nТеперь нужно приехать в точку сбора ([город]) на медкомиссию.\n\nКогда сможете приехать?` },
+  { title: 'Напоминание о медкомиссии', text: `[ФИО], напоминаю — завтра медкомиссия.\n\nВозьмите: паспорт, СНИЛС, справку о несудимости.\nПриехать к 08:00 по адресу: [адрес]\n\nОбследование займёт 2–3 часа.` },
+  { title: 'После оформления', text: `[ФИО], поздравляю!\n\nДоговор подписан, подъёмные 625 000 ₽ поступят на карту в течение 5 дней.\n\nОтправка — [дата]. Билеты сохранить для компенсации.\n\nЕсли есть вопросы — я на связи!` },
+];
+
+export default function ManagerHandbook() {
+  const [activeSection, setActiveSection] = useState('intro');
+  const [showTop, setShowTop] = useState(false);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      setShowTop(window.scrollY > 600);
+      for (const s of SECTIONS) {
+        const el = document.getElementById(s.id);
+        if (el) {
+          const rect = el.getBoundingClientRect();
+          if (rect.top <= 140 && rect.bottom >= 140) {
+            setActiveSection(s.id);
+            break;
+          }
+        }
+      }
+    };
+    window.addEventListener('scroll', handleScroll);
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const scrollTo = (id) => {
+    document.getElementById(id)?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  };
+
+  const colorMap = {
+    purple: 'border-[rgba(123,63,191,0.4)] bg-[rgba(123,63,191,0.15)] text-[#7B3FBF]',
+    gold: 'border-[rgba(201,168,76,0.4)] bg-[rgba(201,168,76,0.15)] text-[#C9A84C]',
+    green: 'border-green-500/40 bg-green-500/15 text-green-400',
+  };
+
+  return (
+    <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
+      {/* Header */}
+      <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-50">
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" className="w-7 h-7 object-contain flex-shrink-0" alt="logo" />
+            <span className="text-[rgba(123,63,191,0.4)] hidden sm:inline">/</span>
+            <div className="flex items-center gap-2 min-w-0">
+              <BookOpen size={14} className="text-[#7B3FBF] flex-shrink-0" />
+              <span className="text-sm font-bold text-[#F8FAFC] truncate">Руководство менеджера</span>
+            </div>
+            <span className="text-xs px-2.5 py-1 rounded bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/25 whitespace-nowrap">v2.0</span>
+          </div>
+          <a href="/agency/workspace" className="text-xs text-[#F8FAFC]/40 hover:text-[#7B3FBF] transition-colors whitespace-nowrap flex-shrink-0">← В CRM</a>
+        </div>
+      </div>
+
+      <div className="max-w-6xl mx-auto px-4 sm:px-6 py-8 flex gap-8">
+        {/* Sidebar nav */}
+        <aside className="hidden lg:block w-52 flex-shrink-0">
+          <div className="sticky top-24 space-y-0.5">
+            {SECTIONS.map((s, i) => (
+              <button key={s.id} onClick={() => scrollTo(s.id)}
+                className={`w-full flex items-center gap-2.5 px-3 py-2 rounded-lg text-left text-xs transition-all ${activeSection === s.id ? 'bg-[rgba(123,63,191,0.15)] text-[#7B3FBF] font-bold' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70 hover:bg-white/5'}`}>
+                <span className="text-[10px] font-mono opacity-50">{i + 1}</span>
+                <s.icon size={13} className="flex-shrink-0" />
+                <span>{s.title}</span>
+              </button>
+            ))}
+          </div>
+        </aside>
+
+        {/* Main content */}
+        <main className="flex-1 min-w-0 space-y-12">
+
+          {/* Hero */}
+          <div className="glass-card-gold rounded-2xl px-6 py-6">
+            <h1 className="text-2xl font-black text-[#F8FAFC] mb-1">Полное руководство менеджера</h1>
+            <p className="text-sm text-[#F8FAFC]/55">Программа восстановления ДНР/ЛНР · ООО «Братоуверие-СНБ»</p>
+            <div className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {[
+                { label: 'Зарплата', value: '300–390K ₽/мес' },
+                { label: 'Подъёмные', value: '625 000 ₽' },
+                { label: 'За 3 месяца', value: '~1.6 млн ₽' },
+                { label: 'Вахта', value: '3 месяца' },
+              ].map(s => (
+                <div key={s.label} className="bg-[rgba(201,168,76,0.08)] border border-[rgba(201,168,76,0.15)] rounded-lg px-3 py-2.5">
+                  <div className="text-xs text-[#F8FAFC]/35 mb-0.5">{s.label}</div>
+                  <div className="text-sm font-black text-[#C9A84C]">{s.value}</div>
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Section 1: Введение */}
+          <section id="intro" className="scroll-mt-24">
+            <SectionHeader num="1" icon={BookOpen} title="Введение для менеджера" accent="purple" />
+            <div className="space-y-4 mt-4">
+              <p className="text-sm text-[#F8FAFC]/75 leading-relaxed">
+                Вы — менеджер кадрового агентства, партнёр программы восстановления ДНР и ЛНР. Ваша задача — находить кандидатов,
+                убеждать их и проводить через процесс отбора до отправки на объект. <strong className="text-[#F8FAFC]">Это не продажи — это помощь людям изменить жизнь.</strong>
+              </p>
+              <p className="text-sm text-[#F8FAFC]/75 leading-relaxed">
+                За 2 года программы: <strong className="text-green-400">1197 участников</strong>, <strong className="text-green-400">0 летальных исходов</strong>,
+                <strong className="text-green-400"> 99% вернулись здоровыми</strong>, <strong className="text-[#C9A84C]">88% продлили контракт</strong>.
+                Эти цифры — ваше главное оружие. Используйте их.
+              </p>
+              <div className="grid sm:grid-cols-3 gap-3">
+                <StatCard icon={Users} value="1197" label="участников за 2 года" color="purple" />
+                <StatCard icon={Heart} value="99%" label="вернулись здоровыми" color="green" />
+                <StatCard icon={TrendingUp} value="88%" label="продлили контракт" color="gold" />
+              </div>
+              <div className="bg-red-500/8 border border-red-500/25 rounded-lg px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-red-300/80">
+                    <strong>ВАЖНО:</strong> Вы не обещаете того, чего нет в программе. Вы говорите только цифры и факты из этого руководства.
+                    Любые «договорённости на месте» — обман. Всё, что кандидат получит, прописано в трудовом договоре по ТК РФ.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 2: Анатомия сделки */}
+          <section id="deal" className="scroll-mt-24">
+            <SectionHeader num="2" icon={Target} title="Анатомия сделки — что вы предлагаете" accent="gold" />
+            <div className="space-y-4 mt-4">
+              <p className="text-sm text-[#F8FAFC]/75 leading-relaxed">
+                Кандидату вы предлагаете: <strong className="text-[#F8FAFC]">гражданскую работу</strong> по ТК РФ на стройках и объектах
+                восстановления ДНР/ЛНР. Вахта 3 месяца. Объекты: Мариуполь, Макеевка, Луганск, Алчевск.
+              </p>
+
+              {/* Financials */}
+              <div className="grid sm:grid-cols-2 gap-3">
+                <div className="glass-card rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Banknote size={15} className="text-[#C9A84C]" />
+                    <span className="text-xs font-bold text-[#F8FAFC] uppercase tracking-widest">Финансы</span>
+                  </div>
+                  <div className="space-y-2 text-xs">
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">Зарплата</span><span className="text-[#C9A84C] font-bold">300–390K ₽/мес</span></div>
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">На руки (после 13% НДФЛ)</span><span className="text-[#F8FAFC]">261–340K ₽</span></div>
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">Подъёмные (без налога)</span><span className="text-green-400 font-bold">625 000 ₽</span></div>
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">Итого за 3 месяца</span><span className="text-[#C9A84C] font-black text-sm">~1 646 875 ₽</span></div>
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">Больничный</span><span className="text-[#F8FAFC]">60–80% по ТК РФ</span></div>
+                    <div className="flex justify-between"><span className="text-[#F8FAFC]/50">Выплаты</span><span className="text-[#F8FAFC]">2 раза в месяц на карту</span></div>
+                  </div>
+                </div>
+                <div className="glass-card rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-3">
+                    <Home size={15} className="text-[#7B3FBF]" />
+                    <span className="text-xs font-bold text-[#F8FAFC] uppercase tracking-widest">Включено</span>
+                  </div>
+                  <div className="space-y-1.5 text-xs text-[#F8FAFC]/65">
+                    {['Жильё: комната на 2–3 чел.', 'Питание: 3-разовое', 'Проезд: 100% компенсация', 'Интернет: Wi-Fi на базе', 'Страховка: 1.5–14.7 млн ₽', 'Спецодежда и инструменты', 'Спортзал: 24/7', 'Психолог: 24/7'].map(item => (
+                      <div key={item} className="flex items-start gap-2"><Check size={12} className="text-green-400 flex-shrink-0 mt-0.5" /><span>{item}</span></div>
+                    ))}
+                  </div>
+                </div>
+              </div>
+
+              {/* Positions */}
+              <div className="grid sm:grid-cols-2 gap-2">
+                {POSITIONS.map(p => (
+                  <div key={p.title} className="flex items-center gap-3 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.15)] rounded-lg p-3">
+                    <span className="text-xl flex-shrink-0">{p.icon}</span>
+                    <div className="min-w-0 flex-1">
+                      <div className="font-bold text-[#F8FAFC] text-sm">{p.title}</div>
+                      <div className="text-xs text-[#F8FAFC]/45">{p.note}</div>
+                    </div>
+                    <div className="text-xs font-bold text-[#C9A84C] whitespace-nowrap flex-shrink-0">{p.salary}</div>
+                  </div>
+                ))}
+              </div>
+
+              <div className="bg-red-500/8 border border-red-500/25 rounded-lg px-4 py-3">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
+                  <div className="text-xs text-red-300/80">
+                    <strong>НЕ предлагайте:</strong> операторов БПЛА, взрывотехников, инженеров-связистов, воинские должности.
+                    Этих вакансий в программе нет. Только гражданские специальности из списка выше.
+                  </div>
+                </div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 3: Процесс */}
+          <section id="process" className="scroll-mt-24">
+            <SectionHeader num="3" icon={Zap} title="8-этапный процесс — от звонка до работы" accent="gold" />
+            <div className="mt-4 space-y-3">
+              <div className="bg-[rgba(201,168,76,0.08)] border border-[rgba(201,168,76,0.2)] rounded-lg px-4 py-2.5 text-xs text-[#C9A84C]/80 flex items-center gap-2">
+                <Clock size={13} /> От заявки до первой зарплаты — ~30–45 дней. Узкие места: проверка СБ и медкомиссия.
+              </div>
+              {PROCESS.map((step, i) => (
+                <div key={i} className="flex gap-3">
+                  <div className="flex flex-col items-center flex-shrink-0">
+                    <div className={`w-10 h-10 rounded-full border-2 flex items-center justify-center text-xs font-black ${colorMap[step.color]}`}>
+                      {i + 1}
+                    </div>
+                    {i < PROCESS.length - 1 && <div className="w-px flex-1 bg-[rgba(123,63,191,0.15)] mt-1" />}
+                  </div>
+                  <div className="flex-1 pb-4">
+                    <div className="flex items-center gap-2 mb-1 flex-wrap">
+                      <span className="font-bold text-[#F8FAFC] text-sm">{step.title}</span>
+                      <span className={`text-xs px-2 py-0.5 rounded-full border ${colorMap[step.color]}`}>{step.day}</span>
+                    </div>
+                    <p className="text-xs text-[#F8FAFC]/60 leading-relaxed">{step.desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Section 4: Скрипт */}
+          <section id="script" className="scroll-mt-24">
+            <SectionHeader num="4" icon={MessageSquare} title="Скрипт телефонного интервью" accent="purple" />
+            <p className="text-xs text-[#F8FAFC]/45 mt-2 mb-4">Готов к копированию. Адаптируйте под кандидата, но структуру сохраняйте.</p>
+            <div className="space-y-4">
+              <ScriptPart label="Фреймирование (0:00–1:00)" text={`Добрый день! Меня зовут [ИМЯ]. Я представляю [АГЕНТСТВО]. Мы работаем с государственной программой восстановления ДНР и ЛНР.\n\nЭто не просто работа — это возможность быть частью истории, зарабатывать серьёзные деньги и помогать восстанавливать страну. У вас есть 15 минут? Расскажу суть.`} />
+              <ScriptPart label="Базовые данные (1:00–2:30)" text={`Давайте познакомимся:\n• ФИО полностью (как в паспорте)\n• Дата рождения\n• Гражданство\n• Где живёте сейчас?`} />
+              <ScriptPart label="Опыт (2:30–5:00)" text={`Расскажите о вашем опыте. Что было самым интересным проектом? Какой результат получился?\n\nЭто поможет вас правильно распределить на объект.`} />
+              <ScriptPart label="Мотивация (5:00–8:00) — ГЛАВНОЕ!" text={`Почему вас это интересует именно сейчас? Что вам нужно?\n\n[ЕСЛИ деньги] → Отлично, при 300K в месяц за 3 месяца это 1.4 млн минус налоги. Плюс 625K подъёмных.\n[ЕСЛИ опыт] → На объектах профессиональные команды. Получите опыт, инструменты, сертификат.\n[ЕСЛИ переезд] → Жильё, питание, переезд включены. После контракта — статус ветерана.\n[ЕСЛИ неуверенность] → За 2 года 1197 участников, 0 смертей, 99% вернулись. Страховка 1.5–14.7 млн ₽.`} />
+              <ScriptPart label="Социальное доказательство (5:00–7:00)" text={`Знаете, я говорил с Максимом — фельдшер из Питера. Работал 3 мес, заработал 1.4 млн. Купил машину, едет во второй раз.\n\nИли Игорь, машинист бульдозера — купил квартиру за счёт этих денег...`} />
+              <ScriptPart label="Условия (8:00–10:00)" text={`Зарплата: 300–380K в месяц (по должности)\nПодъёмные: 625K без налога за 5 дней\nЖильё, питание, проезд: включено\nВахта: 3 месяца\nРабота: 8–12 часов, 5–6 дней в неделю\nТрудовой договор по ТК РФ (не военный!)\nСтраховка: 1.5–14.7 млн ₽\nПосле: статус ветерана, земельный участок, налоговый вычет`} />
+              <ScriptPart label="Ограничения (10:00–12:00)" text={`Здоровье: базовое (флюорография, кровь, осмотр)\nСудимость: не должно быть (проверяет СБ)\nВоинский учёт: в порядке? (защищены от мобилизации)\nДокументы: паспорт, СНИЛС, справка о несудимости, резюме\nВозраст: 19–60 (исключения 61–64 для спецов)`} />
+              <ScriptPart label="Закрытие (12:00–15:00)" text={`Вас устраивают условия? Вы готовы?\n\nОтлично! Внесу вас в систему прямо сейчас. Завтра получите ссылку на анкету — 15 минут. Затем медкомиссия, и через 2–3 недели вы уже работаете. На счёте — минимум 1.4 млн.\n\nСогласны?\n[ДА] → создаёте карточку в CRM за 5 минут\n[НЕТ] → «Что смущает? Давайте разберём» → антивозражения`} />
+            </div>
+          </section>
+
+          {/* Section 5: Антивозражения */}
+          <section id="objections" className="scroll-mt-24">
+            <SectionHeader num="5" icon={Shield} title="Антивозражения — готовые ответы" accent="gold" />
+            <p className="text-xs text-[#F8FAFC]/45 mt-2 mb-4">Кандидат говорит слева → вы отвечаете справа. Выучите эти ответы.</p>
+            <div className="space-y-3">
+              {OBJECTIONS.map((obj, i) => (
+                <div key={i} className="bg-[rgba(255,255,255,0.02)] border border-[rgba(123,63,191,0.15)] rounded-xl overflow-hidden">
+                  <div className="bg-red-500/8 border-b border-red-500/15 px-4 py-2.5 flex items-start gap-2">
+                    <span className="text-xs font-mono text-red-400/60 flex-shrink-0 mt-0.5">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="text-sm text-red-300/90 font-medium">{obj.says}</span>
+                  </div>
+                  <div className="px-4 py-3 flex items-start gap-2">
+                    <ArrowRight size={14} className="text-[#7B3FBF] flex-shrink-0 mt-0.5" />
+                    <span className="text-sm text-[#F8FAFC]/75 leading-relaxed">{obj.answer}</span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </section>
+
+          {/* Section 6: CRM */}
+          <section id="crm" className="scroll-mt-24">
+            <SectionHeader num="6" icon={ClipboardList} title="CRM и карточка кандидата" accent="purple" />
+            <div className="space-y-4 mt-4">
+              <div className="bg-[rgba(123,63,191,0.1)] border border-[rgba(123,63,191,0.25)] rounded-lg px-4 py-3 text-xs space-y-1">
+                <div className="font-bold text-[#7B3FBF] mb-2">Доступ к CRM</div>
+                <div>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="text-[#7B3FBF] underline">bratouverie-snb.base44.app/agency-login</a></div>
+                <div>📧 <a href="mailto:partner@bratouverie-snb.ru" className="text-[#C9A84C]">partner@bratouverie-snb.ru</a></div>
+                <div>📞 +7 (4212) 51-59-30 доб. 702</div>
+              </div>
+
+              <Step num="1" title="Нажмите «Добавить кандидата»">
+                Кнопка в правом верхнем углу рабочей области агентства.
+              </Step>
+              <Step num="2" title="Заполните минимальные данные">
+                <div className="space-y-1 mt-1">
+                  <div>• <strong className="text-[#F8FAFC]">ФИО полностью</strong> (как в паспорте)</div>
+                  <div>• <strong className="text-[#C9A84C]">Дата рождения</strong> — критична для стоп-листа</div>
+                  <div>• Телефон</div>
+                  <div>• Должность / специализация</div>
+                  <div>• Город проживания</div>
+                </div>
+              </Step>
+              <Step num="3" title="Стоп-лист проверяет дубли">
+                CRM автоматически ищет совпадения по ФИО + дата рождения. Если кандидат уже есть от другого агентства — сохранение блокируется.
+              </Step>
+              <Step num="4" title="Скопируйте ссылку на анкету">
+                В строке кандидата найдите колонку «Анкета» → нажмите иконку 📋. Ссылка скопируется в буфер. Отправьте кандидату в WhatsApp/Telegram.
+              </Step>
+              <Step num="5" title="Контролируйте статус">
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  <span className="text-xs px-2 py-1 rounded bg-[#C9A84C]/10 text-[#C9A84C] border border-[#C9A84C]/20">Ожидает</span>
+                  <span className="text-xs">— ссылка отправлена, анкета не заполнена</span>
+                </div>
+                <div className="flex gap-2 mt-1 flex-wrap">
+                  <span className="text-xs px-2 py-1 rounded bg-green-500/15 text-green-400 border border-green-500/25">✓ Заполнена</span>
+                  <span className="text-xs">— данные получены, передавайте на СБ</span>
+                </div>
+              </Step>
+              <Step num="6" title="Передайте на СБ">
+                Когда анкета заполнена — данные автоматически обновляются в карточке. Напишите координатору: <br />
+                <span className="bg-[#0D1B3E] rounded px-2 py-1 text-xs text-[#F8FAFC]/70 italic inline-block mt-1">[Агентство] — Заявка — [ФИО] — [категория] — [кол-во]</span>
+              </Step>
+            </div>
+          </section>
+
+          {/* Section 7: Follow-up */}
+          <section id="followup" className="scroll-mt-24">
+            <SectionHeader num="7" icon={Send} title="Follow-up — что писать кандидату" accent="gold" />
+            <p className="text-xs text-[#F8FAFC]/45 mt-2 mb-4">Готовые сообщения для WhatsApp/Telegram. Кнопка 📋 копирует текст.</p>
+            <div className="space-y-4">
+              {FOLLOWUPS.map((f, i) => (
+                <CopyBlock key={i} title={f.title} text={f.text} />
+              ))}
+            </div>
+          </section>
+
+          {/* Section 8: Контакты */}
+          <section id="contacts" className="scroll-mt-24">
+            <SectionHeader num="8" icon={Phone} title="Контакты и поддержка" accent="purple" />
+            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+              {CONTACTS.map(c => (
+                <div key={c.title} className="glass-card rounded-xl p-4">
+                  <div className="flex items-center gap-2 mb-2">
+                    <span className="text-lg">{c.icon}</span>
+                    <span className="font-bold text-[#F8FAFC] text-sm">{c.title}</span>
+                  </div>
+                  <div className="space-y-1 text-xs">
+                    {c.phone && <div className="text-[#C9A84C] font-bold">{c.phone}</div>}
+                    {c.email && <div className="text-[#7B3FBF]">{c.email}</div>}
+                    {c.hours && <div className="text-[#F8FAFC]/45">{c.hours}</div>}
+                    <div className="text-[#F8FAFC]/60 pt-1">{c.desc}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+            <div className="glass-card rounded-xl p-4 mt-3">
+              <div className="text-xs font-bold text-[#F8FAFC] uppercase tracking-widest mb-3">Email и мессенджеры</div>
+              <div className="grid sm:grid-cols-2 gap-2 text-xs">
+                <div className="flex items-center gap-2"><Mail size={13} className="text-[#C9A84C]" /> <a href="mailto:partner@bratouverie-snb.ru" className="text-[#F8FAFC]/70 hover:text-[#C9A84C]">partner@bratouverie-snb.ru</a></div>
+                <div className="flex items-center gap-2"><Mail size={13} className="text-[#C9A84C]" /> <a href="mailto:hh@vosstanovim-dnr.ru" className="text-[#F8FAFC]/70 hover:text-[#C9A84C]">hh@vosstanovim-dnr.ru</a></div>
+                <div className="flex items-center gap-2"><Mail size={13} className="text-[#C9A84C]" /> <a href="mailto:support@bratouverie-snb.ru" className="text-[#F8FAFC]/70 hover:text-[#C9A84C]">support@bratouverie-snb.ru</a></div>
+                <div className="flex items-center gap-2"><Phone size={13} className="text-[#7B3FBF]" /> <span className="text-[#F8FAFC]/70">WhatsApp: +7 (4212) 51-59-30</span></div>
+              </div>
+            </div>
+          </section>
+
+          {/* Section 9: Отзывы */}
+          <section id="reviews" className="scroll-mt-24">
+            <SectionHeader num="9" icon={Star} title="Реальные отзывы — кейсы для убеждения" accent="gold" />
+            <div className="grid sm:grid-cols-2 gap-3 mt-4">
+              {REVIEWS.map(r => (
+                <div key={r.name} className="glass-card rounded-xl p-4">
+                  <div className="flex items-start justify-between gap-2 mb-2">
+                    <div>
+                      <div className="font-bold text-[#F8FAFC] text-sm">{r.name}</div>
+                      <div className="text-xs text-[#F8FAFC]/45">{r.role}</div>
+                    </div>
+                    <div className="text-right">
+                      <div className="text-sm font-black text-[#C9A84C]">{r.earned}</div>
+                    </div>
+                  </div>
+                  <p className="text-xs text-[#F8FAFC]/65 leading-relaxed italic">«{r.story}»</p>
+                </div>
+              ))}
+            </div>
+            <div className="bg-[rgba(201,168,76,0.08)] border border-[rgba(201,168,76,0.2)] rounded-lg px-4 py-3 mt-3">
+              <div className="text-xs text-[#C9A84C]/80 flex items-center gap-2">
+                <Award size={13} /> Используйте эти истории в скрипте: «Я говорил с Максимом, фельдшер из Питера, заработал 1.4 млн...»
+              </div>
+            </div>
+          </section>
+
+          {/* Section 10: FAQ */}
+          <section id="faq" className="scroll-mt-24">
+            <SectionHeader num="10" icon={HelpCircle} title="FAQ — 10 главных вопросов" accent="purple" />
+            <div className="space-y-2 mt-4">
+              {FAQ.map((item, i) => (
+                <details key={i} className="group bg-[rgba(255,255,255,0.02)] border border-[rgba(123,63,191,0.15)] rounded-lg overflow-hidden">
+                  <summary className="flex items-center gap-3 px-4 py-3 cursor-pointer list-none">
+                    <span className="text-xs font-mono text-[#7B3FBF]/60 flex-shrink-0">{String(i + 1).padStart(2, '0')}</span>
+                    <span className="text-sm font-bold text-[#C9A84C] flex-1">{item.q}</span>
+                    <ChevronUp size={14} className="text-[#F8FAFC]/30 group-open:rotate-180 transition-transform" />
+                  </summary>
+                  <div className="px-4 pb-3 pl-10 text-sm text-[#F8FAFC]/70">{item.a}</div>
+                </details>
+              ))}
+            </div>
+          </section>
+
+          {/* Section 11: Чеклист */}
+          <section id="checklist" className="scroll-mt-24">
+            <SectionHeader num="11" icon={CheckSquare} title="Чеклист — готов ли кандидат?" accent="green" />
+            <p className="text-xs text-[#F8FAFC]/45 mt-2 mb-4">Отметьте всё, прежде чем передавать кандидата на СБ.</p>
+            <Checklist />
+          </section>
+
+          {/* Footer */}
+          <div className="glass-card rounded-xl px-5 py-4 text-xs text-[#F8FAFC]/40 flex flex-wrap gap-x-6 gap-y-2 pt-4">
+            <span>ООО «Братоуверие-СНБ» · ОГРН 1262500006966</span>
+            <span>📧 <a href="mailto:partner@bratouverie-snb.ru" className="hover:text-[#C9A84C] transition-colors">partner@bratouverie-snb.ru</a></span>
+            <span>📞 +7 (4212) 51-59-30 доб. 702</span>
+            <span>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="hover:text-[#7B3FBF] transition-colors">Войти в CRM</a></span>
+          </div>
+        </main>
+      </div>
+
+      {/* Back to top */}
+      {showTop && (
+        <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 p-3 rounded-full bg-[#7B3FBF] text-white shadow-lg hover:bg-[#8B4FCF] transition-all z-50 glow-purple">
+          <ChevronUp size={20} />
+        </button>
+      )}
+    </div>
+  );
+}
+
+function SectionHeader({ num, icon: Icon, title, accent }) {
   const colors = {
-    purple: 'text-[#7B3FBF] border-[rgba(123,63,191,0.3)] bg-[rgba(123,63,191,0.06)]',
-    gold: 'text-[#C9A84C] border-[rgba(201,168,76,0.3)] bg-[rgba(201,168,76,0.06)]',
-    green: 'text-green-400 border-green-500/30 bg-green-500/06',
-    red: 'text-red-400 border-red-500/30 bg-red-500/06',
+    purple: 'text-[#7B3FBF] border-[rgba(123,63,191,0.3)]',
+    gold: 'text-[#C9A84C] border-[rgba(201,168,76,0.3)]',
+    green: 'text-green-400 border-green-500/30',
   };
   return (
-    <div className={`rounded-xl border overflow-hidden ${colors[accent]}`}>
-      <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center gap-3 px-5 py-4 text-left">
-        {Icon && <Icon size={16} className="flex-shrink-0" />}
-        <span className="font-bold text-[#F8FAFC] text-sm flex-1">{title}</span>
-        {open ? <ChevronUp size={15} className="text-[#F8FAFC]/40" /> : <ChevronDown size={15} className="text-[#F8FAFC]/40" />}
-      </button>
-      {open && <div className="px-5 pb-5 pt-1 space-y-3 text-sm text-[#F8FAFC]/75 leading-relaxed">{children}</div>}
+    <div className="flex items-center gap-3">
+      <div className={`flex items-center gap-2 px-3 py-1.5 rounded-lg border ${colors[accent]}`}>
+        <span className="text-xs font-mono font-black">{num}</span>
+        <Icon size={15} />
+      </div>
+      <h2 className="text-lg font-black text-[#F8FAFC]">{title}</h2>
+    </div>
+  );
+}
+
+function StatCard({ icon: Icon, value, label, color }) {
+  const colors = {
+    purple: 'text-[#7B3FBF]',
+    gold: 'text-[#C9A84C]',
+    green: 'text-green-400',
+  };
+  return (
+    <div className="glass-card rounded-xl p-4 text-center">
+      <Icon size={18} className={`${colors[color]} mx-auto mb-2`} />
+      <div className={`text-2xl font-black ${colors[color]}`}>{value}</div>
+      <div className="text-xs text-[#F8FAFC]/45 mt-1">{label}</div>
+    </div>
+  );
+}
+
+function ScriptPart({ label, text }) {
+  return (
+    <div>
+      <div className="text-xs font-bold text-[#C9A84C] uppercase tracking-widest mb-2">{label}</div>
+      <CopyBlock text={text} />
     </div>
   );
 }
 
 function Step({ num, title, children }) {
   return (
-    <div className="flex gap-4">
+    <div className="flex gap-3">
       <div className="flex-shrink-0 w-7 h-7 rounded-full bg-[#7B3FBF]/20 border border-[#7B3FBF]/40 flex items-center justify-center text-xs font-black text-[#7B3FBF]">{num}</div>
-      <div className="flex-1 pb-4 border-b border-[rgba(255,255,255,0.06)] last:border-0">
-        <div className="font-bold text-[#F8FAFC] mb-1">{title}</div>
+      <div className="flex-1 pb-3 border-b border-[rgba(255,255,255,0.06)] last:border-0">
+        <div className="font-bold text-[#F8FAFC] mb-1 text-sm">{title}</div>
         <div className="text-sm text-[#F8FAFC]/65 leading-relaxed">{children}</div>
       </div>
     </div>
   );
 }
 
-function Check({ children }) {
+function Checklist() {
+  const items = [
+    'ФИО полностью (как в паспорте)',
+    'Дата рождения',
+    'Гражданство (РФ / СНГ — индивидуально)',
+    'Телефон + WhatsApp/Telegram',
+    'Должность определена из списка актуальных',
+    'Город проживания',
+    'Мотивация выявлена (деньги / опыт / переезд)',
+    'Опыт работы записан',
+    'Судимость: нет / обсуждается',
+    'Воинский учёт: в порядке',
+    'Возраст: 19–60 (61–64 — исключения)',
+    'Антивозражения отработаны',
+    'Согласие на анкету получено',
+    'Ссылка на анкету отправлена',
+  ];
+  const [checked, setChecked] = useState(new Set());
+  const toggle = (i) => {
+    setChecked(prev => {
+      const next = new Set(prev);
+      next.has(i) ? next.delete(i) : next.add(i);
+      return next;
+    });
+  };
   return (
-    <div className="flex items-start gap-2">
-      <CheckSquare size={14} className="text-green-400 flex-shrink-0 mt-0.5" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-function Warn({ children }) {
-  return (
-    <div className="flex items-start gap-2 text-red-300/80">
-      <AlertTriangle size={14} className="text-red-400 flex-shrink-0 mt-0.5" />
-      <span>{children}</span>
-    </div>
-  );
-}
-
-const CATEGORIES = [
-  { icon: '🏗️', title: 'Строители', items: ['Разряд от 3-го', 'Специализация: общестрой / отделка / сантехника / электрика / кровля / монолит', 'Допуски: электробезопасность, высота, газ', 'Опыт на высоте свыше 1,8 м'] },
-  { icon: '🔧', title: 'Разнорабочие', items: ['Опыт на стройке (мин. 3–6 мес.)', 'Готовность к физической нагрузке (до 25 кг)', 'Медкнижка (для пищевых)', 'Опыт вахты'] },
-  { icon: '🚗', title: 'Водители', items: ['Категория: B / BC / CE / CD', 'Опыт вождения (лет)', 'Тип техники: легковой / грузовой / самосвал / фура / спецтехника', 'ДТП за 3 года, карта тахографа (C,D,CE)'] },
-  { icon: '🔩', title: 'Автослесари', items: ['Профиль: легковые / грузовые / спецтехника', 'Диагностика электрики, гидравлика, АКПП', 'Свой инструмент'] },
-  { icon: '🛡️', title: 'Охранники', items: ['Удостоверение ЧОП (разряд)', 'Специфика: пост / досмотр / видео / СКУД', 'Ночные смены, режимные объекты'] },
-  { icon: '📡', title: 'Инженеры связи', items: ['Профиль: оптоволокно / радиосвязь / IT-сети', 'Группа допуска по электробезопасности', 'Cisco, Huawei, Mikrotik'] },
-  { icon: '🚁', title: 'Операторы БПЛА', items: ['Лицензия пилота (обязательно)', 'Тип дронов, опыт применения', 'Работа в условиях ограниченной связи'] },
-  { icon: '💣', title: 'Взрывотехники', items: ['Допуск группы А (обязательно)', 'Профиль: промышленный / военный / горный', 'Опыт работы с ВВ (лет)'] },
-  { icon: '🩺', title: 'Медработники', items: ['Специализация: фельдшер / медсестра / врач', 'Действующий сертификат (обязательно)', 'Опыт полевой работы'] },
-];
-
-const FAQ = [
-  { q: 'Это легально?', a: 'Да. Постановление Правительства РФ №2255. Официальное трудоустройство по ТК РФ.' },
-  { q: 'Когда придут 2,5 миллиона?', a: 'Первая часть — первая рабочая неделя, вторая — вторая рабочая неделя, на банковскую карту.' },
-  { q: 'Нас не мобилизуют?', a: 'Официального освобождения нет, но на уровне командования действует запрет на мобилизацию сотрудников программы.' },
-  { q: 'Можно с семьёй?', a: 'Нет. Проживание рассчитано на одного человека. Это вахта, не переезд на ПМЖ.' },
-  { q: 'Какой график работы?', a: 'Вахтовый метод, контракт от 3 месяцев. График фиксируется в трудовом договоре.' },
-  { q: 'Сколько человек в комнате?', a: 'Условия проживания — на vosstanovim-dnr.ru' },
-  { q: 'Компенсация проезда?', a: 'Кандидат едет самостоятельно, билеты сохраняет — компенсация поступает после трудоустройства.' },
-];
-
-const ERRORS = [
-  ['Незнание условий программы', 'Выучить Разделы 1–2 наизусть'],
-  ['Обещание того, чего нет', 'Говорить только то, что есть в программе'],
-  ['Непроверка документов', 'Использовать чеклист перед подачей'],
-  ['Пропуск дублей', 'Всегда проверять через CRM перед подачей'],
-  ['Потеря контакта с кандидатом', 'Фиксировать WhatsApp/Telegram, дублировать напоминания'],
-  ['Отправка без готовых документов', 'Перезвонить за 1–2 дня, проверить наличие'],
-  ['Обсуждение политики', '«Мы работаем с государственной программой» — и всё'],
-];
-
-export default function ManagerHandbook() {
-  return (
-    <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
-      {/* Header */}
-      <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-4xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
-            <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" className="w-7 h-7 object-contain" alt="logo" />
-            <span className="text-[rgba(123,63,191,0.4)]">/</span>
-            <div className="flex items-center gap-2">
-              <BookOpen size={14} className="text-[#7B3FBF]" />
-              <span className="text-sm font-bold text-[#F8FAFC]">Руководство менеджера</span>
+    <div className="glass-card rounded-xl p-4">
+      <div className="grid sm:grid-cols-2 gap-2">
+        {items.map((item, i) => (
+          <button key={i} onClick={() => toggle(i)}
+            className="flex items-center gap-2.5 text-left text-xs p-2 rounded-lg hover:bg-white/5 transition-all">
+            <div className={`w-4 h-4 rounded border flex items-center justify-center flex-shrink-0 transition-all ${checked.has(i) ? 'bg-green-500 border-green-500' : 'border-[rgba(255,255,255,0.2)]'}`}>
+              {checked.has(i) && <Check size={11} className="text-white" />}
             </div>
-            <span className="text-xs px-2.5 py-1 rounded bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/25">v15.06.2026</span>
-          </div>
-          <a href="/agency/workspace" className="text-xs text-[#F8FAFC]/40 hover:text-[#7B3FBF] transition-colors">← Назад в рабочую область</a>
-        </div>
+            <span className={checked.has(i) ? 'text-[#F8FAFC]/40 line-through' : 'text-[#F8FAFC]/70'}>{item}</span>
+          </button>
+        ))}
       </div>
-
-      <div className="max-w-4xl mx-auto px-6 py-8 space-y-6">
-
-        {/* Hero */}
-        <div className="glass-card-gold rounded-2xl px-6 py-5">
-          <h1 className="text-xl font-black text-[#F8FAFC] mb-1">Полное руководство по работе с кандидатами</h1>
-          <p className="text-sm text-[#F8FAFC]/55">Для менеджеров кадровых агентств — партнёров ООО «Братоуверие-СНБ» · Программа восстановления ЛНР и ДНР</p>
-          <div className="mt-4 grid grid-cols-3 gap-3">
-            {[
-              { label: 'Зарплата', value: '300 000–470 000 ₽/мес' },
-              { label: 'Единовременно', value: '2 500 000 ₽' },
-              { label: 'Вахта', value: 'от 3 месяцев' },
-            ].map(s => (
-              <div key={s.label} className="bg-[rgba(201,168,76,0.08)] border border-[rgba(201,168,76,0.15)] rounded-lg px-3 py-2.5">
-                <div className="text-xs text-[#F8FAFC]/35 mb-0.5">{s.label}</div>
-                <div className="text-sm font-black text-[#C9A84C]">{s.value}</div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Раздел 1: CRM */}
-        <Section icon={ClipboardList} title="Раздел 1. CRM-система — доступ и работа" defaultOpen={true} accent="purple">
-          <div className="space-y-3">
-            <p>CRM — единая база данных программы. Агентства вносят кандидатов, отслеживают статусы и получают вознаграждение. Система автоматически проверяет дубли и защищает интересы агентств.</p>
-
-            <div className="bg-[rgba(123,63,191,0.1)] border border-[rgba(123,63,191,0.25)] rounded-lg px-4 py-3 text-xs space-y-1">
-              <div className="font-bold text-[#7B3FBF] mb-2">Доступ к CRM</div>
-              <div>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="text-[#7B3FBF] underline">bratouverie-snb.base44.app/agency-login</a></div>
-              <div>📧 Вопросы: <a href="mailto:partner@bratouverie-snb.ru" className="text-[#C9A84C]">partner@bratouverie-snb.ru</a></div>
-              <div>📞 <span className="text-[#F8FAFC]/60">+7 (4212) 51-59-30 доб. 702</span></div>
-            </div>
-
-            <div className="font-bold text-[#F8FAFC] text-xs uppercase tracking-widest mt-4 mb-2">Что видит агентство в CRM</div>
-            <div className="grid grid-cols-2 gap-2 text-xs">
-              {['Все свои кандидаты с актуальными статусами','Статус проверки СБ и медкомиссии','Даты прибытия и пункты сбора','Сведения о выплатах','Онлайн-анкеты кандидатов','Архив выбывших кандидатов'].map(item => (
-                <Check key={item}>{item}</Check>
-              ))}
-            </div>
-
-            <div className="bg-red-500/8 border border-red-500/25 rounded-lg px-4 py-3 mt-3">
-              <div className="font-bold text-red-400 text-xs uppercase tracking-widest mb-2">⚠ Стоп-лист — автоматическая проверка дублей</div>
-              <p className="text-xs text-[#F8FAFC]/65 mb-2">При создании карточки CRM сразу проверяет кандидата по ФИО + дата рождения. Если кандидат уже есть в базе от другого агентства — система выдаёт предупреждение и блокирует сохранение. Вознаграждение по дублям не начисляется.</p>
-              <div className="space-y-1">
-                <Check>Проверил кандидата по ФИО — нет совпадений</Check>
-                <Check>Проверил по дате рождения — нет совпадений</Check>
-                <Check>При сомнении — сообщил координатору</Check>
-              </div>
-            </div>
-          </div>
-        </Section>
-
-        {/* Раздел 2: Полный цикл */}
-        <Section icon={Zap} title="Раздел 2. Полный цикл работы с кандидатом" defaultOpen={true} accent="gold">
-          <div className="mb-4 flex flex-wrap gap-2 text-xs">
-            {['1. Отклик','2. Интервью','3. Карточка в CRM','4. Анкета → кандидату','5. Контроль заполнения','6. Проверка СБ','7. Медкомиссия','8. Оформление'].map((s, i) => (
-              <div key={i} className="flex items-center gap-1">
-                <span className="px-2 py-1 rounded bg-[rgba(201,168,76,0.12)] border border-[rgba(201,168,76,0.2)] text-[#C9A84C]">{s}</span>
-                {i < 7 && <ArrowRight size={11} className="text-[#F8FAFC]/25" />}
-              </div>
-            ))}
-          </div>
-
-          <Step num="1" title="Отклик кандидата">
-            Зафиксировать контакт: ФИО, телефон, город. Назначить дату интервью. Внести в рабочую таблицу агентства до интервью.
-          </Step>
-
-          <Step num="2" title="Телефонное интервью (10–15 мин)">
-            <div className="space-y-2">
-              <div><span className="text-[#C9A84C] font-bold">0:00–1:00</span> Знакомство. «Добрый день! Меня зовут [Имя], менеджер [Агентство]. Мы сотрудничаем с государственной программой восстановления ЛНР и ДНР…»</div>
-              <div><span className="text-[#C9A84C] font-bold">1:00–2:30</span> ФИО полностью, возраст, гражданство, дата рождения.</div>
-              <div><span className="text-[#C9A84C] font-bold">2:30–5:00</span> Специализация, опыт, разряды, квалификация.</div>
-              <div><span className="text-[#C9A84C] font-bold">5:00–8:00</span> Мотивация. <span className="text-green-400">✓ Доход, вахта, переезд</span> — <span className="text-red-400">✗ «мне всё равно», «без проверок»</span></div>
-              <div><span className="text-[#C9A84C] font-bold">8:00–10:00</span> Условия: Мариуполь/Макеевка/Луганск/Алчевск, 300–470 тыс/мес + 2,5 млн, ТК РФ, проживание и питание бесплатно, проезд компенсируется.</div>
-              <div><span className="text-[#C9A84C] font-bold">10:00–12:00</span> Ограничения: здоровье, семья, судимость, воинский учёт, документы.</div>
-              <div><span className="text-[#C9A84C] font-bold">12:00–15:00</span> «Внесу в CRM, вы получите анкету, после проверки — дата медкомиссии, потом оформление и отправка.»</div>
-            </div>
-          </Step>
-
-          <Step num="3" title="Создание карточки в CRM (в течение 1 часа после интервью)">
-            <div className="space-y-2">
-              <p className="text-[#F8FAFC]/80">Нажмите <strong className="text-[#7B3FBF]">«Добавить кандидата»</strong> и заполните минимальный набор данных:</p>
-              <div className="bg-[rgba(123,63,191,0.08)] border border-[rgba(123,63,191,0.2)] rounded-lg p-3 text-xs space-y-1">
-                <Check>ФИО (полностью)</Check>
-                <Check>Дата рождения — <span className="text-[#C9A84C]">важна для стоп-листа</span></Check>
-                <Check>Телефон</Check>
-                <Check>Должность / специализация</Check>
-                <Check>Город проживания</Check>
-              </div>
-              <p className="text-xs text-[#F8FAFC]/50">Остальные данные кандидат заполнит сам в онлайн-анкете.</p>
-            </div>
-          </Step>
-
-          <Step num="4" title="Отправка ссылки на анкету кандидату">
-            <div className="space-y-2">
-              <p>После создания карточки система автоматически формирует уникальную ссылку на онлайн-анкету. Скопируйте её и отправьте кандидату в WhatsApp/Telegram.</p>
-              <div className="bg-[rgba(123,63,191,0.08)] border border-[rgba(123,63,191,0.2)] rounded-lg p-3 text-xs space-y-1.5">
-                <div className="font-bold text-[#7B3FBF] mb-1">Как скопировать ссылку:</div>
-                <div>1. В строке кандидата найдите колонку <strong>«Анкета»</strong></div>
-                <div>2. Нажмите иконку <strong>📋 (копировать)</strong> — ссылка скопируется в буфер</div>
-                <div>3. Отправьте кандидату в мессенджере с пояснением:</div>
-                <div className="bg-[#0D1B3E] rounded p-2 text-[#F8FAFC]/70 italic mt-1">«Добрый день! Вот ваша личная анкета для участия в программе. Пожалуйста, заполните все поля и загрузите документы. Это займёт около 15 минут. [ссылка]»</div>
-              </div>
-            </div>
-          </Step>
-
-          <Step num="5" title="Контроль заполнения анкеты">
-            <div className="space-y-2">
-              <p>В таблице CRM статус анкеты отображается в колонке <strong>«Анкета»</strong>:</p>
-              <div className="grid grid-cols-2 gap-2 text-xs">
-                <div className="flex items-center gap-2 bg-[#C9A84C]/10 border border-[#C9A84C]/20 rounded px-3 py-2">
-                  <span className="text-[#C9A84C] font-bold">Ожидает</span> — ссылка отправлена, анкета не заполнена
-                </div>
-                <div className="flex items-center gap-2 bg-green-500/10 border border-green-500/20 rounded px-3 py-2">
-                  <span className="text-green-400 font-bold">✓ Заполнена</span> — все данные получены, можно передавать
-                </div>
-              </div>
-              <p className="text-xs text-[#F8FAFC]/50">Если кандидат не заполнил анкету в течение 2 дней — напомните ему лично.</p>
-            </div>
-          </Step>
-
-          <Step num="6" title="После заполнения анкеты — передача на проверку СБ">
-            <div className="space-y-2">
-              <p>Когда статус анкеты <span className="text-green-400 font-bold">«✓ Заполнена»</span> — все персональные данные кандидата автоматически обновляются в его карточке. Дополнительно переносить данные вручную не нужно.</p>
-              <p>Сообщите координатору о готовности кандидата по теме письма:</p>
-              <div className="bg-[#0D1B3E] rounded px-3 py-2 text-xs text-[#F8FAFC]/70 italic">
-                [Название агентства] — Заявка — [ФИО] — [категория] — [кол-во]
-              </div>
-              <p className="text-xs text-[#F8FAFC]/50">Координатор проводит проверку СБ и назначает пункт сбора — статусы обновятся в CRM.</p>
-            </div>
-          </Step>
-
-          <Step num="7" title="Медкомиссия">
-            Координатор назначает дату и место. После прохождения — связаться с кандидатом, уточнить результат. Если не прошёл — сообщить координатору. Статус в CRM обновляется администратором.
-          </Step>
-
-          <Step num="8" title="Оформление и отправка на объект">
-            Координатор подтверждает оформление → сообщить кандидату дату и место (база в г. Макеевка, ДНР). Проезд компенсируется после трудоустройства — билеты сохранить. Отметить статус в CRM.
-          </Step>
-        </Section>
-
-        {/* Раздел 3: Вопросы по категориям */}
-        <Section icon={Users} title="Раздел 3. Дополнительные вопросы по категориям" accent="purple">
-          <div className="grid sm:grid-cols-2 gap-3">
-            {CATEGORIES.map(cat => (
-              <div key={cat.title} className="bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.15)] rounded-lg p-3">
-                <div className="font-bold text-[#F8FAFC] text-sm mb-2">{cat.icon} {cat.title}</div>
-                <ul className="space-y-1">
-                  {cat.items.map(item => (
-                    <li key={item} className="text-xs text-[#F8FAFC]/60 flex items-start gap-1.5">
-                      <span className="text-[#7B3FBF] mt-0.5">·</span>{item}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Раздел 4: Типичные ошибки */}
-        <Section icon={XCircle} title="Раздел 4. Типичные ошибки менеджера" accent="red">
-          <div className="space-y-2">
-            {ERRORS.map(([err, fix]) => (
-              <div key={err} className="flex gap-3 text-xs p-3 bg-[rgba(255,255,255,0.02)] border border-[rgba(255,255,255,0.06)] rounded-lg">
-                <Warn>{err}</Warn>
-                <ArrowRight size={12} className="text-[#F8FAFC]/25 flex-shrink-0 mt-0.5" />
-                <span className="text-green-400/80">{fix}</span>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Раздел 5: FAQ */}
-        <Section icon={HelpCircle} title="Раздел 5. Ответы на вопросы кандидатов" accent="gold">
-          <div className="space-y-3">
-            {FAQ.map(({ q, a }) => (
-              <div key={q} className="border-b border-[rgba(255,255,255,0.06)] pb-3 last:border-0">
-                <div className="font-bold text-[#C9A84C] text-sm mb-1">В: {q}</div>
-                <div className="text-sm text-[#F8FAFC]/70">О: {a}</div>
-              </div>
-            ))}
-          </div>
-        </Section>
-
-        {/* Раздел 6: Скрипт */}
-        <Section icon={MessageSquare} title="Раздел 6. Скрипт звонка — шаблон" accent="purple">
-          <div className="space-y-3 text-sm">
-            <div className="bg-[rgba(123,63,191,0.08)] border border-[rgba(123,63,191,0.2)] rounded-lg p-4 italic text-[#F8FAFC]/75 leading-relaxed">
-              «Добрый день! Меня зовут [Имя], менеджер по подбору персонала [название агентства]. Мы сотрудничаем с государственной программой восстановления ЛНР и ДНР — строительство и восстановление инфраструктуры на освобождённых территориях. У нас есть вакансии для [категория специалиста]. Можно уделить вам 10–15 минут?»
-            </div>
-            <div className="bg-[rgba(123,63,191,0.08)] border border-[rgba(123,63,191,0.2)] rounded-lg p-4 italic text-[#F8FAFC]/75 leading-relaxed">
-              «Что дальше: внесу ваши данные в CRM, вы получите персональную анкету по ссылке, заполнить за 15 минут, после проверки назначим дату медкомиссии, медкомиссия один день, после неё — оформление и отправка на объект.»
-            </div>
-          </div>
-        </Section>
-
-        {/* Footer */}
-        <div className="glass-card rounded-xl px-5 py-4 text-xs text-[#F8FAFC]/40 flex flex-wrap gap-x-6 gap-y-2">
-          <span>ООО «Братоуверие-СНБ» · ОГРН 1262500006966 · ИНН 2511135442</span>
-          <span>📧 <a href="mailto:partner@bratouverie-snb.ru" className="hover:text-[#C9A84C] transition-colors">partner@bratouverie-snb.ru</a></span>
-          <span>📞 +7 (4212) 51-59-30 доб. 702</span>
-          <span>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="hover:text-[#7B3FBF] transition-colors">Войти в CRM</a></span>
-        </div>
+      <div className="mt-3 pt-3 border-t border-[rgba(255,255,255,0.06)] text-xs text-center">
+        <span className="text-[#C9A84C] font-bold">{checked.size}</span>
+        <span className="text-[#F8FAFC]/40"> / {items.length} — готовность кандидата</span>
+        {checked.size === items.length && <span className="text-green-400 font-bold ml-2">✓ Можно передавать на СБ!</span>}
       </div>
     </div>
   );
