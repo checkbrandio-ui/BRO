@@ -10,6 +10,7 @@ import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
+import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import { useToast } from '@/components/ui/use-toast';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -48,6 +49,8 @@ export default function Candidates() {
   const [searchParams] = useSearchParams();
   const [animatingId, setAnimatingId] = useState(null);
   const [linkModalCandidate, setLinkModalCandidate] = useState(null);
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -88,6 +91,7 @@ export default function Candidates() {
     setAgencies(activeAg);
     setCityCache(cityMap);
     setLoading(false);
+    setSelectedIds(new Set());
   }, []);
 
   useEffect(() => {
@@ -193,6 +197,10 @@ export default function Candidates() {
   const filteredArchived = applyFilters(archived);
   const displayed = showArchive ? filteredArchived : filteredActive;
 
+  const selectedCandidates = candidates.filter(c => selectedIds.has(c.id));
+  const missingFormsCount = selectedCandidates.filter(c => !c.form_token).length;
+  const isAllDisplayedSelected = !showArchive && displayed.length > 0 && displayed.every(c => selectedIds.has(c.id));
+
   const handleAutoAssembly = async (c) => {
     if (!c.city) { alert('У кандидата не указан город проживания'); return; }
     setAnimatingId(c.id);
@@ -271,6 +279,97 @@ export default function Candidates() {
     } catch (e) {
       const { dismiss } = toast({ title: 'Ошибка отправки', description: 'Не удалось отправить письмо. Попробуйте скопировать ссылку.', variant: 'destructive' });
       setTimeout(dismiss, 5000);
+    }
+  };
+
+  // ─── Bulk Actions ───
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const allSelected = displayed.length > 0 && displayed.every(c => prev.has(c.id));
+      if (allSelected) {
+        const next = new Set(prev);
+        displayed.forEach(c => next.delete(c.id));
+        return next;
+      }
+      const next = new Set(prev);
+      displayed.forEach(c => next.add(c.id));
+      return next;
+    });
+  };
+
+  const handleBulkStatus = async (field, value) => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const updates = ids.map(id => ({ id, [field]: value }));
+      await base44.entities.Candidate.bulkUpdate(updates);
+      await Promise.all(ids.map(id => {
+        const old = candidates.find(c => c.id === id);
+        return logCandidateAction({ action: 'update', candidate: { ...old, [field]: value }, oldData: old, actor: getActor() });
+      }));
+      setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, [field]: value } : c));
+      const labels = { sb_check: 'СБ', medical_check: 'Медкомиссия', payment_basis: 'Выплата', payment_made: 'Выплачено' };
+      const { dismiss } = toast({ title: `✓ Обновлено: ${ids.length} чел.`, description: `${labels[field]} → ${value}` });
+      setTimeout(dismiss, 3500);
+      setSelectedIds(new Set());
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка массового обновления', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkCopyLinks = () => {
+    const selected = candidates.filter(c => selectedIds.has(c.id));
+    const withToken = selected.filter(c => c.form_token);
+    const without = selected.length - withToken.length;
+    if (!withToken.length) {
+      const { dismiss } = toast({ title: 'Нет ссылок', description: 'У выбранных кандидатов нет анкет. Нажмите «Создать анкеты».', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+      return;
+    }
+    const lines = withToken.map((c, i) =>
+      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/form/${c.form_token}`
+    );
+    const text = `📋 Подборка кандидатов (${withToken.length} чел.):\n\n${lines.join('\n\n')}`;
+    navigator.clipboard.writeText(text);
+    const msg = without > 0 ? `Скопировано ${withToken.length}, без анкеты: ${without}` : `Скопировано ${withToken.length} ссылок`;
+    const { dismiss } = toast({ title: '✓ ' + msg });
+    setTimeout(dismiss, 3500);
+  };
+
+  const handleBulkGenerateForms = async () => {
+    const selected = candidates.filter(c => selectedIds.has(c.id) && !c.form_token);
+    if (!selected.length) return;
+    setBulkBusy(true);
+    try {
+      const updates = await Promise.all(selected.map(async c => {
+        const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+        await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
+        await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+        return { id: c.id, form_token: token, form_status: 'pending' };
+      }));
+      setCandidates(prev => prev.map(c => {
+        const u = updates.find(u => u.id === c.id);
+        return u ? { ...c, ...u } : c;
+      }));
+      const { dismiss } = toast({ title: `✓ Создано ${updates.length} анкет`, description: 'Теперь можно копировать ссылки' });
+      setTimeout(dismiss, 3500);
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка создания анкет', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    } finally {
+      setBulkBusy(false);
     }
   };
 
@@ -424,6 +523,19 @@ export default function Candidates() {
           {showArchive ? `Архив: ${filteredArchived.length} из ${archived.length}` : `Показано: ${filteredActive.length} из ${active.length}`}
         </div>
 
+        {!showArchive && (
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            onClear={() => setSelectedIds(new Set())}
+            onApplyStatus={handleBulkStatus}
+            onCopyLinks={handleBulkCopyLinks}
+            onGenerateForms={handleBulkGenerateForms}
+            busy={bulkBusy}
+            canEditStatuses={true}
+            missingFormsCount={missingFormsCount}
+          />
+        )}
+
         {/* Table */}
         {loading ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" /></div>
@@ -433,6 +545,12 @@ export default function Candidates() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">
+                    {!showArchive && (
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={isAllDisplayedSelected} onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
+                      </th>
+                    )}
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">ФИО / Агентство</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Должность</th>
                     <th className="px-4 py-3"><Tooltip text="Город / Пункт сбора"><MapPin size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
@@ -455,6 +573,12 @@ export default function Candidates() {
                       : 'border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(123,63,191,0.06)] transition-colors';
                     return (
                       <tr key={c.id} className={rowClass}>
+                        {!showArchive && (
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
+                              className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1.5">
                             {isDuplicate && (
@@ -610,7 +734,7 @@ export default function Candidates() {
                     );
                   })}
                   {displayed.length === 0 && (
-                    <tr><td colSpan={11} className="text-center py-12 text-[#F8FAFC]/30">
+                    <tr><td colSpan={showArchive ? 11 : 12} className="text-center py-12 text-[#F8FAFC]/30">
                       {showArchive ? 'Архив пуст' : 'Кандидаты не найдены'}
                     </td></tr>
                   )}

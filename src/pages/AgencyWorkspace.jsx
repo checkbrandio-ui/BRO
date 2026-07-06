@@ -4,6 +4,8 @@ import { base44 } from '@/api/base44Client';
 import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import AgencyNotificationBell from '../components/admin/AgencyNotificationBell';
+import BulkActionsBar from '../components/admin/BulkActionsBar';
+import { useToast } from '@/components/ui/use-toast';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
@@ -28,6 +30,7 @@ function Tooltip({ text, children }) {
 
 export default function AgencyWorkspace() {
   const navigate = useNavigate();
+  const { toast } = useToast();
 
   const session = (() => {
     try { return JSON.parse(sessionStorage.getItem('agency_session')); } catch { return null; }
@@ -43,6 +46,8 @@ export default function AgencyWorkspace() {
   const [copiedId, setCopiedId] = useState(null);
   const [showArchive, setShowArchive] = useState(false);
   const [cityCache, setCityCache] = useState({});
+  const [selectedIds, setSelectedIds] = useState(new Set());
+  const [bulkBusy, setBulkBusy] = useState(false);
 
   useEffect(() => {
     if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
@@ -84,6 +89,7 @@ export default function AgencyWorkspace() {
     setCandidates(mergedCands);
     setCityCache(cityMap);
     setLoading(false);
+    setSelectedIds(new Set());
   };
 
   const handleLogout = () => {
@@ -198,6 +204,76 @@ export default function AgencyWorkspace() {
   const filtered = applyFilters(active);
   const filteredArchived = applyFilters(archived);
   const displayed = showArchive ? filteredArchived : filtered;
+
+  const selectedCandidates = candidates.filter(c => selectedIds.has(c.id));
+  const missingFormsCount = selectedCandidates.filter(c => !c.form_token).length;
+  const isAllDisplayedSelected = !showArchive && displayed.length > 0 && displayed.every(c => selectedIds.has(c.id));
+
+  const toggleSelect = (id) => {
+    setSelectedIds(prev => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    setSelectedIds(prev => {
+      const allSelected = displayed.length > 0 && displayed.every(c => prev.has(c.id));
+      if (allSelected) {
+        const next = new Set(prev);
+        displayed.forEach(c => next.delete(c.id));
+        return next;
+      }
+      const next = new Set(prev);
+      displayed.forEach(c => next.add(c.id));
+      return next;
+    });
+  };
+
+  const handleBulkCopyLinks = () => {
+    const selected = candidates.filter(c => selectedIds.has(c.id));
+    const withToken = selected.filter(c => c.form_token);
+    const without = selected.length - withToken.length;
+    if (!withToken.length) {
+      const { dismiss } = toast({ title: 'Нет ссылок', description: 'У выбранных кандидатов нет анкет. Нажмите «Создать анкеты».', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+      return;
+    }
+    const lines = withToken.map((c, i) =>
+      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/form/${c.form_token}`
+    );
+    const text = `📋 Подборка кандидатов (${withToken.length} чел.):\n\n${lines.join('\n\n')}`;
+    navigator.clipboard.writeText(text);
+    const msg = without > 0 ? `Скопировано ${withToken.length}, без анкеты: ${without}` : `Скопировано ${withToken.length} ссылок`;
+    const { dismiss } = toast({ title: '✓ ' + msg });
+    setTimeout(dismiss, 3500);
+  };
+
+  const handleBulkGenerateForms = async () => {
+    const selected = candidates.filter(c => selectedIds.has(c.id) && !c.form_token);
+    if (!selected.length) return;
+    setBulkBusy(true);
+    try {
+      const updates = await Promise.all(selected.map(async c => {
+        const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+        await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
+        await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+        return { id: c.id, form_token: token, form_status: 'pending' };
+      }));
+      setCandidates(prev => prev.map(c => {
+        const u = updates.find(u => u.id === c.id);
+        return u ? { ...c, ...u } : c;
+      }));
+      const { dismiss } = toast({ title: `✓ Создано ${updates.length} анкет`, description: 'Теперь можно копировать ссылки' });
+      setTimeout(dismiss, 3500);
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка создания анкет', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
 
   const inp = "px-3 py-2 bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg text-sm text-[#F8FAFC] focus:outline-none focus:border-[#7B3FBF]";
 
@@ -331,6 +407,18 @@ export default function AgencyWorkspace() {
           {showArchive ? `Архив: ${filteredArchived.length} из ${archived.length}` : `Кандидатов: ${filtered.length} из ${active.length}`}
         </div>
 
+        {!showArchive && (
+          <BulkActionsBar
+            selectedCount={selectedIds.size}
+            onClear={() => setSelectedIds(new Set())}
+            onCopyLinks={handleBulkCopyLinks}
+            onGenerateForms={handleBulkGenerateForms}
+            busy={bulkBusy}
+            canEditStatuses={false}
+            missingFormsCount={missingFormsCount}
+          />
+        )}
+
         {/* Table */}
         {loading ? (
           <div className="flex justify-center py-20">
@@ -342,6 +430,12 @@ export default function AgencyWorkspace() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">
+                    {!showArchive && (
+                      <th className="px-4 py-3 w-8">
+                        <input type="checkbox" checked={isAllDisplayedSelected} onChange={toggleSelectAll}
+                          className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
+                      </th>
+                    )}
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">ФИО</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Должность</th>
                     <th className="px-4 py-3"><Tooltip text="Город / Пункт сбора"><MapPin size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
@@ -358,6 +452,12 @@ export default function AgencyWorkspace() {
                 <tbody>
                   {displayed.map(c => (
                     <tr key={c.id} className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(123,63,191,0.06)] transition-colors">
+                        {!showArchive && (
+                          <td className="px-4 py-3">
+                            <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
+                              className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
+                          </td>
+                        )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {hasMissingRequiredDocs(c) && (
@@ -483,7 +583,7 @@ export default function AgencyWorkspace() {
                   ))}
                   {displayed.length === 0 && (
                     <tr>
-                      <td colSpan={11} className="text-center py-16 text-[#F8FAFC]/30">
+                      <td colSpan={showArchive ? 11 : 12} className="text-center py-16 text-[#F8FAFC]/30">
                         <div className="flex flex-col items-center gap-3">
                           <Users size={32} className="text-[#F8FAFC]/15" />
                           <p>{showArchive ? 'Архив пуст' : candidates.length > 0 ? 'Нет кандидатов по фильтрам' : 'Кандидатов пока нет. Добавьте первого!'}</p>
