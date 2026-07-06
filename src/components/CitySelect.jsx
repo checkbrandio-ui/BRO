@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { base44 } from '@/api/base44Client';
-import { MapPin, Loader2, ChevronDown, Check, Search } from 'lucide-react';
+import { MapPin, Loader2, ChevronDown, Check, Search, Plus } from 'lucide-react';
+import AddCityModal from '@/components/admin/AddCityModal';
 
 /**
  * Строгий выбор населённого пункта из каталога.
@@ -20,6 +21,7 @@ export default function CitySelect({
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
   const [search, setSearch] = useState('');
+  const [addCityOpen, setAddCityOpen] = useState(false);
   const containerRef = useRef(null);
   const onCitySelectRef = useRef(onCitySelect);
   onCitySelectRef.current = onCitySelect;
@@ -139,7 +141,13 @@ export default function CitySelect({
           <div className="max-h-60 overflow-y-auto overflow-x-hidden p-1">
             {filtered.length === 0
               ? <div className="py-6 text-center text-sm text-[#F8FAFC]/40">
-                  {loading ? 'Загрузка...' : 'Город не найден. Выберите ближайший из списка.'}
+                  {loading ? 'Загрузка...' : 'Город не найден.'}
+                  {!loading && search.trim() && (
+                    <button onClick={() => setAddCityOpen(true)}
+                      className="mt-2 mx-auto flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] transition-all">
+                      <Plus size={12} /> Добавить «{search.trim()}» вручную
+                    </button>
+                  )}
                 </div>
               : filtered.map((city) => (
                   <button
@@ -158,6 +166,18 @@ export default function CitySelect({
             }
           </div>
         </div>
+      )}
+
+      {addCityOpen && (
+        <AddCityModal
+          initialName={search.trim()}
+          onClose={() => setAddCityOpen(false)}
+          onCityAdded={(city) => {
+            setAllCities(prev => [...prev, { name: city.name, region: city.region || '', lat: city.lat, lon: city.lon }]);
+            handleSelect({ name: city.name, region: city.region || '', lat: city.lat, lon: city.lon });
+            setAddCityOpen(false);
+          }}
+        />
       )}
     </div>
   );

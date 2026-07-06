@@ -1,13 +1,15 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Search, RefreshCw, MapPin, ArrowLeft, Check } from 'lucide-react';
+import { Search, RefreshCw, MapPin, ArrowLeft, Check, Plus } from 'lucide-react';
+import AddCityModal from '@/components/admin/AddCityModal';
 
 export default function AssemblyPoints() {
   const [cities, setCities] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [togglingId, setTogglingId] = useState(null);
+  const [addCityOpen, setAddCityOpen] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -49,6 +51,10 @@ export default function AssemblyPoints() {
           </div>
           <div className="flex items-center gap-3">
             <span className="text-xs text-[#C9A84C] font-bold">{enabledCount} активно</span>
+            <button onClick={() => setAddCityOpen(true)}
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] transition-all">
+              <Plus size={14} /> Добавить город
+            </button>
             <button onClick={load} title="Обновить"
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <RefreshCw size={14} />
@@ -97,6 +103,12 @@ export default function AssemblyPoints() {
           </div>
         )}
       </div>
+      {addCityOpen && (
+        <AddCityModal
+          onClose={() => setAddCityOpen(false)}
+          onCityAdded={() => { setAddCityOpen(false); load(); }}
+        />
+      )}
     </div>
   );
 }
