@@ -1,15 +1,16 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
-import { findNearestAssemblyPoint } from '@/lib/geoUtils';
+import { findNearestAssemblyPoint, haversineDistance } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
+import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import { useToast } from '@/components/ui/use-toast';
 
@@ -51,6 +52,9 @@ export default function Candidates() {
   const [linkModalCandidate, setLinkModalCandidate] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [logisticsPoint, setLogisticsPoint] = useState('');
+  const [sortDir, setSortDir] = useState(null);
+  const [mapCandidate, setMapCandidate] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -195,7 +199,20 @@ export default function Candidates() {
 
   const filteredActive   = applyFilters(active);
   const filteredArchived = applyFilters(archived);
-  const displayed = showArchive ? filteredArchived : filteredActive;
+  const assemblyPoints = Object.values(cityCache).filter(c => c.is_assembly_point && c.lat != null && c.lon != null);
+  const logisticsCity = logisticsPoint ? cityCache[logisticsPoint.toLowerCase()] : null;
+  const baseDisplayed = showArchive ? filteredArchived : filteredActive;
+  const displayed = logisticsCity
+    ? baseDisplayed.map(c => {
+        const ci = cityCache[c.city?.toLowerCase()];
+        const dist = (ci?.lat != null && ci?.lon != null) ? haversineDistance(ci.lat, ci.lon, logisticsCity.lat, logisticsCity.lon) : null;
+        return { ...c, _distance: dist };
+      }).sort((a, b) => {
+        if (sortDir === 'asc') { if (a._distance == null) return 1; if (b._distance == null) return -1; return a._distance - b._distance; }
+        if (sortDir === 'desc') { if (a._distance == null) return 1; if (b._distance == null) return -1; return b._distance - a._distance; }
+        return 0;
+      })
+    : baseDisplayed;
 
   const selectedCandidates = candidates.filter(c => selectedIds.has(c.id));
   const missingFormsCount = selectedCandidates.filter(c => !c.form_token).length;
@@ -506,13 +523,17 @@ export default function Candidates() {
             <option value="completed">Анкета заполнена</option>
             <option value="pending">Анкета не заполнена</option>
           </select>
+          <select value={logisticsPoint} onChange={e => { setLogisticsPoint(e.target.value); setSortDir(e.target.value ? 'asc' : null); }} className={inp}>
+            <option value="">— Логистика —</option>
+            {assemblyPoints.map(ap => <option key={ap.id} value={ap.name}>{ap.name}</option>)}
+          </select>
           <button
             onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
             className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.incomplete_docs ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400'}`}>
             <AlertTriangle size={13} /> Без обяз. документов
           </button>
-          {Object.values(filters).some(Boolean) && (
-            <button onClick={() => setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false })}
+          {(Object.values(filters).some(Boolean) || logisticsPoint) && (
+            <button onClick={() => { setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false }); setLogisticsPoint(''); setSortDir(null); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
@@ -554,6 +575,13 @@ export default function Candidates() {
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">ФИО / Агентство</th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Должность</th>
                     <th className="px-4 py-3"><Tooltip text="Город / Пункт сбора"><MapPin size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    {logisticsPoint && (
+                      <th className="px-4 py-3 cursor-pointer select-none" onClick={() => setSortDir(d => d === 'asc' ? 'desc' : d === 'desc' ? null : 'asc')}>
+                        <div className="flex items-center justify-center gap-1 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">
+                          <Navigation size={12} /> {sortDir === 'asc' ? '↑' : sortDir === 'desc' ? '↓' : ''}
+                        </div>
+                      </th>
+                    )}
                     <th className="px-4 py-3"><Tooltip text="Проверка СБ"><Shield size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Медкомиссия"><Stethoscope size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Дата прибытия"><CalendarDays size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
@@ -614,32 +642,20 @@ export default function Candidates() {
                         <td className="px-4 py-3 text-[#F8FAFC]/60 text-xs whitespace-nowrap">{c.position || '—'}</td>
                         <td className="px-4 py-3 text-xs text-[#F8FAFC]/55">
                           {c.city ? (
-                            <HoverCard>
-                              <HoverCardTrigger asChild>
-                                <span className="cursor-help underline decoration-dotted underline-offset-2 hover:text-[#7B3FBF] transition-colors">{c.city}</span>
-                              </HoverCardTrigger>
-                              <HoverCardContent side="top" sideOffset={4} className="w-72 bg-[#0D1B3E] border-[rgba(123,63,191,0.3)] text-[#F8FAFC]">
-                                {(() => {
-                                  const cityInfo = cityCache[c.city.toLowerCase()];
-                                  return (
-                                    <div className="space-y-2 text-xs">
-                                      <div className="font-bold text-[#F8FAFC]">{c.city}</div>
-                                      {cityInfo?.region && <div className="text-[#F8FAFC]/60">Регион: {cityInfo.region}</div>}
-                                      {c.assembly_point && (
-                                        <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
-                                          <div className="text-[#F8FAFC]/50">Пункт сбора:</div>
-                                          <div className="text-[#7B3FBF] font-bold">{c.assembly_point}</div>
-                                          {c.assembly_distance && <div className="text-[#C9A84C] mt-1">Расстояние: {c.assembly_distance} км</div>}
-                                        </div>
-                                      )}
-                                    </div>
-                                  );
-                                })()}
-                              </HoverCardContent>
-                            </HoverCard>
+                            <button onClick={() => setMapCandidate(c)} className="cursor-pointer underline decoration-dotted underline-offset-2 hover:text-[#7B3FBF] transition-colors flex items-center gap-1">
+                              <MapPin size={11} className="opacity-40 flex-shrink-0" />
+                              {c.city}
+                            </button>
                           ) : '—'}
                           {c.assembly_point && <div className="text-[#F8FAFC]/30 mt-0.5">{c.assembly_point}</div>}
                         </td>
+                        {logisticsPoint && (
+                          <td className="px-4 py-3 text-xs text-center whitespace-nowrap">
+                            {c._distance != null ? (
+                              <span className="text-[#C9A84C] font-bold">{c._distance} км</span>
+                            ) : <span className="text-[#F8FAFC]/25">—</span>}
+                          </td>
+                        )}
                         <td className="px-4 py-3">
                           <span className={`text-xs font-medium ${SB_COLORS[c.sb_check] || 'text-[#F8FAFC]/40'}`}>
                             {c.sb_check === 'Согласован' ? '✓' : c.sb_check === 'Не согласован' ? '✗' : c.sb_check === 'На проверке' ? '⏳' : '—'}
@@ -734,7 +750,7 @@ export default function Candidates() {
                     );
                   })}
                   {displayed.length === 0 && (
-                    <tr><td colSpan={showArchive ? 11 : 12} className="text-center py-12 text-[#F8FAFC]/30">
+                    <tr><td colSpan={(showArchive ? 11 : 12) + (logisticsPoint ? 1 : 0)} className="text-center py-12 text-[#F8FAFC]/30">
                       {showArchive ? 'Архив пуст' : 'Кандидаты не найдены'}
                     </td></tr>
                   )}
@@ -758,6 +774,14 @@ export default function Candidates() {
         <FormLinkModal
           candidate={linkModalCandidate}
           onClose={() => setLinkModalCandidate(null)}
+        />
+      )}
+
+      {mapCandidate && (
+        <CandidateMapDrawer
+          candidate={mapCandidate}
+          cityCache={cityCache}
+          onClose={() => setMapCandidate(null)}
         />
       )}
     </div>
