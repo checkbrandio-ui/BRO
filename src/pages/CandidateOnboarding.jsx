@@ -1,10 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, FileText, Trash2, Download } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
+import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
 import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
+import DocumentUploader from '@/components/candidate/DocumentUploader';
+import DocumentLightbox from '@/components/candidate/DocumentLightbox';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -164,6 +167,7 @@ export default function CandidateOnboarding() {
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadErrors, setUploadErrors] = useState({});
   const [cityObject, setCityObject] = useState(null);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   useEffect(() => {
     const loadForm = async () => {
@@ -232,8 +236,10 @@ export default function CandidateOnboarding() {
     if (validationError) { setUploadErrors(prev => ({ ...prev, [docType]: validationError })); return; }
     setUploadingDocType(docType);
     try {
-      const file_url = await uploadWithRetry(file);
-      const newDoc = { doc_type: docType, name: docLabel + ': ' + file.name, url: file_url, uploaded_at: new Date().toISOString() };
+      // Сжимаем изображение перед загрузкой — предотвращает "вылеты" в in-app браузерах мессенджеров
+      const compressed = await compressImage(file);
+      const file_url = await uploadWithRetry(compressed);
+      const newDoc = { doc_type: docType, name: docLabel + ': ' + compressed.name, url: file_url, uploaded_at: new Date().toISOString() };
       setUploadedDocs(prev => {
         const filtered = prev.filter(d => d.doc_type !== docType);
         return [...filtered, newDoc];
@@ -698,73 +704,23 @@ export default function CandidateOnboarding() {
 
           {/* РАЗДЕЛ 10: Загрузка документов */}
           <Section title="Раздел 10. Загрузка документов" defaultOpen={false}>
-            <p className="text-xs text-[#666] leading-relaxed">
-              Загрузите сканы или фотографии документов. Форматы: JPG, PNG, PDF, HEIC (iPhone). Обязательные документы отмечены <span className="text-red-500">*</span>
+            <p className="text-xs text-[#666] leading-relaxed mb-3">
+              Загрузите сканы или фотографии документов. Можно перетащить файл в нужное поле или нажать для выбора.
+              Большие фото сжимаются автоматически. Форматы: JPG, PNG, PDF, HEIC.
+              Обязательные документы отмечены <span className="text-red-500">*</span>
             </p>
-            <div className="space-y-2">
-              {ALL_DOC_TYPES.map(dt => {
-                const uploaded = uploadedDocs.find(d => d.doc_type === dt.id);
-                return (
-                  <div key={dt.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-[#161616] border border-[#2a2a2a] rounded">
-                    <div className="flex-1 min-w-0">
-                      <div className="text-xs text-[#888] font-medium">
-                        {dt.label}{dt.required && <span className="text-red-500 ml-1">*</span>}
-                      </div>
-                      {uploaded && (
-                        <div className="flex items-center gap-1.5 mt-1">
-                          <FileText size={11} className="text-green-500 flex-shrink-0" />
-                          <span className="text-xs text-green-500 truncate">{uploaded.name.split(': ')[1] || uploaded.name}</span>
-                        </div>
-                      )}
-                      {uploadErrors[dt.id] && (
-                        <div className="flex items-start gap-1.5 mt-1">
-                          <AlertTriangle size={11} className="text-red-400 flex-shrink-0 mt-0.5" />
-                          <span className="text-xs text-red-400">{uploadErrors[dt.id]}</span>
-                        </div>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1.5 flex-shrink-0 self-end sm:self-auto">
-                      {uploadingDocType === dt.id ? (
-                        <div className="flex items-center gap-1.5 px-3 py-1.5 text-xs text-[#666]">
-                          <Loader2 size={12} className="animate-spin" /> Загрузка...
-                        </div>
-                      ) : (
-                        <>
-                          {uploaded && (
-                            <>
-                              <a href={uploaded.url} target="_blank" rel="noreferrer"
-                                className="p-1.5 rounded border border-[#333] text-[#666] hover:text-[#aaa] transition-colors">
-                                <Download size={12} />
-                              </a>
-                              <button type="button" onClick={() => removeDoc(dt.id)}
-                                className="p-1.5 rounded border border-[#333] text-[#666] hover:text-red-400 transition-colors">
-                                <Trash2 size={12} />
-                              </button>
-                            </>
-                          )}
-                          <label className={`flex items-center gap-1.5 px-3 py-1.5 rounded border text-xs cursor-pointer transition-colors ${uploaded ? 'border-[#333] text-[#666] hover:border-[#555]' : 'border-[#444] text-[#aaa] hover:border-[#666]'}`}>
-                            <Upload size={11} />
-                            {uploaded ? 'Заменить' : 'Загрузить'}
-                            <input type="file" className="hidden" accept=".jpg,.jpeg,.png,.pdf,.heic,.heif,.webp,.bmp,.gif,.tiff"
-                              onChange={e => e.target.files?.[0] && handleDocUpload(dt.id, dt.label, e.target.files[0])} />
-                          </label>
-                        </>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-            {uploadErrors && Object.values(uploadErrors).some(Boolean) && (
-              <div className="space-y-1">
-                {Object.entries(uploadErrors).filter(([, v]) => v).map(([docType, err]) => (
-                  <div key={docType} className="flex items-start gap-2 px-3 py-2 bg-red-900/20 border border-red-800/40 rounded text-xs text-red-400">
-                    <AlertTriangle size={12} className="flex-shrink-0 mt-0.5" />
-                    <span>{err}</span>
-                  </div>
-                ))}
-              </div>
-            )}
+            <DocumentUploader
+              docTypes={ALL_DOC_TYPES}
+              uploadedDocs={uploadedDocs}
+              onUpload={handleDocUpload}
+              onRemove={removeDoc}
+              uploadingDocType={uploadingDocType}
+              uploadErrors={uploadErrors}
+              onView={(doc) => {
+                const idx = uploadedDocs.findIndex(d => d.url === doc.url);
+                if (idx >= 0) setLightboxIndex(idx);
+              }}
+            />
           </Section>
 
           {/* РАЗДЕЛ 11 */}
@@ -797,6 +753,14 @@ export default function CandidateOnboarding() {
           </button>
           <p className="text-center text-xs text-[#444] pb-4">* — обязательные для заполнения поля</p>
         </form>
+
+        {lightboxIndex !== null && uploadedDocs.length > 0 && (
+          <DocumentLightbox
+            docs={uploadedDocs}
+            initialIndex={lightboxIndex}
+            onClose={() => setLightboxIndex(null)}
+          />
+        )}
       </div>
     </div>
   );
