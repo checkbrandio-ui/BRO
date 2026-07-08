@@ -1,14 +1,14 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
-import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
+import { getDocTypesForCitizenship, getMissingRequiredDocs } from '@/lib/docUtils';
 import DocumentUploader from '@/components/candidate/DocumentUploader';
 import DocumentLightbox from '@/components/candidate/DocumentLightbox';
-import { CITIZENSHIPS, isCIS, CIS_FIELDS } from '@/lib/candidateConstants';
+import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -56,12 +56,13 @@ const EMPTY_FORM = {
   salary_expectations: '', motivation: '',
   docs_ready: [], ready_to_start_date: '',
   consent_given: false,
-  migration_card_number: '', migration_card_expiry: '',
-  patent_number: '', patent_region: '',
+  ticket_photo_url: '',
+  logistics_status: 'none',
   arrival_time: '',
 };
 
 function prefillFromCandidate(cand) {
+  const isPendingCandidate = cand?.logistics_status === 'pending_candidate';
   return {
     full_name: cand?.full_name || '',
     birth_date: cand?.birth_date || '',
@@ -69,9 +70,12 @@ function prefillFromCandidate(cand) {
     citizenship: cand?.citizenship || 'РФ',
     phone: cand?.phone || '',
     city: cand?.city || '',
-    assembly_point: cand?.assembly_point || '',
-    arrival_date: cand?.arrival_date || '',
+    assembly_point: isPendingCandidate ? (cand?.proposed_assembly_point || cand?.assembly_point || '') : (cand?.assembly_point || ''),
+    arrival_date: isPendingCandidate ? (cand?.proposed_arrival_date || cand?.arrival_date || '') : (cand?.arrival_date || ''),
+    arrival_time: isPendingCandidate ? (cand?.proposed_arrival_time || cand?.arrival_time || '') : (cand?.arrival_time || ''),
     position: cand?.position || '',
+    ticket_photo_url: cand?.ticket_photo_url || '',
+    logistics_status: cand?.logistics_status || 'none',
   };
 }
 
@@ -120,11 +124,9 @@ function prefillFromRecord(rec, cand) {
     docs_ready: rec.docs_ready || [],
     ready_to_start_date: rec.ready_to_start_date || '',
     consent_given: rec.consent_given || false,
-    migration_card_number: rec.migration_card_number || '',
-    migration_card_expiry: rec.migration_card_expiry || '',
-    patent_number: rec.patent_number || '',
-    patent_region: rec.patent_region || '',
-    arrival_time: rec.arrival_time || '',
+    ticket_photo_url: cand?.ticket_photo_url || '',
+    logistics_status: cand?.logistics_status || 'none',
+    arrival_time: rec.arrival_time || cand?.arrival_time || '',
   };
 }
 
@@ -273,6 +275,8 @@ export default function CandidateOnboarding() {
     const saveData = { ...form, uploaded_docs: uploadedDocs, consent_timestamp: now, submitted_at: now, status: 'completed' };
     await base44.entities.CandidateForm.update(formRecord.id, saveData);
     if (formRecord.candidate_id) {
+      // Логистика: если кандидат указал свои данные и статус 'none' — переводим в pending_admin
+      const newLogisticsStatus = form.logistics_status === 'none' && form.assembly_point ? 'pending_admin' : form.logistics_status;
       await base44.entities.Candidate.update(formRecord.candidate_id, {
         full_name: form.full_name,
         birth_date: form.birth_date,
@@ -285,6 +289,9 @@ export default function CandidateOnboarding() {
         arrival_date: form.arrival_date,
         arrival_time: form.arrival_time,
         assembly_point: form.assembly_point,
+        ticket_photo_url: form.ticket_photo_url,
+        logistics_status: newLogisticsStatus,
+        logistics_confirmed_at: newLogisticsStatus === 'confirmed' ? now : undefined,
         health_details: form.health_notes,
         form_status: 'completed',
         form_submitted_at: now,
@@ -397,7 +404,7 @@ export default function CandidateOnboarding() {
         </div>
 
         {(() => {
-          const missing = getMissingRequiredDocs(uploadedDocs);
+          const missing = getMissingRequiredDocs(uploadedDocs, form.citizenship);
           if (missing.length === 0) return null;
           return (
             <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-800/40 text-xs text-red-400">
@@ -464,27 +471,101 @@ export default function CandidateOnboarding() {
               <SameAsCheckbox label="Совпадает с адресом регистрации" checked={actualSameAsReg} onChange={handleActualSameToggle} />
             </div>
 
-            {/* Пункт сбора + Дата прибытия — визуально связаны */}
+            {/* Логистика и согласование */}
             <div className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-4 space-y-3">
-              <p className="text-xs text-[#555] uppercase tracking-wide font-semibold">Место и дата прибытия</p>
-              <div>
-                <label className={lbl}>Пункт сбора</label>
-                <CitySelect
-                  value={form.assembly_point}
-                  onChange={val => set('assembly_point', val)}
-                  inputClassName={inp}
-                  placeholder="Выберите город..."
-                  assemblyPointsOnly
-                />
+              <div className="flex items-center justify-between">
+                <p className="text-xs text-[#555] uppercase tracking-wide font-semibold">Логистика и согласование</p>
+                {form.logistics_status && form.logistics_status !== 'none' && (
+                  <span className={`text-xs px-2 py-0.5 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
+                    {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
+                  </span>
+                )}
               </div>
-              <div>
-                <label className={lbl}>Запланированная дата прибытия</label>
-                <input className={inp + (form.arrival_date ? '' : ' text-[#555]')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
-              </div>
-              <div>
-                <label className={lbl}>Время прибытия (если известно)</label>
-                <input className={inp + (form.arrival_time ? '' : ' text-[#555]')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
-                <p className="text-xs text-[#555] mt-1">Можно заполнить позже, после покупки билетов</p>
+
+              {/* Предложение администратора */}
+              {form.logistics_status === 'pending_candidate' && candidate?.proposed_assembly_point && (
+                <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+                  <p className="text-xs text-[#C9A84C] font-bold mb-2">📍 Администратор предложил:</p>
+                  <div className="text-xs text-[#e0e0e0] space-y-0.5">
+                    <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
+                    {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
+                    {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
+                  </div>
+                  <div className="flex gap-2 mt-3">
+                    <button type="button" onClick={() => set('logistics_status', 'confirmed')}
+                      className="px-3 py-1.5 text-xs rounded bg-green-900/30 border border-green-700/50 text-green-400 hover:bg-green-900/50 transition-all">
+                      ✓ Согласовать
+                    </button>
+                    <button type="button" onClick={() => set('logistics_status', 'none')}
+                      className="px-3 py-1.5 text-xs rounded border border-[#444] text-[#888] hover:text-[#ccc] hover:border-[#666] transition-all">
+                      ✗ Отклонить и указать свои данные
+                    </button>
+                  </div>
+                </div>
+              )}
+
+              {/* Подтверждено */}
+              {form.logistics_status === 'confirmed' && (
+                <div className="p-3 rounded-lg bg-green-900/15 border border-green-700/30">
+                  <p className="text-xs text-green-400 font-bold flex items-center gap-1.5">
+                    <CheckCircle size={12} /> Логистика согласована
+                  </p>
+                </div>
+              )}
+
+              {/* Поля ввода (если нет предложения от админа или отклонено) */}
+              {form.logistics_status !== 'pending_candidate' && (
+                <>
+                  <div>
+                    <label className={lbl}>Пункт сбора</label>
+                    <CitySelect
+                      value={form.assembly_point}
+                      onChange={val => set('assembly_point', val)}
+                      inputClassName={inp}
+                      placeholder="Выберите город..."
+                      assemblyPointsOnly
+                    />
+                  </div>
+                  <div className="grid grid-cols-2 gap-3">
+                    <div>
+                      <label className={lbl}>Дата прибытия</label>
+                      <input className={inp + (form.arrival_date ? '' : ' text-[#555]')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+                    </div>
+                    <div>
+                      <label className={lbl}>Время прибытия</label>
+                      <input className={inp + (form.arrival_time ? '' : ' text-[#555]')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
+                    </div>
+                  </div>
+                  {form.logistics_status === 'none' && form.assembly_point && (
+                    <p className="text-xs text-[#555]">После отправки анкеты данные будут переданы на согласование администратору.</p>
+                  )}
+                </>
+              )}
+
+              {/* Загрузка фото билета */}
+              <div className="pt-2 border-t border-[#2a2a2a]">
+                <label className={lbl}>Фото билета (если есть)</label>
+                {form.ticket_photo_url ? (
+                  <div className="flex items-center gap-2">
+                    <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть билет</a>
+                    <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-0.5">
+                      <X size={11} /> Удалить
+                    </button>
+                  </div>
+                ) : (
+                  <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[#333] text-[#666] hover:text-[#aaa] hover:border-[#555] text-xs cursor-pointer transition-colors w-fit">
+                    <Upload size={11} /> Загрузить фото билета
+                    <input type="file" className="hidden" accept="image/*,.pdf"
+                      onChange={async e => {
+                        const file = e.target.files?.[0]; if (!file) return;
+                        try {
+                          const compressed = await compressImage(file);
+                          const url = await uploadWithRetry(compressed);
+                          set('ticket_photo_url', url);
+                        } catch (err) { alert('Ошибка загрузки: ' + err.message); }
+                      }} />
+                  </label>
+                )}
               </div>
             </div>
 
@@ -514,21 +595,6 @@ export default function CandidateOnboarding() {
                 </div>
               </div>
             </div>
-
-            {/* Данные для граждан СНГ */}
-            {isCIS(form.citizenship) && (
-              <div className="pt-3 border-t border-[#222]">
-                <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-3">Данные для граждан СНГ</p>
-                <div className="grid grid-cols-2 gap-3">
-                  {CIS_FIELDS.map(cf => (
-                    <div key={cf.key}>
-                      <label className={lbl}>{cf.label}</label>
-                      <input className={inp} value={form[cf.key]} onChange={e => set(cf.key, e.target.value)} placeholder={cf.placeholder} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
 
             {/* Контакты */}
             <div className="pt-3 border-t border-[#222]">
@@ -739,7 +805,7 @@ export default function CandidateOnboarding() {
               Обязательные документы отмечены <span className="text-red-500">*</span>
             </p>
             <DocumentUploader
-              docTypes={ALL_DOC_TYPES}
+              docTypes={getDocTypesForCitizenship(form.citizenship)}
               uploadedDocs={uploadedDocs}
               onUpload={handleDocUpload}
               onRemove={removeDoc}

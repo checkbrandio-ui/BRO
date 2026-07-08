@@ -13,7 +13,9 @@ import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import { useToast } from '@/components/ui/use-toast';
-import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS } from '@/lib/candidateConstants';
+import StatusDropdown from '@/components/ui/StatusDropdown';
+import ArrivalsCalendar from '@/components/admin/ArrivalsCalendar';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -42,7 +44,7 @@ export default function Candidates() {
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', incomplete_docs: false, logistics_confirmed: false });
+  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', incomplete_docs: false, logistics_status: '' });
   const [showArchive, setShowArchive] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
@@ -194,7 +196,10 @@ export default function Candidates() {
       const matchMed    = !filters.medical_check || c.medical_check === filters.medical_check;
       const matchForm   = !filters.form_status || c.form_status === filters.form_status;
       const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
-      const matchLogistics = !filters.logistics_confirmed || c.logistics_status === 'confirmed';
+      const matchLogistics = !filters.logistics_status
+        || (filters.logistics_status === 'confirmed' && c.logistics_status === 'confirmed')
+        || (filters.logistics_status === 'pending' && (c.logistics_status === 'pending_admin' || c.logistics_status === 'pending_candidate'))
+        || (filters.logistics_status === 'none' && (c.logistics_status === 'none' || !c.logistics_status));
       return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs && matchLogistics;
     });
   };
@@ -489,6 +494,9 @@ export default function Candidates() {
           </div>
         )}
 
+        {/* Календарь прибытий */}
+        {!showArchive && <ArrivalsCalendar candidates={active} />}
+
         {showArchive && (
           <div className="mb-4 px-4 py-2.5 rounded-xl bg-[#C9A84C]/8 border border-[#C9A84C]/20 text-xs text-[#C9A84C]/80 flex items-center gap-2">
             <Archive size={13} /> Архив: кандидаты с закрытыми контрактами или отказавшиеся от участия. Можно восстановить в основную таблицу.
@@ -511,14 +519,26 @@ export default function Candidates() {
             <option value="">Все должности</option>
             {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
           </select>
-          <select value={filters.sb_check} onChange={e => setF('sb_check', e.target.value)} className={inp}>
-            <option value="">Проверка СБ</option>
-            {['На проверке','Согласован','Не согласован'].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
-          <select value={filters.medical_check} onChange={e => setF('medical_check', e.target.value)} className={inp}>
-            <option value="">Медкомиссия</option>
-            {['Прошёл','Не прошёл'].map(s => <option key={s} value={s}>{s}</option>)}
-          </select>
+          <StatusDropdown
+            value={filters.sb_check}
+            onChange={v => setF('sb_check', v)}
+            options={SB_OPTIONS}
+            placeholder="Проверка СБ"
+            allowEmpty
+            emptyLabel="Проверка СБ: все"
+            icon={Shield}
+            compact
+          />
+          <StatusDropdown
+            value={filters.medical_check}
+            onChange={v => setF('medical_check', v)}
+            options={MED_OPTIONS}
+            placeholder="Медкомиссия"
+            allowEmpty
+            emptyLabel="Медкомиссия: все"
+            icon={Stethoscope}
+            compact
+          />
           <select value={filters.form_status} onChange={e => setF('form_status', e.target.value)} className={inp}>
             <option value="">Анкета: все</option>
             <option value="completed">Анкета заполнена</option>
@@ -538,13 +558,22 @@ export default function Candidates() {
             className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.incomplete_docs ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400'}`}>
             <AlertTriangle size={13} /> Без обяз. документов
           </button>
-          <button
-            onClick={() => setF('logistics_confirmed', !filters.logistics_confirmed)}
-            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.logistics_confirmed ? 'border-green-500/50 text-green-400 bg-green-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-green-400'}`}>
-            <CheckCircle size={13} /> Логистика подтверждена
-          </button>
-          {(Object.values(filters).some(Boolean) || logisticsPoint) && (
-            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false, logistics_confirmed: false }); setLogisticsPoint(''); setSortDir(null); }}
+          <StatusDropdown
+            value={filters.logistics_status}
+            onChange={v => setF('logistics_status', v)}
+            options={[
+              { value: 'confirmed', label: 'Согласовано' },
+              { value: 'pending', label: 'На согласовании' },
+              { value: 'none', label: 'Не отправлено' },
+            ]}
+            placeholder="Логистика: все"
+            allowEmpty
+            emptyLabel="Логистика: все"
+            icon={Navigation}
+            compact
+          />
+          {(Object.values(filters).some(f => typeof f === 'string' ? f : f) || logisticsPoint) && (
+            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false, logistics_status: '' }); setLogisticsPoint(''); setSortDir(null); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>

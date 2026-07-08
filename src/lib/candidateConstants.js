@@ -9,28 +9,28 @@ export function isCIS(citizenship) {
   return !!citizenship && citizenship !== 'РФ';
 }
 
-// Поля СНГ (показываются только для неграждан РФ)
-export const CIS_FIELDS = [
-  { key: 'migration_card_number', label: 'Номер миграционной карты', placeholder: '1234 567890' },
-  { key: 'migration_card_expiry', label: 'Срок действия мигр. карты', placeholder: 'дд.мм.гггг' },
-  { key: 'patent_number', label: 'Номер патента на работу', placeholder: '1234567890' },
-  { key: 'patent_region', label: 'Регион выдачи патента', placeholder: 'г. Москва' },
-];
-
-// Типы документов для СНГ (добавляются к основным)
-export const CIS_DOC_TYPES = [
-  { id: 'migration_card', label: 'Миграционная карта', required: false },
-  { id: 'patent', label: 'Патент на работу', required: false },
-  { id: 'passport_translation', label: 'Нотариальный перевод паспорта', required: false },
-];
-
 // Статусы логистики
 export const LOGISTICS_STATUS = {
-  none: { label: 'Не начато', color: 'text-[#F8FAFC]/30', bg: 'bg-[#F8FAFC]/5', icon: '○' },
-  pending_admin: { label: 'Ожидает админа', color: 'text-yellow-400', bg: 'bg-yellow-500/10', icon: '⏳' },
-  pending_candidate: { label: 'Ожидает кандидата', color: 'text-[#C9A84C]', bg: 'bg-[#C9A84C]/10', icon: '⏳' },
-  confirmed: { label: 'Подтверждено', color: 'text-green-400', bg: 'bg-green-500/10', icon: '✓' },
+  none: { label: 'Не отправлено', color: 'text-[#F8FAFC]/30', bg: 'bg-[#F8FAFC]/5', icon: '○' },
+  pending_admin: { label: 'На согласовании', color: 'text-[#C9A84C]', bg: 'bg-[#C9A84C]/10', icon: '⏳' },
+  pending_candidate: { label: 'Ожидает кандидата', color: 'text-blue-400', bg: 'bg-blue-500/10', icon: '⏳' },
+  confirmed: { label: 'Согласовано', color: 'text-green-400', bg: 'bg-green-500/10', icon: '✓' },
 };
+
+// Опции для dropdown СБ
+export const SB_OPTIONS = [
+  { value: 'Не проверялся', label: 'Не проверялся', colorClass: 'text-[#F8FAFC]/60' },
+  { value: 'На проверке', label: 'На проверке', colorClass: 'text-yellow-400' },
+  { value: 'Согласован', label: 'Согласован', colorClass: 'text-green-400' },
+  { value: 'Не согласован', label: 'Не согласован', colorClass: 'text-red-400' },
+];
+
+// Опции для dropdown Медкомиссии
+export const MED_OPTIONS = [
+  { value: 'Не проверялся', label: 'Не проверялся', colorClass: 'text-[#F8FAFC]/60' },
+  { value: 'Прошёл', label: 'Прошёл', colorClass: 'text-green-400' },
+  { value: 'Не прошёл', label: 'Не прошёл', colorClass: 'text-red-400' },
+];
 
 // Цвета badge-фильтров для статусов СБ
 export const SB_BADGE = {
@@ -47,7 +47,7 @@ export const MED_BADGE = {
   'Не прошёл': { color: 'text-red-400', bg: 'bg-red-500/10', border: 'border-red-500/30', icon: '✗' },
 };
 
-// Формирование текстового отчёта для СБ (для копирования в мессенджер)
+// Формирование текстового отчёта для СБ (только текст, без ссылок)
 export function buildSbReport(candidate, formDocs, candidateFormData) {
   const lines = [];
   const fmt = (v) => v || '—';
@@ -56,58 +56,68 @@ export function buildSbReport(candidate, formDocs, candidateFormData) {
   lines.push('');
   lines.push(`👤 ФИО: ${fmt(candidate.full_name)}`);
   lines.push(`📅 Дата рождения: ${fmt(candidate.birth_date)}`);
-  lines.push(`🌍 Гражданство: ${fmt(candidate.citizenship)}`);
-  lines.push(`📍 Место рождения: ${fmt(candidate.birth_place)}`);
-  lines.push(`📍 Город проживания: ${fmt(candidate.city)}`);
-  lines.push(`💼 Должность: ${fmt(candidate.position)}`);
-  lines.push(`📞 Телефон: ${fmt(candidate.phone)}`);
-  if (candidate.email) lines.push(`✉️ Email: ${candidate.email}`);
-
-  // Паспортные данные (из анкеты, если есть)
-  if (candidateFormData) {
-    const fd = candidateFormData;
-    if (fd.passport_series || fd.passport_number) {
-      lines.push(`📄 Паспорт: ${fmt(fd.passport_series)} ${fmt(fd.passport_number)}`);
-    }
-    if (fd.passport_issued_by) {
-      lines.push(`📄 Кем выдан: ${fd.passport_issued_by}`);
-    }
-    if (fd.passport_issued_date) {
-      lines.push(`📄 Дата выдачи: ${fd.passport_issued_date}`);
-    }
-    if (fd.registration_address) {
-      lines.push(`🏠 Адрес регистрации: ${fd.registration_address}`);
-    }
-    // СНГ-специфичные поля
-    if (isCIS(candidate.citizenship)) {
-      if (fd.migration_card_number) lines.push(`📝 Миграционная карта: ${fd.migration_card_number}`);
-      if (fd.migration_card_expiry) lines.push(`📝 Срок мигр. карты: ${fd.migration_card_expiry}`);
-      if (fd.patent_number) lines.push(`📝 Патент: ${fd.patent_number}`);
-      if (fd.patent_region) lines.push(`📝 Регион патента: ${fd.patent_region}`);
-    }
-  }
+  lines.push(`📍 Из города: ${fmt(candidate.city)}`);
 
   // Логистика
   if (candidate.assembly_point || candidate.arrival_date) {
     lines.push('');
     lines.push('🚛 Логистика:');
-    if (candidate.assembly_point) lines.push(`📍 Пункт сбора: ${candidate.assembly_point}`);
+    if (candidate.assembly_point) lines.push(`📍 Прибывает в: ${candidate.assembly_point}`);
     if (candidate.arrival_date) lines.push(`📅 Дата прибытия: ${candidate.arrival_date}`);
     if (candidate.arrival_time) lines.push(`⏰ Время прибытия: ${candidate.arrival_time}`);
   }
 
-  // Ссылки на изображения (каждая на отдельной строке для превью в мессенджерах)
-  const docUrls = (formDocs || [])
-    .filter(d => d.url)
-    .map(d => ({ url: d.url, name: d.name || d.doc_type || 'документ' }));
-
-  if (docUrls.length > 0) {
+  // Здоровье (всё из вкладки здоровье)
+  const health = [];
+  if (candidateFormData) {
+    if (candidateFormData.chronic_diseases) health.push(`Хронические заболевания: ${candidateFormData.chronic_diseases}`);
+    if (candidateFormData.disabilities) health.push(`Инвалидность / ограничения: ${candidateFormData.disabilities}`);
+    if (candidateFormData.health_notes) health.push(`Доп. сведения: ${candidateFormData.health_notes}`);
+  }
+  if (candidate?.health_details) health.push(`Описание: ${candidate.health_details}`);
+  if (health.length) {
     lines.push('');
-    lines.push('📎 Документы:');
-    docUrls.forEach(d => {
-      lines.push(d.url);
-    });
+    lines.push('🏥 Здоровье:');
+    health.forEach(h => lines.push(h));
   }
 
   return lines.join('\n');
+}
+
+/**
+ * Возвращает документы, которые нужно приложить к отчёту СБ.
+ * Каждый документ — { label, url } для отдельной кнопки копирования.
+ */
+export function getSbReportDocs(candidate, formDocs) {
+  const docs = formDocs || candidate?.documents || [];
+  const docMap = {};
+  docs.forEach(d => {
+    const type = d.doc_type || d.type;
+    if (type) docMap[type] = d;
+  });
+
+  // Базовые документы
+  const baseIds = [
+    { id: 'passport_main', label: '📄 Паспорт (фото)' },
+    { id: 'passport_reg', label: '📄 Паспорт (прописка)' },
+    { id: 'snils', label: '📄 СНИЛС' },
+    { id: 'inn', label: '📄 ИНН' },
+    { id: 'military', label: '📄 Военный билет' },
+  ];
+
+  // СНГ-документы
+  const cisIds = isCIS(candidate?.citizenship)
+    ? [
+        { id: 'passport_translation', label: '📄 Перевод паспорта (нотариально)' },
+        { id: 'biometrics', label: '📄 Биометрия' },
+        { id: 'cis_registration', label: '📄 Регистрация' },
+      ]
+    : [];
+
+  return [...baseIds, ...cisIds]
+    .map(item => {
+      const doc = docMap[item.id];
+      return doc ? { label: item.label, url: doc.url } : null;
+    })
+    .filter(Boolean);
 }

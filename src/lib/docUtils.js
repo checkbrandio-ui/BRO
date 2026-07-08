@@ -2,7 +2,11 @@
  * Утилиты для проверки обязательных документов кандидата.
  */
 
-export const ALL_DOC_TYPES = [
+function isCIS(citizenship) {
+  return !!citizenship && citizenship !== 'РФ';
+}
+
+export const BASE_DOC_TYPES = [
   { id: 'passport_main', label: 'Паспорт (разворот с фото)', required: true },
   { id: 'passport_reg', label: 'Паспорт (страница с пропиской)', required: true },
   { id: 'snils', label: 'СНИЛС', required: true },
@@ -15,30 +19,39 @@ export const ALL_DOC_TYPES = [
   { id: 'certs', label: 'Допуски / сертификаты', required: false },
 ];
 
-export const REQUIRED_DOC_TYPES = ALL_DOC_TYPES.filter(d => d.required);
+export const CIS_DOC_TYPES = [
+  { id: 'passport_translation', label: 'Перевод паспорта (нотариально)', required: true },
+  { id: 'biometrics', label: 'Биометрия', required: true },
+  { id: 'cis_registration', label: 'Регистрация', required: true },
+];
 
-/**
- * Возвращает список обязательных документов, которых нет в загруженных.
- * @param {Array} docs — массив документов (из candidate.documents или form.uploaded_docs)
- * @returns {Array} — отсутствующие обязательные типы
- */
-export function getMissingRequiredDocs(docs = []) {
-  const uploadedTypes = new Set(
-    docs.map(d => d.doc_type || d.type).filter(Boolean)
-  );
-  return REQUIRED_DOC_TYPES.filter(dt => !uploadedTypes.has(dt.id));
+// Backwards compatibility
+export const ALL_DOC_TYPES = BASE_DOC_TYPES;
+export const REQUIRED_DOC_TYPES = BASE_DOC_TYPES.filter(d => d.required);
+
+export function getDocTypesForCitizenship(citizenship) {
+  if (isCIS(citizenship)) {
+    return [...BASE_DOC_TYPES, ...CIS_DOC_TYPES];
+  }
+  return BASE_DOC_TYPES;
 }
 
 /**
- * Проверяет, есть ли у кандидата незагруженные обязательные документы.
- * Учитывает только кандидатов с заполненной анкетой или с хотя бы одним документом.
- * @param {Object} candidate — запись кандидата
- * @returns {boolean}
+ * Возвращает список обязательных документов, которых нет в загруженных.
  */
+export function getMissingRequiredDocs(docs = [], citizenship) {
+  const uploadedTypes = new Set(
+    docs.map(d => d.doc_type || d.type).filter(Boolean)
+  );
+  const requiredTypes = citizenship
+    ? getDocTypesForCitizenship(citizenship).filter(d => d.required)
+    : REQUIRED_DOC_TYPES;
+  return requiredTypes.filter(dt => !uploadedTypes.has(dt.id));
+}
+
 export function hasMissingRequiredDocs(candidate) {
   if (!candidate) return false;
-  // Проверяем полноту только для завершённых анкет
   if (candidate.form_status !== 'completed') return false;
   const docs = candidate.documents || [];
-  return getMissingRequiredDocs(docs).length > 0;
+  return getMissingRequiredDocs(docs, candidate.citizenship).length > 0;
 }

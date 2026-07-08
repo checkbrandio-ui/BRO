@@ -4,9 +4,10 @@ import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
 import CitySelect from '@/components/CitySelect';
-import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
-import { CITIZENSHIPS, isCIS, CIS_FIELDS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import { getDocTypesForCitizenship, getMissingRequiredDocs } from '@/lib/docUtils';
+import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS } from '@/lib/candidateConstants';
 import SbReportButton from '@/components/admin/SbReportButton';
+import StatusDropdown from '@/components/ui/StatusDropdown';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -49,10 +50,6 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [formDocs, setFormDocs]     = useState([]); // документы из анкеты (единый источник)
   const [candidateFormId, setCandidateFormId] = useState(null);
   const [candidateFormData, setCandidateFormData] = useState(null);
-  const [cisForm, setCisForm] = useState({
-    migration_card_number: '', migration_card_expiry: '',
-    patent_number: '', patent_region: '',
-  });
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadErrors, setUploadErrors] = useState({});
   const [activeTab, setActiveTab]   = useState('card');
@@ -83,12 +80,6 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
         setCandidateFormId(rec.id);
         setFormDocs(rec.uploaded_docs || []);
         setCandidateFormData(rec);
-        setCisForm({
-          migration_card_number: rec.migration_card_number || '',
-          migration_card_expiry: rec.migration_card_expiry || '',
-          patent_number: rec.patent_number || '',
-          patent_region: rec.patent_region || '',
-        });
       } else {
         // Создаём анкету, если её нет — чтобы админ мог загружать документы
         const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
@@ -199,10 +190,6 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
       if (candidateFormId) {
         await base44.entities.CandidateForm.update(candidateFormId, {
           uploaded_docs: formDocs,
-          migration_card_number: cisForm.migration_card_number,
-          migration_card_expiry: cisForm.migration_card_expiry,
-          patent_number: cisForm.patent_number,
-          patent_region: cisForm.patent_region,
         });
       }
       // Сохраняем карточку кандидата (без поля documents — оно формируется из анкеты)
@@ -215,7 +202,8 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
 
   const inp = "w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg px-3 py-2.5 text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/25 focus:outline-none focus:border-[#7B3FBF] transition-all";
   const paymentAmount = form.payment_basis === 'Готовится к отправке' ? '100 000 ₽' : form.payment_basis === 'Отказался от отправки' ? 'Не предусмотрена' : '—';
-  const missingDocs = getMissingRequiredDocs(formDocs);
+  const missingDocs = getMissingRequiredDocs(formDocs, form.citizenship);
+  const docTypes = getDocTypesForCitizenship(form.citizenship);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -315,21 +303,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Место рождения</label>
               <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
             </div>
-            {isCIS(form.citizenship) && (
-              <div className="sm:col-span-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
-                <div className="text-xs text-[#C9A84C] font-bold mb-2 flex items-center gap-1.5">
-                  <FileText size={12} /> Данные для граждан СНГ
-                </div>
-                <div className="grid sm:grid-cols-2 gap-3">
-                  {CIS_FIELDS.map(cf => (
-                    <div key={cf.key}>
-                      <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">{cf.label}</label>
-                      <input className={inp} value={cisForm[cf.key]} onChange={e => setCisForm(prev => ({ ...prev, [cf.key]: e.target.value }))} placeholder={cf.placeholder} />
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город проживания</label>
               <CitySelect
@@ -474,22 +448,25 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               <div className="grid sm:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Проверка СБ</label>
-                  <select className={inp} value={form.sb_check} onChange={e => set('sb_check', e.target.value)}>
-                    <option value="">Не указано</option>
-                    <option value="Не проверялся">Не проверялся</option>
-                    <option value="На проверке">На проверке</option>
-                    <option value="Согласован">Согласован</option>
-                    <option value="Не согласован">Не согласован</option>
-                  </select>
+                  <StatusDropdown
+                    value={form.sb_check}
+                    onChange={v => set('sb_check', v)}
+                    options={SB_OPTIONS}
+                    placeholder="Не указано"
+                    allowEmpty
+                    emptyLabel="Не указано"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Медкомиссия</label>
-                  <select className={inp} value={form.medical_check} onChange={e => set('medical_check', e.target.value)}>
-                    <option value="">Не указано</option>
-                    <option value="Не проверялся">Не проверялся</option>
-                    <option value="Прошёл">Прошёл</option>
-                    <option value="Не прошёл">Не прошёл</option>
-                  </select>
+                  <StatusDropdown
+                    value={form.medical_check}
+                    onChange={v => set('medical_check', v)}
+                    options={MED_OPTIONS}
+                    placeholder="Не указано"
+                    allowEmpty
+                    emptyLabel="Не указано"
+                  />
                 </div>
                 <div>
                   <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Основание для выплаты</label>
@@ -535,7 +512,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               Сохраняются в анкете. Обязательные поля отмечены <span className="text-red-400">*</span>
             </p>
             <div className="space-y-2">
-              {ALL_DOC_TYPES.map(dt => {
+              {docTypes.map(dt => {
                 const uploaded = formDocs.find(d => d.doc_type === dt.id);
                 return (
                   <div key={dt.id} className="flex flex-col sm:flex-row sm:items-center gap-2 sm:gap-3 p-3 bg-[rgba(255,255,255,0.03)] border border-[rgba(123,63,191,0.12)] rounded-lg">
