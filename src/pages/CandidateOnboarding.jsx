@@ -9,6 +9,7 @@ import { getDocTypesForCitizenship, getMissingRequiredDocs } from '@/lib/docUtil
 import DocumentUploader from '@/components/candidate/DocumentUploader';
 import DocumentLightbox from '@/components/candidate/DocumentLightbox';
 import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -296,6 +297,11 @@ export default function CandidateOnboarding() {
         form_status: 'completed',
         form_submitted_at: now,
       });
+      // Уведомляем админа при изменении логистики
+      await notifyLogisticsChange(
+        { ...candidate, id: formRecord.candidate_id, full_name: form.full_name, logistics_status: newLogisticsStatus, agency_id: candidate?.agency_id, agency_name: candidate?.agency_name },
+        { ...candidate, logistics_status: candidate?.logistics_status || 'none' }
+      );
     }
     try {
       const agencyName = candidate?.agency_name || 'Агентство';
@@ -337,6 +343,30 @@ export default function CandidateOnboarding() {
     setSubmitting(false);
   };
 
+  const [logisticsConfirming, setLogisticsConfirming] = useState(false);
+  const [logisticsConfirmed, setLogisticsConfirmed] = useState(false);
+
+  const handleLogisticsConfirm = async () => {
+    if (!formRecord?.candidate_id) return;
+    setLogisticsConfirming(true);
+    try {
+      const now = new Date().toISOString();
+      await base44.entities.Candidate.update(formRecord.candidate_id, {
+        logistics_status: 'confirmed',
+        logistics_confirmed_at: now,
+      });
+      // Уведомляем админа, что кандидат согласовал логистику
+      await notifyLogisticsChange(
+        { ...candidate, id: formRecord.candidate_id, logistics_status: 'confirmed' },
+        { ...candidate, logistics_status: 'pending_candidate' }
+      );
+      setLogisticsConfirmed(true);
+    } catch (e) {
+      alert('Ошибка при согласовании логистики. Попробуйте позже.');
+    }
+    setLogisticsConfirming(false);
+  };
+
   // Строгий рабочий стиль
   const inp = "w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2.5 text-sm text-[#e0e0e0] placeholder:text-[#444] focus:outline-none focus:border-[#666] transition-colors";
   const inpRO = "w-full bg-[#141414] border border-[#2a2a2a] rounded px-3 py-2.5 text-sm text-[#555] cursor-not-allowed";
@@ -376,6 +406,29 @@ export default function CandidateOnboarding() {
           className="mt-5 px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors">
           Редактировать анкету
         </button>
+
+        {/* Подтверждение логистики — если админ предложил, а анкета уже отправлена */}
+        {candidate?.logistics_status === 'pending_candidate' && candidate?.proposed_assembly_point && !logisticsConfirmed && (
+          <div className="mt-6 p-4 rounded-xl bg-[#C9A84C]/8 border border-[#C9A84C]/25 text-left">
+            <p className="text-sm font-bold text-[#C9A84C] mb-3">📍 Администратор предложил логистику</p>
+            <div className="text-xs text-[#ccc] space-y-1 mb-3">
+              <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
+              {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
+              {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
+            </div>
+            <button onClick={handleLogisticsConfirm} disabled={logisticsConfirming}
+              className="w-full py-2.5 rounded bg-green-700/40 border border-green-600/50 text-sm text-green-300 hover:bg-green-700/60 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+              {logisticsConfirming ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+              {logisticsConfirming ? 'Сохранение...' : 'Согласовать логистику'}
+            </button>
+          </div>
+        )}
+        {logisticsConfirmed && (
+          <div className="mt-6 p-4 rounded-xl bg-green-900/20 border border-green-700/40 text-left flex items-center gap-2">
+            <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+            <span className="text-sm text-green-400">Логистика согласована. Администратор уведомлён.</span>
+          </div>
+        )}
       </div>
     </div>
   );

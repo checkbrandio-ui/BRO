@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2 } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, Navigation } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -315,21 +315,6 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               />
             </div>
             <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Пункт сбора</label>
-              <select className={inp} value={form.assembly_point} onChange={e => handleAssemblyPointChange(e.target.value)}>
-                <option value="">Выберите...</option>
-                {assemblyPoints.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-              </select>
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата прибытия</label>
-              <input className={inp + (form.arrival_date ? '' : ' text-[#F8FAFC]/30')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} placeholder="Выберите дату" />
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Время прибытия</label>
-              <input className={inp + (form.arrival_time ? '' : ' text-[#F8FAFC]/30')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
-            </div>
-            <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Состояние здоровья</label>
               <select className={inp} value={form.health_status} onChange={e => set('health_status', e.target.value)}>
                 <option value="">Не указано</option>
@@ -345,18 +330,41 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             )}
           </div>
 
-          {/* Логистика и согласование */}
-          <div className="border-t border-[rgba(123,63,191,0.15)] pt-4">
-            <div className="flex items-center justify-between mb-3">
-              <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest">Логистика и согласование</div>
+          {/* Логистика и согласование — выделенный блок */}
+          <div className="rounded-xl bg-[rgba(123,63,191,0.06)] border border-[rgba(123,63,191,0.25)] p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="text-xs text-[#C9A84C] font-bold uppercase tracking-widest flex items-center gap-1.5">
+                <Navigation size={13} /> Логистика и согласование
+              </div>
               {form.logistics_status && form.logistics_status !== 'none' && (
                 <span className={`text-xs px-2 py-1 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
                   {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
                 </span>
               )}
             </div>
+
+            {/* Поля логистики: пункт сбора, дата, время */}
+            <div className="grid sm:grid-cols-3 gap-3">
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Пункт сбора</label>
+                <select className={inp} value={form.assembly_point} onChange={e => handleAssemblyPointChange(e.target.value)}>
+                  <option value="">Выберите...</option>
+                  {assemblyPoints.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
+                </select>
+              </div>
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата прибытия</label>
+                <input className={inp + (form.arrival_date ? '' : ' text-[#F8FAFC]/30')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+              </div>
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Время прибытия</label>
+                <input className={inp + (form.arrival_time ? '' : ' text-[#F8FAFC]/30')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
+              </div>
+            </div>
+
+            {/* Предложение от кандидата/менеджера (для админа — pending_admin) */}
             {form.logistics_status === 'pending_admin' && form.proposed_assembly_point && (
-              <div className="mb-3 p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+              <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
                 <div className="text-xs text-[#C9A84C] font-bold mb-2">Предложено ({form.proposed_by || 'кандидатом'}):</div>
                 <div className="text-xs text-[#F8FAFC]/60 space-y-0.5">
                   {form.proposed_assembly_point && <div>📍 Пункт сбора: {form.proposed_assembly_point}</div>}
@@ -365,7 +373,9 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                 </div>
               </div>
             )}
-            <div className="mb-3">
+
+            {/* Фото билета */}
+            <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Фото билета</label>
               {form.ticket_photo_url ? (
                 <div className="flex items-center gap-2">

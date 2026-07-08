@@ -52,34 +52,22 @@ export function buildSbReport(candidate, formDocs, candidateFormData) {
   const lines = [];
   const fmt = (v) => v || '—';
 
-  lines.push('📋 Данные кандидата для СБ');
-  lines.push('');
   lines.push(`👤 ФИО: ${fmt(candidate.full_name)}`);
   lines.push(`📅 Дата рождения: ${fmt(candidate.birth_date)}`);
-  lines.push(`📍 Из города: ${fmt(candidate.city)}`);
 
   // Логистика
-  if (candidate.assembly_point || candidate.arrival_date) {
-    lines.push('');
-    lines.push('🚛 Логистика:');
-    if (candidate.assembly_point) lines.push(`📍 Прибывает в: ${candidate.assembly_point}`);
-    if (candidate.arrival_date) lines.push(`📅 Дата прибытия: ${candidate.arrival_date}`);
-    if (candidate.arrival_time) lines.push(`⏰ Время прибытия: ${candidate.arrival_time}`);
-  }
+  lines.push('');
+  lines.push('🚛 Логистика:');
+  lines.push(`📍 Из города: ${fmt(candidate.city)}`);
+  lines.push(`📍 Прибывает в: ${fmt(candidate.assembly_point)}`);
+  lines.push(`📅 Дата прибытия: ${fmt(candidate.arrival_date)}`);
+  lines.push(`Время прибытия: ${candidate.arrival_time || 'не известно'}`);
 
-  // Здоровье (всё из вкладки здоровье)
-  const health = [];
-  if (candidateFormData) {
-    if (candidateFormData.chronic_diseases) health.push(`Хронические заболевания: ${candidateFormData.chronic_diseases}`);
-    if (candidateFormData.disabilities) health.push(`Инвалидность / ограничения: ${candidateFormData.disabilities}`);
-    if (candidateFormData.health_notes) health.push(`Доп. сведения: ${candidateFormData.health_notes}`);
-  }
-  if (candidate?.health_details) health.push(`Описание: ${candidate.health_details}`);
-  if (health.length) {
-    lines.push('');
-    lines.push('🏥 Здоровье:');
-    health.forEach(h => lines.push(h));
-  }
+  // Здоровье
+  lines.push('');
+  lines.push('🏥 Здоровье:');
+  lines.push(`Хронические заболевания: ${candidateFormData?.chronic_diseases || 'Нет'}`);
+  lines.push(`Инвалидность / ограничения: ${candidateFormData?.disabilities || 'Нет'}`);
 
   return lines.join('\n');
 }

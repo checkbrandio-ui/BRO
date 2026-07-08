@@ -8,12 +8,13 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
+import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { findNearestAssemblyPoint, haversineDistance } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import { useToast } from '@/components/ui/use-toast';
-import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS } from '@/lib/candidateConstants';
+import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS, isCIS } from '@/lib/candidateConstants';
 import StatusDropdown from '@/components/ui/StatusDropdown';
 import ArrivalsCalendar from '@/components/admin/ArrivalsCalendar';
 
@@ -119,6 +120,7 @@ export default function Candidates() {
       const old = candidates.find(c => c.id === id);
       await base44.entities.Candidate.update(id, data);
       await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
+      await notifyLogisticsChange({ ...data, id }, old);
       setModalOpen(false);
       setEditCandidate(null);
       load();
@@ -192,8 +194,10 @@ export default function Candidates() {
       const matchSearch = !q || c.full_name?.toLowerCase().includes(q) || c.position?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q) || c.phone?.includes(q);
       const matchAgency = !filters.agency || c.agency_id === filters.agency;
       const matchPos    = !filters.position || c.position === filters.position;
-      const matchSB     = !filters.sb_check || c.sb_check === filters.sb_check;
-      const matchMed    = !filters.medical_check || c.medical_check === filters.medical_check;
+      const matchSB     = !filters.sb_check
+        || (filters.sb_check === 'Не проверялся' ? (!c.sb_check || c.sb_check === 'Не проверялся') : c.sb_check === filters.sb_check);
+      const matchMed    = !filters.medical_check
+        || (filters.medical_check === 'Не проверялся' ? (!c.medical_check || c.medical_check === 'Не проверялся') : c.medical_check === filters.medical_check);
       const matchForm   = !filters.form_status || c.form_status === filters.form_status;
       const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
       const matchLogistics = !filters.logistics_status
@@ -674,7 +678,14 @@ export default function Candidates() {
                               </HoverCard>
                             )}
                             <div>
-                              <div className={`font-bold ${isDuplicate ? 'text-red-300' : 'text-[#F8FAFC]'}`}>{c.full_name}</div>
+                              <div className={`font-bold ${isDuplicate ? 'text-red-300' : 'text-[#F8FAFC]'}`}>
+                                {c.full_name}
+                                {isCIS(c.citizenship) && (
+                                  <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/25 align-middle" title={`Гражданство: ${c.citizenship}`}>
+                                    {c.citizenship}
+                                  </span>
+                                )}
+                              </div>
                               <div className="text-xs text-[#F8FAFC]/35">{c.agency_name || '—'}</div>
                             </div>
                           </div>

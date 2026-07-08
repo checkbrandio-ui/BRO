@@ -9,7 +9,9 @@ import { useToast } from '@/components/ui/use-toast';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
+import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
+import { isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся': 'text-[#F8FAFC]/40', 'На проверке': 'text-yellow-400', 'Согласован': 'text-green-400', 'Не согласован': 'text-red-400' };
@@ -110,6 +112,7 @@ export default function AgencyWorkspace() {
       await base44.entities.Candidate.update(id, dataWithAgency);
       await logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor: getActor() });
       await notifyStatusChange({ ...dataWithAgency, id }, old);
+      await notifyLogisticsChange({ ...dataWithAgency, id }, old);
     } else {
       const response = await base44.functions.invoke('createCandidateSafe', {
         candidate_data: dataWithAgency,
@@ -194,8 +197,10 @@ export default function AgencyWorkspace() {
     return list.filter(c => {
       const matchSearch = !q || c.full_name?.toLowerCase().includes(q) || c.position?.toLowerCase().includes(q) || c.city?.toLowerCase().includes(q);
       const matchPos = !filters.position || c.position === filters.position;
-      const matchSB  = !filters.sb_check || c.sb_check === filters.sb_check;
-      const matchMed = !filters.medical_check || c.medical_check === filters.medical_check;
+      const matchSB  = !filters.sb_check
+        || (filters.sb_check === 'Не проверялся' ? (!c.sb_check || c.sb_check === 'Не проверялся') : c.sb_check === filters.sb_check);
+      const matchMed = !filters.medical_check
+        || (filters.medical_check === 'Не проверялся' ? (!c.medical_check || c.medical_check === 'Не проверялся') : c.medical_check === filters.medical_check);
       const matchDocs = !filters.incomplete_docs || hasMissingRequiredDocs(c);
       return matchSearch && matchPos && matchSB && matchMed && matchDocs;
     });
@@ -479,7 +484,14 @@ export default function AgencyWorkspace() {
                               </HoverCardContent>
                             </HoverCard>
                           )}
-                          <div className="font-bold text-[#F8FAFC]">{c.full_name}</div>
+                          <div className="font-bold text-[#F8FAFC]">
+                            {c.full_name}
+                            {isCIS(c.citizenship) && (
+                              <span className="ml-1.5 text-[10px] px-1.5 py-0.5 rounded bg-[#C9A84C]/15 text-[#C9A84C] border border-[#C9A84C]/25 align-middle" title={`Гражданство: ${c.citizenship}`}>
+                                {c.citizenship}
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
                       <td className="px-4 py-3 text-[#F8FAFC]/60 text-xs whitespace-nowrap">{c.position || '—'}</td>
@@ -519,8 +531,15 @@ export default function AgencyWorkspace() {
                           {c.medical_check === 'Прошёл' ? '✓' : c.medical_check === 'Не прошёл' ? '✗' : '—'}
                         </span>
                       </td>
-                      <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">
-                        {c.arrival_date ? c.arrival_date.split('-').reverse().join('.') : '—'}
+                      <td className="px-4 py-3 text-xs whitespace-nowrap">
+                        {c.arrival_date ? (
+                          <span className="text-[#F8FAFC]/60">{c.arrival_date.split('-').reverse().join('.')}{c.arrival_time ? ` ${c.arrival_time}` : ''}</span>
+                        ) : <span className="text-[#F8FAFC]/25">—</span>}
+                        {c.logistics_status && c.logistics_status !== 'none' && (
+                          <div className={`text-[10px] mt-0.5 ${LOGISTICS_STATUS[c.logistics_status]?.color || 'text-[#F8FAFC]/30'}`}>
+                            {LOGISTICS_STATUS[c.logistics_status]?.icon} {LOGISTICS_STATUS[c.logistics_status]?.label}
+                          </div>
+                        )}
                       </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>{c.payment_basis || '—'}</span>

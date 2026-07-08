@@ -155,6 +155,15 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
     return findNearestAssemblyPoint(candidateCity.lat, candidateCity.lon, withCoords);
   }, [hasCoords, candidateCity, assemblyPoints]);
 
+  // Назначенная точка сбора (с координатами) — для отрисовки маршрута
+  const assignedPoint = useMemo(() => {
+    if (!candidate?.assembly_point) return null;
+    return assemblyPoints.find(ap => ap.name === candidate.assembly_point && ap.lat != null && ap.lon != null) || null;
+  }, [candidate?.assembly_point, assemblyPoints]);
+
+  // Точка, до которой рисуем пунктир: назначенная (если есть) или ближайшая
+  const routeTarget = assignedPoint || nearest?.point || null;
+
   const allDistances = useMemo(() => {
     if (!hasCoords) {
       return assemblyPoints
@@ -263,13 +272,18 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
                     </Marker>
                   );
                 })}
-                {nearest && (
+                {routeTarget && (
                   <Polyline
+                    key={routeTarget.name}
                     positions={[
                       [candidateCity.lat, candidateCity.lon],
-                      [nearest.point.lat, nearest.point.lon],
+                      [routeTarget.lat, routeTarget.lon],
                     ]}
-                    pathOptions={{ color: '#7B3FBF', dashArray: '6 6', weight: 2 }}
+                    pathOptions={{
+                      color: assignedPoint ? '#22C55E' : '#7B3FBF',
+                      dashArray: '6 6',
+                      weight: 2,
+                    }}
                   />
                 )}
               </MapContainer>
