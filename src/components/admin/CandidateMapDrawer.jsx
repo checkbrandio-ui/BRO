@@ -2,8 +2,17 @@ import { useMemo } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import 'leaflet/dist/leaflet.css';
-import { X, MapPin, Navigation } from 'lucide-react';
+import { X, MapPin, Navigation, Banknote } from 'lucide-react';
+import { Tooltip } from 'react-leaflet';
 import { haversineDistance, formatDistance, findNearestAssemblyPoint } from '@/lib/geoUtils';
+
+// Легенда цветов по agent_fee
+const FEE_TIERS = [
+  { min: 70000, label: '70 000+', color: '#22C55E' },
+  { min: 50000, label: '50 000–70 000', color: '#C9A84C' },
+  { min: 30000, label: '30 000–50 000', color: '#7B3FBF' },
+  { min: 0, label: 'менее 30 000', color: '#6B7280' },
+];
 
 const cityIcon = L.divIcon({
   className: '',
@@ -12,12 +21,37 @@ const cityIcon = L.divIcon({
   iconAnchor: [8, 8],
 });
 
-const assemblyIcon = L.divIcon({
-  className: '',
-  html: '<div style="width:16px;height:16px;background:#C9A84C;border:2px solid #F8FAFC;border-radius:50%;box-shadow:0 0 12px rgba(201,168,76,0.8);"></div>',
-  iconSize: [16, 16],
-  iconAnchor: [8, 8],
-});
+function feeColorHex(fee) {
+  if (fee == null) return '#6B7280';
+  if (fee >= 70000) return '#22C55E';
+  if (fee >= 50000) return '#C9A84C';
+  if (fee >= 30000) return '#7B3FBF';
+  return '#6B7280';
+}
+
+function feeSize(fee) {
+  if (fee == null) return 14;
+  if (fee >= 70000) return 20;
+  if (fee >= 50000) return 18;
+  return 16;
+}
+
+function assemblyIconFor(fee) {
+  const color = feeColorHex(fee);
+  const size = feeSize(fee);
+  const glow = fee != null ? `box-shadow:0 0 12px ${color}cc;` : '';
+  return L.divIcon({
+    className: '',
+    html: `<div style="width:${size}px;height:${size}px;background:${color};border:2px solid #F8FAFC;border-radius:50%;${glow}"></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+function formatRub(v) {
+  if (v == null) return '—';
+  return v.toLocaleString('ru-RU') + ' ₽';
+}
 
 const assignedIcon = L.divIcon({
   className: '',
@@ -58,9 +92,21 @@ function DistancesList({ allDistances, candidate, nearest, onAssignAssemblyPoint
                     : 'text-[#F8FAFC]/70'
                   }`}>{d.name}</span>
                   {d.region && <span className="text-xs text-[#F8FAFC]/30 ml-2">{d.region}</span>}
+                  {d.payment_amount != null && (
+                    <span className="text-xs text-[#F8FAFC]/30 ml-2">· {formatRub(d.payment_amount)}</span>
+                  )}
+                  {d.processing_time && (
+                    <span className="text-xs text-[#F8FAFC]/30 ml-1">· {d.processing_time}</span>
+                  )}
                 </div>
               </div>
               <div className="flex items-center gap-2 flex-shrink-0">
+                {d.agent_fee != null && (
+                  <span className="text-xs font-medium flex items-center gap-1" style={{ color: feeColorHex(d.agent_fee) }}>
+                    <span className="w-1.5 h-1.5 rounded-full" style={{ background: feeColorHex(d.agent_fee) }} />
+                    {formatRub(d.agent_fee)}
+                  </span>
+                )}
                 <span className={`font-bold ${
                   isAssigned ? 'text-green-400'
                   : isNearest ? 'text-[#C9A84C]'
@@ -108,7 +154,7 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
   const allDistances = useMemo(() => {
     if (!hasCoords) {
       return assemblyPoints
-        .map(ap => ({ name: ap.name, region: ap.region, distance: null }))
+        .map(ap => ({ name: ap.name, region: ap.region, distance: null, agent_fee: ap.agent_fee, payment_amount: ap.payment_amount, processing_time: ap.processing_time }))
         .sort((a, b) => a.name.localeCompare(b.name, 'ru'));
     }
     return assemblyPoints
@@ -116,6 +162,9 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
         name: ap.name,
         region: ap.region,
         distance: haversineDistance(candidateCity.lat, candidateCity.lon, ap.lat, ap.lon),
+        agent_fee: ap.agent_fee,
+        payment_amount: ap.payment_amount,
+        processing_time: ap.processing_time,
       }))
       .sort((a, b) => (a.distance ?? Infinity) - (b.distance ?? Infinity));
   }, [hasCoords, candidateCity, assemblyPoints]);
@@ -166,6 +215,18 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
           <>
             {/* Map */}
             <div className="flex-1 min-h-[300px] relative">
+              {/* Легенда */}
+              <div className="absolute top-3 right-3 z-[500] bg-[#0D1B3E]/90 border border-[rgba(123,63,191,0.25)] rounded-lg px-3 py-2 backdrop-blur-sm">
+                <div className="text-[10px] font-bold text-[#F8FAFC]/50 uppercase tracking-wider mb-1.5 flex items-center gap-1">
+                  <Banknote size={10} /> Оплата агенту
+                </div>
+                {FEE_TIERS.map(t => (
+                  <div key={t.label} className="flex items-center gap-1.5 text-[11px] text-[#F8FAFC]/70">
+                    <span className="w-2.5 h-2.5 rounded-full flex-shrink-0" style={{ background: t.color }} />
+                    {t.label}
+                  </div>
+                ))}
+              </div>
               <MapContainer
                 center={[candidateCity.lat, candidateCity.lon]}
                 zoom={5}
@@ -182,7 +243,18 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
                 {mapAssemblyPoints.map(ap => {
                   const isAssigned = candidate.assembly_point === ap.name;
                   return (
-                    <Marker key={ap.id} position={[ap.lat, ap.lon]} icon={isAssigned ? assignedIcon : assemblyIcon}>
+                    <Marker key={ap.id} position={[ap.lat, ap.lon]} icon={isAssigned ? assignedIcon : assemblyIconFor(ap.agent_fee)}>
+                      <Tooltip direction="top" offset={[0, -10]} opacity={1} className="city-tooltip">
+                        <div style={{ minWidth: '140px' }}>
+                          <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '13px' }}>{ap.name}</div>
+                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Выплата: <strong style={{ color: '#F8FAFC' }}>{formatRub(ap.payment_amount)}</strong></div>
+                          {ap.previous_payment != null && (
+                            <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Было: <span style={{ textDecoration: 'line-through' }}>{formatRub(ap.previous_payment)}</span></div>
+                          )}
+                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Оформление: <strong style={{ color: '#F8FAFC' }}>{ap.processing_time || '—'}</strong></div>
+                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Агенту: <strong style={{ color: feeColorHex(ap.agent_fee) }}>{formatRub(ap.agent_fee)}</strong></div>
+                        </div>
+                      </Tooltip>
                       <Popup>{ap.name}{isAssigned ? ' — назначенная точка' : ''}</Popup>
                     </Marker>
                   );
