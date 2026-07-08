@@ -32,7 +32,13 @@ export default function AssemblyPoints() {
   };
 
   const q = search.toLowerCase();
-  const filtered = cities.filter(c => !q || c.name?.toLowerCase().includes(q) || c.region?.toLowerCase().includes(q));
+  const filtered = cities
+    .filter(c => !q || c.name?.toLowerCase().includes(q) || c.region?.toLowerCase().includes(q))
+    .sort((a, b) => {
+      if (a.is_assembly_point && !b.is_assembly_point) return -1;
+      if (!a.is_assembly_point && b.is_assembly_point) return 1;
+      return a.name.localeCompare(b.name, 'ru');
+    });
   const enabledCount = cities.filter(c => c.is_assembly_point).length;
 
   return (

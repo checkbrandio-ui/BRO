@@ -525,15 +525,10 @@ export default function Candidates() {
           <select value={logisticsPoint} onChange={e => { setLogisticsPoint(e.target.value); setSortDir(e.target.value ? 'asc' : null); }} className={inp}>
             <option value="">— Логистика —</option>
             {Object.values(cityCache)
-              .sort((a, b) => {
-                if (a.is_assembly_point && !b.is_assembly_point) return -1;
-                if (!a.is_assembly_point && b.is_assembly_point) return 1;
-                return a.name.localeCompare(b.name, 'ru');
-              })
+              .filter(c => c.is_assembly_point)
+              .sort((a, b) => a.name.localeCompare(b.name, 'ru'))
               .map(ap => (
-                <option key={ap.id || ap.name} value={ap.name}>
-                  {ap.is_assembly_point ? '★ ' : ''}{ap.name}
-                </option>
+                <option key={ap.id || ap.name} value={ap.name}>{ap.name}</option>
               ))}
           </select>
           <button
