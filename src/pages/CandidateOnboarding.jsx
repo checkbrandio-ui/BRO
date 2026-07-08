@@ -466,6 +466,7 @@ export default function CandidateOnboarding() {
                   onChange={val => set('assembly_point', val)}
                   inputClassName={inp}
                   placeholder="Выберите город..."
+                  assemblyPointsOnly
                 />
               </div>
               <div>

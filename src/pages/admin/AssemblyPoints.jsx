@@ -119,8 +119,11 @@ export default function AssemblyPoints() {
               const fee = c.agent_fee != null;
               let feeColor = 'text-[#F8FAFC]/40';
               if (fee) {
-                if (c.agent_fee >= 70000) feeColor = 'text-[#C9A84C]';
-                else if (c.agent_fee >= 40000) feeColor = 'text-[#7B3FBF]';
+                if (c.agent_fee >= 500000) feeColor = 'text-[#C9A84C]';
+                else if (c.agent_fee >= 450000) feeColor = 'text-[#7B3FBF]';
+                else if (c.agent_fee >= 400000) feeColor = 'text-[#3B82F6]';
+                else if (c.agent_fee >= 300000) feeColor = 'text-[#60A5FA]';
+                else feeColor = 'text-[#6B7280]';
               }
               return (
                 <div key={c.id}

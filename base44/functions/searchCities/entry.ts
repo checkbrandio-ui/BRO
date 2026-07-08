@@ -248,11 +248,11 @@ const RU_CITIES = [
   { name: "Новолесное", region: "Астраханская область", lat: 46.1000, lon: 48.2000 },
 ];
 
-// Дедуплицируем встроенный справочник по имени
+// Дедуплицируем встроенный справочник по имени + региону
 const DEDUPED_CITIES = (() => {
   const seen = new Set();
   return RU_CITIES.filter(c => {
-    const key = c.name.toLowerCase();
+    const key = (c.name + '|' + (c.region || '')).toLowerCase();
     if (seen.has(key)) return false;
     seen.add(key);
     return true;
@@ -270,8 +270,9 @@ Deno.serve(async (req) => {
     // Special mode: return ALL cities for strict select dropdowns
     if (query === '_all') {
       const cached = await sr.entities.City.list('-created_date', 500);
-      const cacheNames = new Set(cached.map(c => (c.name || '').toLowerCase()));
-      const newCities = DEDUPED_CITIES.filter(c => !cacheNames.has(c.name.toLowerCase()));
+      // Кэшируем в БД города из встроенного справочника, которых ещё нет
+      const cacheKeys = new Set(cached.map(c => (c.name + '|' + (c.region || '')).toLowerCase()));
+      const newCities = DEDUPED_CITIES.filter(c => !cacheKeys.has((c.name + '|' + (c.region || '')).toLowerCase()));
       if (newCities.length > 0) {
         await Promise.allSettled(newCities.map(c =>
           sr.entities.City.create({
@@ -279,7 +280,20 @@ Deno.serve(async (req) => {
           })
         ));
       }
-      return Response.json({ results: DEDUPED_CITIES.map(c => ({ ...c, source: 'builtin' })) });
+      // Возвращаем города из БД (включая вручную добавленные) + встроенные,
+      // дедуплицированные по имени + региону
+      const seen = new Set();
+      const results = [];
+      for (const c of cached) {
+        if (c.lat == null || c.lon == null) continue;
+        const key = (c.name + '|' + (c.region || '')).toLowerCase();
+        if (!seen.has(key)) { seen.add(key); results.push({ name: c.name, region: c.region || '', lat: c.lat, lon: c.lon, source: c.source || 'cache' }); }
+      }
+      for (const c of DEDUPED_CITIES) {
+        const key = (c.name + '|' + (c.region || '')).toLowerCase();
+        if (!seen.has(key)) { seen.add(key); results.push({ ...c, source: 'builtin' }); }
+      }
+      return Response.json({ results });
     }
 
     if (!query || typeof query !== 'string' || query.trim().length < 2) {
@@ -311,22 +325,22 @@ Deno.serve(async (req) => {
       .slice(0, 15)
       .map(c => ({ ...c, source: 'builtin' }));
 
-    // 3. Объединяем, дедуплицируем по имени
+    // 3. Объединяем, дедуплицируем по имени + региону
     const seen = new Set();
     const combined = [];
 
     for (const m of localMatches) {
-      const key = m.name.toLowerCase();
+      const key = (m.name + '|' + (m.region || '')).toLowerCase();
       if (!seen.has(key)) { seen.add(key); combined.push(m); }
     }
     for (const m of builtinMatches) {
-      const key = m.name.toLowerCase();
+      const key = (m.name + '|' + (m.region || '')).toLowerCase();
       if (!seen.has(key)) { seen.add(key); combined.push(m); }
     }
 
     // 4. Кэшируем города из встроенного справочника, которых ещё нет в БД
     const newCities = builtinMatches.filter(r =>
-      !cacheLower.some(c => c._lower === r.name.toLowerCase())
+      !cacheLower.some(c => (c.name + '|' + (c.region || '')).toLowerCase() === (r.name + '|' + (r.region || '')).toLowerCase())
     );
 
     if (newCities.length > 0) {
@@ -341,7 +355,7 @@ Deno.serve(async (req) => {
       ));
     }
 
-    return Response.json({ results: combined.slice(0, 10) });
+    return Response.json({ results: combined.slice(0, 15) });
   } catch (error) {
     return Response.json({ error: error.message }, { status: 500 });
   }

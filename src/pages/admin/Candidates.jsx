@@ -412,7 +412,7 @@ export default function Candidates() {
     <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
       {/* Header */}
       <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-40">
-        <div className="max-w-[1400px] mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
+        <div className="w-full mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-2 sm:gap-4">
           <div className="flex items-center gap-2 sm:gap-4 min-w-0">
             <Link to="/" className="flex items-center gap-2 text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-colors">
               <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" className="w-7 h-7 object-contain" alt="logo" />
@@ -459,7 +459,7 @@ export default function Candidates() {
         </div>
       </div>
 
-      <div className="max-w-[1400px] mx-auto px-4 sm:px-6 py-4 sm:py-6">
+      <div className="w-full mx-auto px-4 sm:px-6 py-4 sm:py-6">
         {/* Предупреждение о дублях */}
         {dupCount > 0 && !showArchive && (
           <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-red-500/10 border border-red-500/25 text-red-400 text-sm">

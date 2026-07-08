@@ -16,6 +16,7 @@ export default function CitySelect({
   inputClassName = '',
   placeholder = 'Выберите город...',
   readOnly = false,
+  assemblyPointsOnly = false,
 }) {
   const [allCities, setAllCities] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -31,17 +32,27 @@ export default function CitySelect({
     let cancelled = false;
     const loadAll = async () => {
       let cities = [];
-      try {
-        const resp = await base44.functions.invoke('searchCities', { query: '_all' });
-        cities = resp.data?.results || [];
-      } catch (_) {}
-      if (cities.length === 0) {
+      // Если нужен только список активных точек сбора — берём напрямую из БД
+      if (assemblyPointsOnly) {
         try {
-          const cityList = await base44.entities.City.list('-created_date', 500);
+          const cityList = await base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200);
           cities = cityList
             .filter(c => c.lat != null && c.lon != null)
             .map(c => ({ name: c.name, region: c.region || '', lat: c.lat, lon: c.lon }));
         } catch (_) {}
+      } else {
+        try {
+          const resp = await base44.functions.invoke('searchCities', { query: '_all' });
+          cities = resp.data?.results || [];
+        } catch (_) {}
+        if (cities.length === 0) {
+          try {
+            const cityList = await base44.entities.City.list('-created_date', 500);
+            cities = cityList
+              .filter(c => c.lat != null && c.lon != null)
+              .map(c => ({ name: c.name, region: c.region || '', lat: c.lat, lon: c.lon }));
+          } catch (_) {}
+        }
       }
       const seen = new Set();
       cities = cities.filter(c => {
@@ -56,7 +67,7 @@ export default function CitySelect({
     };
     loadAll();
     return () => { cancelled = true; };
-  }, []);
+  }, [assemblyPointsOnly]);
 
   // Валидация существующего значения
   useEffect(() => {

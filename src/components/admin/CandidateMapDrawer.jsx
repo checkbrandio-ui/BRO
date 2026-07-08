@@ -6,12 +6,13 @@ import { X, MapPin, Navigation, Banknote } from 'lucide-react';
 import { Tooltip } from 'react-leaflet';
 import { haversineDistance, formatDistance, findNearestAssemblyPoint } from '@/lib/geoUtils';
 
-// Легенда цветов по agent_fee
+// Легенда цветов по agent_fee (новая градация)
 const FEE_TIERS = [
-  { min: 70000, label: '70 000+', color: '#22C55E' },
-  { min: 50000, label: '50 000–70 000', color: '#C9A84C' },
-  { min: 30000, label: '30 000–50 000', color: '#7B3FBF' },
-  { min: 0, label: 'менее 30 000', color: '#6B7280' },
+  { min: 500000, label: '500 000+', color: '#C9A84C' },
+  { min: 450000, label: '450 000–500 000', color: '#7B3FBF' },
+  { min: 400000, label: '400 000–450 000', color: '#3B82F6' },
+  { min: 300000, label: '300 000–400 000', color: '#60A5FA' },
+  { min: 0, label: 'менее 300 000', color: '#6B7280' },
 ];
 
 const cityIcon = L.divIcon({
@@ -23,17 +24,20 @@ const cityIcon = L.divIcon({
 
 function feeColorHex(fee) {
   if (fee == null) return '#6B7280';
-  if (fee >= 70000) return '#22C55E';
-  if (fee >= 50000) return '#C9A84C';
-  if (fee >= 30000) return '#7B3FBF';
+  if (fee >= 500000) return '#C9A84C';
+  if (fee >= 450000) return '#7B3FBF';
+  if (fee >= 400000) return '#3B82F6';
+  if (fee >= 300000) return '#60A5FA';
   return '#6B7280';
 }
 
 function feeSize(fee) {
   if (fee == null) return 14;
-  if (fee >= 70000) return 20;
-  if (fee >= 50000) return 18;
-  return 16;
+  if (fee >= 500000) return 20;
+  if (fee >= 450000) return 18;
+  if (fee >= 400000) return 17;
+  if (fee >= 300000) return 16;
+  return 14;
 }
 
 function assemblyIconFor(fee) {
@@ -246,13 +250,13 @@ export default function CandidateMapDrawer({ candidate, cityCache, onClose, onAs
                     <Marker key={ap.id} position={[ap.lat, ap.lon]} icon={isAssigned ? assignedIcon : assemblyIconFor(ap.agent_fee)}>
                       <Tooltip direction="top" offset={[0, -10]} opacity={1} className="city-tooltip">
                         <div style={{ minWidth: '140px' }}>
-                          <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '13px' }}>{ap.name}</div>
-                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Выплата: <strong style={{ color: '#F8FAFC' }}>{formatRub(ap.payment_amount)}</strong></div>
+                          <div style={{ fontWeight: 700, marginBottom: '4px', fontSize: '13px', color: '#111827' }}>{ap.name}</div>
+                          <div style={{ fontSize: '11px', color: '#4B5563' }}>Выплата: <strong style={{ color: '#111827' }}>{formatRub(ap.payment_amount)}</strong></div>
                           {ap.previous_payment != null && (
-                            <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Было: <span style={{ textDecoration: 'line-through' }}>{formatRub(ap.previous_payment)}</span></div>
+                            <div style={{ fontSize: '11px', color: '#4B5563' }}>Было: <span style={{ textDecoration: 'line-through' }}>{formatRub(ap.previous_payment)}</span></div>
                           )}
-                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Оформление: <strong style={{ color: '#F8FAFC' }}>{ap.processing_time || '—'}</strong></div>
-                          <div style={{ fontSize: '11px', color: '#9CA3AF' }}>Агенту: <strong style={{ color: feeColorHex(ap.agent_fee) }}>{formatRub(ap.agent_fee)}</strong></div>
+                          <div style={{ fontSize: '11px', color: '#4B5563' }}>Оформление: <strong style={{ color: '#111827' }}>{ap.processing_time || '—'}</strong></div>
+                          <div style={{ fontSize: '11px', color: '#4B5563' }}>Агенту: <strong style={{ color: feeColorHex(ap.agent_fee) }}>{formatRub(ap.agent_fee)}</strong></div>
                         </div>
                       </Tooltip>
                       <Popup>{ap.name}{isAssigned ? ' — назначенная точка' : ''}</Popup>
