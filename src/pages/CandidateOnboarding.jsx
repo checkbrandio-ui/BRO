@@ -8,13 +8,12 @@ import CitySelect from '@/components/CitySelect';
 import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
 import DocumentUploader from '@/components/candidate/DocumentUploader';
 import DocumentLightbox from '@/components/candidate/DocumentLightbox';
+import { CITIZENSHIPS, isCIS, CIS_FIELDS } from '@/lib/candidateConstants';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
 const FAMILY_STATUSES = ['Холост/Не замужем','Женат/Замужем','Разведён/Разведена','Вдовец/Вдова'];
 const MILITARY_RANKS = ['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант','Старшина','Прапорщик','Офицер','Не служил'];
-
-const CITIZENSHIPS = ['РФ','РБ','Казахстан','Узбекистан','Таджикистан','Киргизия','Туркменистан','Азербайджан','Армения','Молдова','Украина'];
 
 const SKILLS_BY_POSITION = {
   'Разнорабочий': ['Физическая выносливость','Работа с инструментом','Погрузо-разгрузочные работы','Уборка территории','Работа на высоте','Перенос тяжестей','Работа в команде'],
@@ -57,6 +56,9 @@ const EMPTY_FORM = {
   salary_expectations: '', motivation: '',
   docs_ready: [], ready_to_start_date: '',
   consent_given: false,
+  migration_card_number: '', migration_card_expiry: '',
+  patent_number: '', patent_region: '',
+  arrival_time: '',
 };
 
 function prefillFromCandidate(cand) {
@@ -118,6 +120,11 @@ function prefillFromRecord(rec, cand) {
     docs_ready: rec.docs_ready || [],
     ready_to_start_date: rec.ready_to_start_date || '',
     consent_given: rec.consent_given || false,
+    migration_card_number: rec.migration_card_number || '',
+    migration_card_expiry: rec.migration_card_expiry || '',
+    patent_number: rec.patent_number || '',
+    patent_region: rec.patent_region || '',
+    arrival_time: rec.arrival_time || '',
   };
 }
 
@@ -276,6 +283,7 @@ export default function CandidateOnboarding() {
         citizenship: form.citizenship,
         position: form.position,
         arrival_date: form.arrival_date,
+        arrival_time: form.arrival_time,
         assembly_point: form.assembly_point,
         health_details: form.health_notes,
         form_status: 'completed',
@@ -473,6 +481,11 @@ export default function CandidateOnboarding() {
                 <label className={lbl}>Запланированная дата прибытия</label>
                 <input className={inp + (form.arrival_date ? '' : ' text-[#555]')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
               </div>
+              <div>
+                <label className={lbl}>Время прибытия (если известно)</label>
+                <input className={inp + (form.arrival_time ? '' : ' text-[#555]')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
+                <p className="text-xs text-[#555] mt-1">Можно заполнить позже, после покупки билетов</p>
+              </div>
             </div>
 
             {/* Паспорт */}
@@ -501,6 +514,21 @@ export default function CandidateOnboarding() {
                 </div>
               </div>
             </div>
+
+            {/* Данные для граждан СНГ */}
+            {isCIS(form.citizenship) && (
+              <div className="pt-3 border-t border-[#222]">
+                <p className="text-xs font-semibold text-[#C9A84C] uppercase tracking-wide mb-3">Данные для граждан СНГ</p>
+                <div className="grid grid-cols-2 gap-3">
+                  {CIS_FIELDS.map(cf => (
+                    <div key={cf.key}>
+                      <label className={lbl}>{cf.label}</label>
+                      <input className={inp} value={form[cf.key]} onChange={e => set(cf.key, e.target.value)} placeholder={cf.placeholder} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
 
             {/* Контакты */}
             <div className="pt-3 border-t border-[#222]">

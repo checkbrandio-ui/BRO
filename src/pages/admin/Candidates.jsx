@@ -13,6 +13,7 @@ import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import { useToast } from '@/components/ui/use-toast';
+import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -41,7 +42,7 @@ export default function Candidates() {
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', incomplete_docs: false });
+  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', incomplete_docs: false, logistics_confirmed: false });
   const [showArchive, setShowArchive] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
@@ -193,7 +194,8 @@ export default function Candidates() {
       const matchMed    = !filters.medical_check || c.medical_check === filters.medical_check;
       const matchForm   = !filters.form_status || c.form_status === filters.form_status;
       const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
-      return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs;
+      const matchLogistics = !filters.logistics_confirmed || c.logistics_status === 'confirmed';
+      return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs && matchLogistics;
     });
   };
 
@@ -536,8 +538,13 @@ export default function Candidates() {
             className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.incomplete_docs ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400'}`}>
             <AlertTriangle size={13} /> Без обяз. документов
           </button>
+          <button
+            onClick={() => setF('logistics_confirmed', !filters.logistics_confirmed)}
+            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.logistics_confirmed ? 'border-green-500/50 text-green-400 bg-green-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-green-400'}`}>
+            <CheckCircle size={13} /> Логистика подтверждена
+          </button>
           {(Object.values(filters).some(Boolean) || logisticsPoint) && (
-            <button onClick={() => { setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false }); setLogisticsPoint(''); setSortDir(null); }}
+            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false, logistics_confirmed: false }); setLogisticsPoint(''); setSortDir(null); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
@@ -661,17 +668,24 @@ export default function Candidates() {
                           </td>
                         )}
                         <td className="px-4 py-3">
-                          <span className={`text-xs font-medium ${SB_COLORS[c.sb_check] || 'text-[#F8FAFC]/40'}`}>
-                            {c.sb_check === 'Согласован' ? '✓' : c.sb_check === 'Не согласован' ? '✗' : c.sb_check === 'На проверке' ? '⏳' : '—'}
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${SB_BADGE[c.sb_check]?.bg || 'bg-[#F8FAFC]/5'} ${SB_BADGE[c.sb_check]?.color || 'text-[#F8FAFC]/40'} ${SB_BADGE[c.sb_check]?.border || 'border-[#F8FAFC]/10'}`}>
+                            {SB_BADGE[c.sb_check]?.icon || '○'} {c.sb_check || 'Не проверялся'}
                           </span>
                         </td>
                         <td className="px-4 py-3">
-                          <span className={`text-xs font-medium ${MED_COLORS[c.medical_check] || 'text-[#F8FAFC]/40'}`}>
-                            {c.medical_check === 'Прошёл' ? '✓' : c.medical_check === 'Не прошёл' ? '✗' : '—'}
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded text-xs font-medium border ${MED_BADGE[c.medical_check]?.bg || 'bg-[#F8FAFC]/5'} ${MED_BADGE[c.medical_check]?.color || 'text-[#F8FAFC]/40'} ${MED_BADGE[c.medical_check]?.border || 'border-[#F8FAFC]/10'}`}>
+                            {MED_BADGE[c.medical_check]?.icon || '○'} {c.medical_check || 'Не проверялся'}
                           </span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-[#F8FAFC]/45 whitespace-nowrap">
-                          {c.arrival_date ? c.arrival_date.split('-').reverse().join('.') : '—'}
+                        <td className="px-4 py-3 text-xs whitespace-nowrap">
+                          {c.arrival_date ? (
+                            <span className="text-[#F8FAFC]/60">{c.arrival_date.split('-').reverse().join('.')}{c.arrival_time ? ` ${c.arrival_time}` : ''}</span>
+                          ) : <span className="text-[#F8FAFC]/25">—</span>}
+                          {c.logistics_status && c.logistics_status !== 'none' && (
+                            <div className={`text-[10px] mt-0.5 ${LOGISTICS_STATUS[c.logistics_status]?.color || 'text-[#F8FAFC]/30'}`}>
+                              {LOGISTICS_STATUS[c.logistics_status]?.icon} {LOGISTICS_STATUS[c.logistics_status]?.label}
+                            </div>
+                          )}
                         </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>

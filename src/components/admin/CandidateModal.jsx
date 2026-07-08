@@ -5,6 +5,8 @@ import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
 import CitySelect from '@/components/CitySelect';
 import { ALL_DOC_TYPES, getMissingRequiredDocs } from '@/lib/docUtils';
+import { CITIZENSHIPS, isCIS, CIS_FIELDS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import SbReportButton from '@/components/admin/SbReportButton';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -32,12 +34,25 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     email: candidate?.email ?? '',
     payment_basis: candidate?.payment_basis ?? '',
     payment_made: candidate?.payment_made ?? '',
+    arrival_time: candidate?.arrival_time ?? '',
+    ticket_photo_url: candidate?.ticket_photo_url ?? '',
+    logistics_status: candidate?.logistics_status ?? 'none',
+    logistics_confirmed_at: candidate?.logistics_confirmed_at ?? '',
+    proposed_assembly_point: candidate?.proposed_assembly_point ?? '',
+    proposed_arrival_date: candidate?.proposed_arrival_date ?? '',
+    proposed_arrival_time: candidate?.proposed_arrival_time ?? '',
+    proposed_by: candidate?.proposed_by ?? '',
   });
 
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
   const [formDocs, setFormDocs]     = useState([]); // документы из анкеты (единый источник)
   const [candidateFormId, setCandidateFormId] = useState(null);
+  const [candidateFormData, setCandidateFormData] = useState(null);
+  const [cisForm, setCisForm] = useState({
+    migration_card_number: '', migration_card_expiry: '',
+    patent_number: '', patent_region: '',
+  });
   const [uploadingDocType, setUploadingDocType] = useState(null);
   const [uploadErrors, setUploadErrors] = useState({});
   const [activeTab, setActiveTab]   = useState('card');
@@ -67,6 +82,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
         const rec = records.find(r => r.status === 'completed') || records[0];
         setCandidateFormId(rec.id);
         setFormDocs(rec.uploaded_docs || []);
+        setCandidateFormData(rec);
+        setCisForm({
+          migration_card_number: rec.migration_card_number || '',
+          migration_card_expiry: rec.migration_card_expiry || '',
+          patent_number: rec.patent_number || '',
+          patent_region: rec.patent_region || '',
+        });
       } else {
         // Создаём анкету, если её нет — чтобы админ мог загружать документы
         const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
@@ -175,7 +197,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
     try {
       // Сохраняем документы в анкету (единый источник истины)
       if (candidateFormId) {
-        await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
+        await base44.entities.CandidateForm.update(candidateFormId, {
+          uploaded_docs: formDocs,
+          migration_card_number: cisForm.migration_card_number,
+          migration_card_expiry: cisForm.migration_card_expiry,
+          patent_number: cisForm.patent_number,
+          patent_region: cisForm.patent_region,
+        });
       }
       // Сохраняем карточку кандидата (без поля documents — оно формируется из анкеты)
       const { documents, ...candidateData } = form;
@@ -278,12 +306,30 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             )}
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Гражданство</label>
-              <input className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)} placeholder="РФ" />
+              <select className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)}>
+                <option value="">Выберите...</option>
+                {CITIZENSHIPS.map(c => <option key={c} value={c}>{c}</option>)}
+              </select>
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Место рождения</label>
               <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
             </div>
+            {isCIS(form.citizenship) && (
+              <div className="sm:col-span-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
+                <div className="text-xs text-[#C9A84C] font-bold mb-2 flex items-center gap-1.5">
+                  <FileText size={12} /> Данные для граждан СНГ
+                </div>
+                <div className="grid sm:grid-cols-2 gap-3">
+                  {CIS_FIELDS.map(cf => (
+                    <div key={cf.key}>
+                      <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">{cf.label}</label>
+                      <input className={inp} value={cisForm[cf.key]} onChange={e => setCisForm(prev => ({ ...prev, [cf.key]: e.target.value }))} placeholder={cf.placeholder} />
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город проживания</label>
               <CitySelect
@@ -306,6 +352,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               <input className={inp + (form.arrival_date ? '' : ' text-[#F8FAFC]/30')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} placeholder="Выберите дату" />
             </div>
             <div>
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Время прибытия</label>
+              <input className={inp + (form.arrival_time ? '' : ' text-[#F8FAFC]/30')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
+            </div>
+            <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Состояние здоровья</label>
               <select className={inp} value={form.health_status} onChange={e => set('health_status', e.target.value)}>
                 <option value="">Не указано</option>
@@ -319,6 +369,102 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
                 <input className={inp} value={form.health_details} onChange={e => set('health_details', e.target.value)} placeholder="Укажите ограничения..." />
               </div>
             )}
+          </div>
+
+          {/* Логистика и согласование */}
+          <div className="border-t border-[rgba(123,63,191,0.15)] pt-4">
+            <div className="flex items-center justify-between mb-3">
+              <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest">Логистика и согласование</div>
+              {form.logistics_status && form.logistics_status !== 'none' && (
+                <span className={`text-xs px-2 py-1 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
+                  {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
+                </span>
+              )}
+            </div>
+            {form.logistics_status === 'pending_admin' && form.proposed_assembly_point && (
+              <div className="mb-3 p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+                <div className="text-xs text-[#C9A84C] font-bold mb-2">Предложено ({form.proposed_by || 'кандидатом'}):</div>
+                <div className="text-xs text-[#F8FAFC]/60 space-y-0.5">
+                  {form.proposed_assembly_point && <div>📍 Пункт сбора: {form.proposed_assembly_point}</div>}
+                  {form.proposed_arrival_date && <div>📅 Дата: {form.proposed_arrival_date}</div>}
+                  {form.proposed_arrival_time && <div>⏰ Время: {form.proposed_arrival_time}</div>}
+                </div>
+              </div>
+            )}
+            <div className="mb-3">
+              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Фото билета</label>
+              {form.ticket_photo_url ? (
+                <div className="flex items-center gap-2">
+                  <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть билет</a>
+                  <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300">Удалить</button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] text-xs cursor-pointer transition-all w-fit">
+                  <Upload size={11} /> Загрузить фото билета
+                  <input type="file" className="hidden" accept="image/*,.pdf"
+                    onChange={async e => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      try { const url = await uploadWithRetry(file); set('ticket_photo_url', url); } catch (err) { alert('Ошибка загрузки: ' + err.message); }
+                    }} />
+                </label>
+              )}
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {form.logistics_status === 'none' && candidate?.id && (
+                <>
+                  <button type="button" onClick={() => {
+                    set('proposed_assembly_point', form.assembly_point);
+                    set('proposed_arrival_date', form.arrival_date);
+                    set('proposed_arrival_time', form.arrival_time);
+                    set('proposed_by', 'admin');
+                    set('logistics_status', 'pending_candidate');
+                  }} className="px-3 py-1.5 text-xs rounded border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+                    Отправить на согласование
+                  </button>
+                  <button type="button" onClick={() => {
+                    set('logistics_status', 'confirmed');
+                    set('logistics_confirmed_at', new Date().toISOString());
+                  }} className="px-3 py-1.5 text-xs rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all">
+                    Утвердить без согласования
+                  </button>
+                </>
+              )}
+              {form.logistics_status === 'pending_admin' && (
+                <>
+                  <button type="button" onClick={() => {
+                    set('assembly_point', form.proposed_assembly_point || form.assembly_point);
+                    set('arrival_date', form.proposed_arrival_date || form.arrival_date);
+                    set('arrival_time', form.proposed_arrival_time || form.arrival_time);
+                    set('logistics_status', 'confirmed');
+                    set('logistics_confirmed_at', new Date().toISOString());
+                  }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
+                    ✓ Подтвердить предложенные данные
+                  </button>
+                  <button type="button" onClick={() => {
+                    set('proposed_assembly_point', '');
+                    set('proposed_arrival_date', '');
+                    set('proposed_arrival_time', '');
+                    set('proposed_by', '');
+                    set('logistics_status', 'none');
+                  }} className="px-3 py-1.5 text-xs rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
+                    Отклонить
+                  </button>
+                </>
+              )}
+              {form.logistics_status === 'pending_candidate' && (
+                <button type="button" onClick={() => {
+                  set('logistics_status', 'confirmed');
+                  set('logistics_confirmed_at', new Date().toISOString());
+                }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
+                  ✓ Подтвердить окончательно
+                </button>
+              )}
+              {form.logistics_status === 'confirmed' && (
+                <button type="button" onClick={() => { set('logistics_status', 'none'); set('logistics_confirmed_at', ''); }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
+                  Пересогласовать
+                </button>
+              )}
+            </div>
           </div>
 
           {/* Admin statuses — только для администратора */}
@@ -444,6 +590,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
             </div>
           </div>
 
+          {candidate?.id && (
+            <div className="flex justify-start pt-2 border-t border-[rgba(123,63,191,0.15)]">
+              <SbReportButton candidate={{ ...candidate, ...form }} formDocs={formDocs} candidateFormData={candidateFormData} />
+            </div>
+          )}
           <div className="flex justify-end gap-3 pt-2">
             <button onClick={onClose} className="px-6 py-2.5 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-all">Отмена</button>
             <button

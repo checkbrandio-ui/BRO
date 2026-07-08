@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react';
 import { FileText, Download, ExternalLink, User, Phone, MapPin, Calendar, Briefcase, Heart, Shield, Banknote, FileCheck, AlertTriangle, MessageSquare } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getMissingRequiredDocs } from '@/lib/docUtils';
+import { isCIS } from '@/lib/candidateConstants';
 
 /**
  * Компонент для отображения данных анкеты кандидата в режиме чтения.
@@ -87,6 +88,7 @@ export default function CandidateFormView({ candidateId, isCandidateView = false
         <Field label="Фактический адрес" value={f.actual_address} />
         <Field label="Пункт сбора" value={f.assembly_point} />
         <Field label="Дата прибытия" value={f.arrival_date} />
+        <Field label="Время прибытия" value={f.arrival_time} />
       </Section>
 
       {/* Паспорт */}
@@ -96,6 +98,16 @@ export default function CandidateFormView({ candidateId, isCandidateView = false
           <Field label="Кем выдан" value={f.passport_issued_by} />
           <Field label="Дата выдачи" value={f.passport_issued_date} />
           <Field label="Код подразделения" value={f.passport_dept_code} />
+        </Section>
+      )}
+
+      {/* Данные для граждан СНГ */}
+      {isCIS(f.citizenship) && (f.migration_card_number || f.patent_number) && (
+        <Section title="Данные СНГ" icon={FileText}>
+          <Field label="Миграционная карта" value={f.migration_card_number} />
+          <Field label="Срок мигр. карты" value={f.migration_card_expiry} />
+          <Field label="Патент" value={f.patent_number} />
+          <Field label="Регион патента" value={f.patent_region} />
         </Section>
       )}
 
