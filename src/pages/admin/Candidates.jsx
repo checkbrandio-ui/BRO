@@ -199,7 +199,6 @@ export default function Candidates() {
 
   const filteredActive   = applyFilters(active);
   const filteredArchived = applyFilters(archived);
-  const assemblyPoints = Object.values(cityCache).filter(c => c.is_assembly_point && c.lat != null && c.lon != null);
   const logisticsCity = logisticsPoint ? cityCache[logisticsPoint.toLowerCase()] : null;
   const baseDisplayed = showArchive ? filteredArchived : filteredActive;
   const displayed = logisticsCity
@@ -525,7 +524,17 @@ export default function Candidates() {
           </select>
           <select value={logisticsPoint} onChange={e => { setLogisticsPoint(e.target.value); setSortDir(e.target.value ? 'asc' : null); }} className={inp}>
             <option value="">— Логистика —</option>
-            {assemblyPoints.map(ap => <option key={ap.id} value={ap.name}>{ap.name}</option>)}
+            {Object.values(cityCache)
+              .sort((a, b) => {
+                if (a.is_assembly_point && !b.is_assembly_point) return -1;
+                if (!a.is_assembly_point && b.is_assembly_point) return 1;
+                return a.name.localeCompare(b.name, 'ru');
+              })
+              .map(ap => (
+                <option key={ap.id || ap.name} value={ap.name}>
+                  {ap.is_assembly_point ? '★ ' : ''}{ap.name}
+                </option>
+              ))}
           </select>
           <button
             onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
@@ -782,6 +791,13 @@ export default function Candidates() {
           candidate={mapCandidate}
           cityCache={cityCache}
           onClose={() => setMapCandidate(null)}
+          onAssignAssemblyPoint={async (pointName, distance) => {
+            const updated = { assembly_point: pointName, assembly_distance: distance != null ? String(distance) : '' };
+            await base44.entities.Candidate.update(mapCandidate.id, updated);
+            await logCandidateAction({ action: 'update', candidate: { ...mapCandidate, ...updated }, oldData: mapCandidate, actor: getActor() });
+            setCandidates(prev => prev.map(x => x.id === mapCandidate.id ? { ...x, ...updated } : x));
+            setMapCandidate(prev => prev ? { ...prev, ...updated } : prev);
+          }}
         />
       )}
     </div>
