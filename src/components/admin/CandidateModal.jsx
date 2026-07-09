@@ -11,6 +11,7 @@ import StatusDropdown from '@/components/ui/StatusDropdown';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 import { getCrmAdmin, getCurrentActor } from '@/lib/crmSession';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
+import DocumentQuickPreview from './DocumentQuickPreview';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -601,6 +602,9 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             <p className="text-xs text-[#F8FAFC]/40 mb-3">
               Сохраняются в анкете. Обязательные поля отмечены <span className="text-red-400">*</span>
             </p>
+
+            {/* Быстрый предпросмотр паспорта и прописки */}
+            {formDocs.length > 0 && <DocumentQuickPreview formDocs={formDocs} />}
             <div className="space-y-2">
               {docTypes.map(dt => {
                 const uploaded = formDocs.find(d => d.doc_type === dt.id);
