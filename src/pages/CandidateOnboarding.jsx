@@ -185,6 +185,29 @@ export default function CandidateOnboarding() {
   const isSbVerified = candidate?.sb_check === 'Согласован';
   const isFieldLocked = (value) => isSbVerified && !!value;
 
+  // Realtime-подписка на изменения кандидата — мгновенное обновление логистики
+  useEffect(() => {
+    if (!candidate?.id) return;
+    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
+      if (event.data?.id !== candidate.id) return;
+      const updated = event.data;
+      setCandidate(updated);
+      // Синхронизируем логистику в форме
+      setForm(f => ({
+        ...f,
+        logistics_status: updated.logistics_status ?? f.logistics_status,
+        assembly_point: updated.assembly_point ?? f.assembly_point,
+        arrival_date: updated.arrival_date ?? f.arrival_date,
+        arrival_time: updated.arrival_time ?? f.arrival_time,
+        proposed_assembly_point: updated.proposed_assembly_point ?? f.proposed_assembly_point,
+        proposed_arrival_date: updated.proposed_arrival_date ?? f.proposed_arrival_date,
+        proposed_arrival_time: updated.proposed_arrival_time ?? f.proposed_arrival_time,
+        ticket_photo_url: updated.ticket_photo_url ?? f.ticket_photo_url,
+      }));
+    });
+    return unsubscribe;
+  }, [candidate?.id]);
+
   useEffect(() => {
     const loadForm = async () => {
       let records = await base44.entities.CandidateForm.filter({ form_token: token });

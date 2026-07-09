@@ -479,7 +479,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                     const ts = new Date().toISOString();
                     set('logistics_status', 'confirmed');
                     set('logistics_confirmed_at', ts);
-                    instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts });
+                    instantLogisticsSave({
+                      logistics_status: 'confirmed',
+                      logistics_confirmed_at: ts,
+                      assembly_point: form.assembly_point,
+                      arrival_date: form.arrival_date,
+                      arrival_time: form.arrival_time,
+                    });
                   }} className="px-3 py-1.5 text-xs rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all">
                     Утвердить без согласования
                   </button>
@@ -529,7 +535,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                   const ts = new Date().toISOString();
                   set('logistics_status', 'confirmed');
                   set('logistics_confirmed_at', ts);
-                  instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts });
+                  instantLogisticsSave({
+                    logistics_status: 'confirmed',
+                    logistics_confirmed_at: ts,
+                    assembly_point: form.assembly_point,
+                    arrival_date: form.arrival_date,
+                    arrival_time: form.arrival_time,
+                  });
                 }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
                   ✓ Подтвердить окончательно
                 </button>
