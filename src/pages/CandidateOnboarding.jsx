@@ -277,7 +277,23 @@ export default function CandidateOnboarding() {
     await base44.entities.CandidateForm.update(formRecord.id, saveData);
     if (formRecord.candidate_id) {
       // Логистика: если кандидат указал свои данные и статус 'none' — переводим в pending_admin
-      const newLogisticsStatus = form.logistics_status === 'none' && form.assembly_point ? 'pending_admin' : form.logistics_status;
+      // Если логистика уже подтверждена, но кандидат изменил данные — сбрасываем в pending_admin
+      let newLogisticsStatus = form.logistics_status;
+      const oldLogistics = candidate?.logistics_status || 'none';
+
+      if (oldLogistics === 'none' && form.assembly_point) {
+        newLogisticsStatus = 'pending_admin';
+      } else if (oldLogistics === 'confirmed') {
+        // Проверяем, изменились ли поля логистики
+        const logisticsChanged =
+          String(candidate?.assembly_point || '') !== String(form.assembly_point || '') ||
+          String(candidate?.arrival_date || '') !== String(form.arrival_date || '') ||
+          String(candidate?.arrival_time || '') !== String(form.arrival_time || '');
+        if (logisticsChanged) {
+          newLogisticsStatus = 'pending_admin';
+        }
+      }
+
       await base44.entities.Candidate.update(formRecord.candidate_id, {
         full_name: form.full_name,
         birth_date: form.birth_date,
@@ -299,8 +315,9 @@ export default function CandidateOnboarding() {
       });
       // Уведомляем админа при изменении логистики
       await notifyLogisticsChange(
-        { ...candidate, id: formRecord.candidate_id, full_name: form.full_name, logistics_status: newLogisticsStatus, agency_id: candidate?.agency_id, agency_name: candidate?.agency_name },
-        { ...candidate, logistics_status: candidate?.logistics_status || 'none' }
+        { ...candidate, id: formRecord.candidate_id, full_name: form.full_name, logistics_status: newLogisticsStatus, assembly_point: form.assembly_point, arrival_date: form.arrival_date, arrival_time: form.arrival_time, agency_id: candidate?.agency_id, agency_name: candidate?.agency_name },
+        { ...candidate, logistics_status: oldLogistics },
+        { name: form.full_name, role: 'candidate' }
       );
     }
     try {

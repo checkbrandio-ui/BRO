@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -9,6 +9,7 @@ import { findDuplicateIds } from '@/lib/candidateDuplicates';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
+import { notifyStatusChange } from '@/lib/notifyStatusChange';
 import { findNearestAssemblyPoint, haversineDistance } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
@@ -116,12 +117,15 @@ export default function Candidates() {
   const handleSave = async (data, id) => {
     if (id) {
       const old = candidates.find(c => c.id === id);
+      const actor = getActor();
       await base44.entities.Candidate.update(id, data);
-      await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor: getActor() });
-      await notifyLogisticsChange({ ...data, id }, old);
+      await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor });
+      await notifyLogisticsChange({ ...data, id }, old, actor);
+      await notifyStatusChange({ ...data, id }, old, actor);
+      // Обновляем только изменённую запись в локальном состоянии — без полной перезагрузки
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
       setModalOpen(false);
       setEditCandidate(null);
-      load();
     } else {
       const response = await base44.functions.invoke('createCandidateSafe', {
         candidate_data: data,
@@ -134,8 +138,13 @@ export default function Candidates() {
       }
       setModalOpen(false);
       setEditCandidate(null);
-      await load();
       const newCandidate = response.data?.candidate;
+      // Добавляем нового кандидата в локальное состояние без перезагрузки
+      if (newCandidate) {
+        setCandidates(prev => [{ ...newCandidate, ...data }, ...prev]);
+      } else {
+        await load();
+      }
       if (newCandidate?.form_token) {
         setLinkModalCandidate({ ...newCandidate, ...data });
       }
@@ -152,7 +161,7 @@ export default function Candidates() {
       const remaining = candidates.filter(c => c.id !== id && c.agency_id === cand.agency_id);
       await base44.entities.Agency.update(cand.agency_id, { candidates_count: remaining.length });
     }
-    load();
+    setCandidates(prev => prev.filter(c => c.id !== id));
   };
 
   const handleArchive = async (c) => {
@@ -280,7 +289,19 @@ export default function Candidates() {
     const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
     await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
     await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
-    load();
+    setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: token, form_status: 'pending' } : x));
+  };
+
+  const regenerateFormToken = async (c) => {
+    if (!c?.form_token) return;
+    if (!confirm(`Перевыпустить ссылку на анкету для «${c.full_name}»?\n\nСтарая ссылка перестанет работать.`)) return;
+    const newToken = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+    await base44.entities.Candidate.update(c.id, { form_token: newToken, form_status: 'pending' });
+    const oldForms = await base44.entities.CandidateForm.filter({ form_token: c.form_token });
+    if (oldForms.length > 0) {
+      await base44.entities.CandidateForm.update(oldForms[0].id, { form_token: newToken, status: 'pending' });
+    }
+    setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: newToken, form_status: 'pending' } : x));
   };
 
   const copyFormLink = (c) => {
@@ -755,6 +776,10 @@ export default function Candidates() {
                                   className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
                                   <ClipboardCopy size={13} />
                                 </button>
+                                <button onClick={() => regenerateFormToken(c)} title="Перевыпустить ссылку"
+                                  className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
+                                  <RefreshCw size={13} />
+                                </button>
                                 {c.email && (
                                   <button onClick={() => sendFormEmail(c)} title={`Отправить на ${c.email}`}
                                     className="p-1.5 rounded hover:bg-[#C9A84C]/20 text-[#F8FAFC]/50 hover:text-[#C9A84C] transition-all">
@@ -821,8 +846,10 @@ export default function Candidates() {
         <CandidateModal
           candidate={editCandidate}
           agencies={agencies}
+          candidateList={displayed}
           onSave={handleSave}
           onClose={() => { setModalOpen(false); setEditCandidate(null); }}
+          onNavigate={(cand) => setEditCandidate(cand)}
         />
       )}
 

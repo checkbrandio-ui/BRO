@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, Navigation } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, Navigation, ChevronLeft, ChevronRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -9,11 +9,12 @@ import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS } from '
 import SbReportButton from '@/components/admin/SbReportButton';
 import StatusDropdown from '@/components/ui/StatusDropdown';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
-import { getCrmAdmin } from '@/lib/crmSession';
+import { getCrmAdmin, getCurrentActor } from '@/lib/crmSession';
+import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
-export default function CandidateModal({ candidate, agencies, lockedAgencyId, onSave, onClose }) {
+export default function CandidateModal({ candidate, agencies, lockedAgencyId, candidateList, onSave, onClose, onNavigate }) {
   const isAgencyMode = !!lockedAgencyId; // режим агентства — без выбора агентства и статусов
 
   const [form, setForm] = useState({
@@ -90,6 +91,34 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
       }
     });
   }, [candidate?.id]);
+
+  // Индекс текущего кандидата в отображаемом списке
+  const currentIndex = candidateList && candidate?.id
+    ? candidateList.findIndex(c => c.id === candidate.id)
+    : -1;
+  const canNavigate = candidateList && currentIndex >= 0;
+  const hasPrev = canNavigate && currentIndex > 0;
+  const hasNext = canNavigate && currentIndex < candidateList.length - 1;
+
+  const handleNavigate = (dir) => {
+    if (!canNavigate) return;
+    const newIdx = dir === 'prev' ? currentIndex - 1 : currentIndex + 1;
+    const nextCand = candidateList[newIdx];
+    if (nextCand && onNavigate) onNavigate(nextCand);
+  };
+
+  // Мгновенное сохранение логистики (без нажатия «Сохранить»)
+  const instantLogisticsSave = async (updates, oldForm) => {
+    if (!candidate?.id) return;
+    try {
+      const oldData = { ...candidate, ...oldForm };
+      const newData = { ...candidate, ...form, ...updates };
+      await base44.entities.Candidate.update(candidate.id, updates);
+      await notifyLogisticsChange(newData, oldData, getCurrentActor());
+    } catch (e) {
+      alert('Ошибка сохранения: ' + e.message);
+    }
+  };
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
@@ -211,7 +240,24 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
       <div className="relative bg-[#0D1B3E] border border-[rgba(123,63,191,0.25)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
         <div className="flex items-center justify-between p-6 border-b border-[rgba(123,63,191,0.15)] sticky top-0 bg-[#0D1B3E] z-10">
-          <h2 className="text-lg font-black text-[#F8FAFC]">{candidate ? 'Редактировать кандидата' : 'Новый кандидат'}</h2>
+          <div className="flex items-center gap-2">
+            {canNavigate && (
+              <>
+                <button onClick={() => handleNavigate('prev')} disabled={!hasPrev}
+                  className="p-1.5 rounded-lg hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Предыдущий кандидат">
+                  <ChevronLeft size={16} />
+                </button>
+                <span className="text-xs text-[#F8FAFC]/40">{currentIndex + 1} / {candidateList.length}</span>
+                <button onClick={() => handleNavigate('next')} disabled={!hasNext}
+                  className="p-1.5 rounded-lg hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all disabled:opacity-20 disabled:cursor-not-allowed"
+                  title="Следующий кандидат">
+                  <ChevronRight size={16} />
+                </button>
+              </>
+            )}
+            <h2 className="text-lg font-black text-[#F8FAFC]">{candidate ? 'Редактировать кандидата' : 'Новый кандидат'}</h2>
+          </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
         </div>
 
@@ -398,17 +444,27 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               {form.logistics_status === 'none' && candidate?.id && (
                 <>
                   <button type="button" onClick={() => {
+                    const updates = {
+                      proposed_assembly_point: form.assembly_point,
+                      proposed_arrival_date: form.arrival_date,
+                      proposed_arrival_time: form.arrival_time,
+                      proposed_by: 'admin',
+                      logistics_status: 'pending_candidate',
+                    };
                     set('proposed_assembly_point', form.assembly_point);
                     set('proposed_arrival_date', form.arrival_date);
                     set('proposed_arrival_time', form.arrival_time);
                     set('proposed_by', 'admin');
                     set('logistics_status', 'pending_candidate');
+                    instantLogisticsSave(updates, form);
                   }} className="px-3 py-1.5 text-xs rounded border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
                     Отправить на согласование
                   </button>
                   <button type="button" onClick={() => {
+                    const ts = new Date().toISOString();
                     set('logistics_status', 'confirmed');
-                    set('logistics_confirmed_at', new Date().toISOString());
+                    set('logistics_confirmed_at', ts);
+                    instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts }, form);
                   }} className="px-3 py-1.5 text-xs rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all">
                     Утвердить без согласования
                   </button>
@@ -417,20 +473,37 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               {form.logistics_status === 'pending_admin' && (
                 <>
                   <button type="button" onClick={() => {
-                    set('assembly_point', form.proposed_assembly_point || form.assembly_point);
-                    set('arrival_date', form.proposed_arrival_date || form.arrival_date);
-                    set('arrival_time', form.proposed_arrival_time || form.arrival_time);
+                    const ts = new Date().toISOString();
+                    const updates = {
+                      assembly_point: form.proposed_assembly_point || form.assembly_point,
+                      arrival_date: form.proposed_arrival_date || form.arrival_date,
+                      arrival_time: form.proposed_arrival_time || form.arrival_time,
+                      logistics_status: 'confirmed',
+                      logistics_confirmed_at: ts,
+                    };
+                    set('assembly_point', updates.assembly_point);
+                    set('arrival_date', updates.arrival_date);
+                    set('arrival_time', updates.arrival_time);
                     set('logistics_status', 'confirmed');
-                    set('logistics_confirmed_at', new Date().toISOString());
+                    set('logistics_confirmed_at', ts);
+                    instantLogisticsSave(updates, form);
                   }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
                     ✓ Подтвердить предложенные данные
                   </button>
                   <button type="button" onClick={() => {
+                    const updates = {
+                      proposed_assembly_point: '',
+                      proposed_arrival_date: '',
+                      proposed_arrival_time: '',
+                      proposed_by: '',
+                      logistics_status: 'none',
+                    };
                     set('proposed_assembly_point', '');
                     set('proposed_arrival_date', '');
                     set('proposed_arrival_time', '');
                     set('proposed_by', '');
                     set('logistics_status', 'none');
+                    instantLogisticsSave(updates, form);
                   }} className="px-3 py-1.5 text-xs rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
                     Отклонить
                   </button>
@@ -438,14 +511,20 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               )}
               {form.logistics_status === 'pending_candidate' && (
                 <button type="button" onClick={() => {
+                  const ts = new Date().toISOString();
                   set('logistics_status', 'confirmed');
-                  set('logistics_confirmed_at', new Date().toISOString());
+                  set('logistics_confirmed_at', ts);
+                  instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts }, form);
                 }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
                   ✓ Подтвердить окончательно
                 </button>
               )}
               {form.logistics_status === 'confirmed' && (
-                <button type="button" onClick={() => { set('logistics_status', 'none'); set('logistics_confirmed_at', ''); }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
+                <button type="button" onClick={() => {
+                  set('logistics_status', 'none');
+                  set('logistics_confirmed_at', '');
+                  instantLogisticsSave({ logistics_status: 'none', logistics_confirmed_at: '' }, form);
+                }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
                   Пересогласовать
                 </button>
               )}

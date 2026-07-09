@@ -1,39 +1,40 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Bell, Check, Trash2, RefreshCw, CheckCheck } from 'lucide-react';
+import { Bell, Check, Trash2, RefreshCw, CheckCheck, User } from 'lucide-react';
 
 const CATEGORY_LABELS = {
   card: 'Карточка',
   form: 'Анкета',
   status: 'Статус',
+  logistics: 'Логистика',
 };
 
 const CATEGORY_COLORS = {
   card: 'border-[#7B3FBF]/30 text-[#7B3FBF]',
   form: 'border-[#C9A84C]/30 text-[#C9A84C]',
   status: 'border-green-500/30 text-green-400',
+  logistics: 'border-blue-500/30 text-blue-400',
+};
+
+const ROLE_LABELS = {
+  admin: 'Супер-админ',
+  manager: 'Менеджер CRM',
+  agency: 'Агентство',
+  candidate: 'Кандидат',
+  super_admin: 'Супер-админ',
 };
 
 export default function Notifications() {
   const [notifications, setNotifications] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState('all');
-  const [userRole, setUserRole] = useState(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     try {
       const items = await base44.entities.Notification.list('-created_date', 200);
-      // Фильтруем уведомления для модератора/менеджера: видны только кандидаты из их агентства
-      const user = await base44.auth.me();
-      if (user?.role !== 'admin' && user?.agency_id) {
-        const filtered = items.filter(n => !n.agency_id || n.agency_id === user.agency_id || n.category === 'form');
-        setNotifications(filtered);
-      } else {
-        setNotifications(items);
-      }
-      setUserRole(user?.role);
+      setNotifications(items);
     } catch (_) {}
     setLoading(false);
   }, []);
@@ -142,7 +143,18 @@ export default function Notifications() {
                       {n.agency_name && <span className="text-xs text-[#F8FAFC]/35">· {n.agency_name}</span>}
                     </div>
                     <div className="text-xs text-[#F8FAFC]/55 whitespace-pre-wrap">{n.message}</div>
-                    <div className="text-xs text-[#F8FAFC]/25 mt-1.5">{fmtDate(n.created_date)}</div>
+                    <div className="flex items-center gap-3 mt-1.5">
+                      <span className="text-xs text-[#F8FAFC]/25">{fmtDate(n.created_date)}</span>
+                      {n.actor_name && (
+                        <span className="flex items-center gap-1 text-xs text-[#7B3FBF]/60">
+                          <User size={10} />
+                          {n.actor_name}
+                          {n.actor_role && ROLE_LABELS[n.actor_role] && (
+                            <span className="text-[#F8FAFC]/30">({ROLE_LABELS[n.actor_role]})</span>
+                          )}
+                        </span>
+                      )}
+                    </div>
                   </div>
                   <div className="flex items-center gap-1 flex-shrink-0">
                     {n.link && (

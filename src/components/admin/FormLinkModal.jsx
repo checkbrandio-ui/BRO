@@ -1,16 +1,18 @@
 import { useState } from 'react';
-import { X, Copy, Mail, CheckCircle, Loader2, ExternalLink } from 'lucide-react';
+import { X, Copy, Mail, CheckCircle, Loader2, ExternalLink, RefreshCw, AlertTriangle } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { useToast } from '@/components/ui/use-toast';
 
-export default function FormLinkModal({ candidate, onClose }) {
+export default function FormLinkModal({ candidate, onClose, onRegenerate }) {
   const { toast } = useToast();
   const [copied, setCopied] = useState(false);
   const [sending, setSending] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
   const [emailError, setEmailError] = useState(null);
+  const [regenerating, setRegenerating] = useState(false);
+  const [currentToken, setCurrentToken] = useState(candidate?.form_token || '');
 
-  const formUrl = candidate?.form_token ? `${window.location.origin}/form/${candidate.form_token}` : '';
+  const formUrl = currentToken ? `${window.location.origin}/form/${currentToken}` : '';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(formUrl);
@@ -29,11 +31,34 @@ export default function FormLinkModal({ candidate, onClose }) {
         from_name: 'Bratouveriye SNB',
       });
       setEmailSent(true);
-      toast({ title: '✓ Письмо отправлено', description: `На адрес ${candidate.email}` });
     } catch (e) {
       setEmailError('Не удалось отправить письмо. Попробуйте скопировать ссылку.');
     }
     setSending(false);
+  };
+
+  const handleRegenerate = async () => {
+    if (!candidate?.id) return;
+    if (!confirm(`Перевыпустить ссылку на анкету для «${candidate.full_name}»?\n\nСтарая ссылка перестанет работать немедленно.`)) return;
+    setRegenerating(true);
+    try {
+      const newToken = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+      await base44.entities.Candidate.update(candidate.id, { form_token: newToken, form_status: 'pending' });
+      // Деактивируем старую анкету и создаём новую
+      if (candidate.form_token) {
+        const oldForms = await base44.entities.CandidateForm.filter({ form_token: candidate.form_token });
+        if (oldForms.length > 0) {
+          await base44.entities.CandidateForm.update(oldForms[0].id, { form_token: newToken });
+        }
+      } else {
+        await base44.entities.CandidateForm.create({ candidate_id: candidate.id, form_token: newToken, status: 'pending' });
+      }
+      setCurrentToken(newToken);
+      if (onRegenerate) onRegenerate(newToken);
+    } catch (e) {
+      alert('Ошибка перевыпуска ссылки: ' + e.message);
+    }
+    setRegenerating(false);
   };
 
   return (
@@ -73,6 +98,18 @@ export default function FormLinkModal({ candidate, onClose }) {
             </div>
           )}
           {emailError && <p className="text-xs text-red-400 text-center">{emailError}</p>}
+
+          {/* Regenerate link */}
+          <div className="pt-3 border-t border-[rgba(123,63,191,0.1)]">
+            <button onClick={handleRegenerate} disabled={regenerating}
+              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-500/20 text-red-400/80 hover:bg-red-500/10 hover:text-red-400 text-xs transition-all disabled:opacity-50">
+              {regenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
+              {regenerating ? 'Перевыпуск...' : 'Перевыпустить ссылку (старая аннулируется)'}
+            </button>
+            <p className="text-[10px] text-[#F8FAFC]/20 mt-1.5 text-center flex items-center justify-center gap-1">
+              <AlertTriangle size={9} /> Используйте, если ссылка попала к третьим лицам
+            </p>
+          </div>
 
           {/* Open form link */}
           <a href={formUrl} target="_blank" rel="noreferrer"

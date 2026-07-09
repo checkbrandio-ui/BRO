@@ -2,36 +2,26 @@ import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
+import { isCrmAuthenticated } from '@/lib/crmSession';
 
 export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [visible, setVisible] = useState(false);
-  const [userRole, setUserRole] = useState(null);
 
   const load = useCallback(async () => {
     try {
-      const user = await base44.auth.me();
-      let query = { is_read: false };
-      if (user?.role !== 'admin' && user?.agency_id) {
-        query.agency_id = user.agency_id;
-      }
-      const items = await base44.entities.Notification.filter(query, '-created_date', 50);
+      const items = await base44.entities.Notification.filter({ is_read: false }, '-created_date', 50);
       setUnread(items.length);
     } catch (_) {}
   }, []);
 
   useEffect(() => {
-    base44.auth.isAuthenticated().then(isAuth => {
-      if (!isAuth) return;
-      base44.auth.me().then(user => {
-        setUserRole(user?.role);
-        setVisible(true);
-        load();
-        const interval = setInterval(load, 30000);
-        const unsubscribe = base44.entities.Notification.subscribe(() => load());
-        return () => { clearInterval(interval); unsubscribe(); };
-      }).catch(() => {});
-    });
+    if (!isCrmAuthenticated()) return;
+    setVisible(true);
+    load();
+    const interval = setInterval(load, 30000);
+    const unsubscribe = base44.entities.Notification.subscribe(() => load());
+    return () => { clearInterval(interval); unsubscribe(); };
   }, [load]);
 
   if (!visible) return null;
