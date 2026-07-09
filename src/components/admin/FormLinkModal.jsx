@@ -99,18 +99,6 @@ export default function FormLinkModal({ candidate, onClose, onRegenerate }) {
           )}
           {emailError && <p className="text-xs text-red-400 text-center">{emailError}</p>}
 
-          {/* Regenerate link */}
-          <div className="pt-3 border-t border-[rgba(123,63,191,0.1)]">
-            <button onClick={handleRegenerate} disabled={regenerating}
-              className="w-full flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg border border-red-500/20 text-red-400/80 hover:bg-red-500/10 hover:text-red-400 text-xs transition-all disabled:opacity-50">
-              {regenerating ? <Loader2 size={13} className="animate-spin" /> : <RefreshCw size={13} />}
-              {regenerating ? 'Перевыпуск...' : 'Перевыпустить ссылку (старая аннулируется)'}
-            </button>
-            <p className="text-[10px] text-[#F8FAFC]/20 mt-1.5 text-center flex items-center justify-center gap-1">
-              <AlertTriangle size={9} /> Используйте, если ссылка попала к третьим лицам
-            </p>
-          </div>
-
           {/* Open form link */}
           <a href={formUrl} target="_blank" rel="noreferrer"
             className="w-full flex items-center justify-center gap-1.5 px-4 py-2 text-xs text-[#F8FAFC]/35 hover:text-[#7B3FBF] transition-all">

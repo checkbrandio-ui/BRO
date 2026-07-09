@@ -3,12 +3,13 @@ import { FileText, Download, ExternalLink, User, Phone, MapPin, Calendar, Briefc
 import { base44 } from '@/api/base44Client';
 import { getMissingRequiredDocs } from '@/lib/docUtils';
 import { isCIS } from '@/lib/candidateConstants';
+import RegenerateLinkButton from './RegenerateLinkButton';
 
 /**
  * Компонент для отображения данных анкеты кандидата в режиме чтения.
  * Загружает CandidateForm по candidate_id и показывает все поля.
  */
-export default function CandidateFormView({ candidateId, isCandidateView = false }) {
+export default function CandidateFormView({ candidateId, candidate, isCandidateView = false }) {
   const [formRecord, setFormRecord] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,6 +61,11 @@ export default function CandidateFormView({ candidateId, isCandidateView = false
 
   return (
     <div className="space-y-3">
+      {/* Кнопка перевыпуска ссылки — только для админа (не для кандидатского просмотра) */}
+      {!isCandidateView && candidate && (
+        <RegenerateLinkButton candidate={candidate} />
+      )}
+
       {/* Статус анкеты */}
       <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[rgba(123,63,191,0.08)] border border-[rgba(123,63,191,0.2)]">
         <FileCheck size={14} className="text-[#7B3FBF]" />

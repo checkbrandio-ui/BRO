@@ -108,4 +108,12 @@
   .table-scroll {
     -webkit-overflow-scrolling: touch;
   }
+  /* Анимация выезда правой панели (Drawer) */
+  @keyframes drawer-slide-in {
+    from { transform: translateX(100%); }
+    to { transform: translateX(0); }
+  }
+  .drawer-slide-in {
+    animation: drawer-slide-in 0.25s ease-out;
+  }
 }

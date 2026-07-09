@@ -243,10 +243,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
   const docTypes = getDocTypesForCitizenship(form.citizenship);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex justify-end">
       <div className="absolute inset-0 bg-black/60 backdrop-blur-sm" onClick={onClose} />
-      <div className="relative bg-[#0D1B3E] border border-[rgba(123,63,191,0.25)] rounded-2xl w-full max-w-3xl max-h-[90vh] overflow-y-auto shadow-2xl">
-        <div className="flex items-center justify-between p-6 border-b border-[rgba(123,63,191,0.15)] sticky top-0 bg-[#0D1B3E] z-10">
+      <div className="relative bg-[#0D1B3E] border-l border-[rgba(123,63,191,0.25)] w-full max-w-2xl h-full overflow-y-auto shadow-2xl drawer-slide-in">
+        <div className="flex items-center justify-between p-5 border-b border-[rgba(123,63,191,0.15)] sticky top-0 bg-[#0D1B3E] z-10">
           <div className="flex items-center gap-2">
             {canNavigate && (
               <>
@@ -475,21 +475,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                   }} className="px-3 py-1.5 text-xs rounded border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
                     Отправить на согласование
                   </button>
-                  <button type="button" onClick={() => {
-                    const ts = new Date().toISOString();
-                    set('logistics_status', 'confirmed');
-                    set('logistics_confirmed_at', ts);
-                    instantLogisticsSave({
-                      logistics_status: 'confirmed',
-                      logistics_confirmed_at: ts,
-                      assembly_point: form.assembly_point,
-                      arrival_date: form.arrival_date,
-                      arrival_time: form.arrival_time,
-                    });
-                  }} className="px-3 py-1.5 text-xs rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all">
-                    Утвердить без согласования
-                  </button>
-                </>
+</>
               )}
               {form.logistics_status === 'pending_admin' && (
                 <>
@@ -713,7 +699,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
 
         {activeTab === 'questionnaire' && candidate?.id && (
           <div className="p-6">
-            <CandidateFormView candidateId={candidate.id} />
+            <CandidateFormView candidateId={candidate.id} candidate={candidate} />
           </div>
         )}
 
