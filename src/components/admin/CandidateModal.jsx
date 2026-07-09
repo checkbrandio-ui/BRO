@@ -273,10 +273,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
               className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'questionnaire' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
               Анкета кандидата
             </button>
-            <button onClick={() => setActiveTab('history')}
-              className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'history' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
-              История логистики
-            </button>
+
           </div>
         )}
 
@@ -535,6 +532,21 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                 </button>
               )}
             </div>
+
+            {/* История логистики — свёрнутый блок внутри раздела */}
+            {candidate?.id && (
+              <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
+                <details className="group">
+                  <summary className="cursor-pointer text-xs text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70 transition-colors select-none flex items-center gap-1.5">
+                    <ChevronRight size={12} className="group-open:rotate-90 transition-transform" />
+                    История согласования логистики
+                  </summary>
+                  <div className="mt-2">
+                    <LogisticsHistory candidateId={candidate.id} candidateName={candidate.full_name} />
+                  </div>
+                </details>
+              </div>
+            )}
           </div>
 
           {/* Admin statuses — только для администратора */}
@@ -689,11 +701,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
           </div>
         )}
 
-        {activeTab === 'history' && candidate?.id && (
-          <div className="p-6">
-            <LogisticsHistory candidateId={candidate.id} candidateName={candidate.full_name} />
-          </div>
-        )}
+
       </div>
     </div>
   );

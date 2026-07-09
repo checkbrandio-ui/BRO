@@ -163,10 +163,6 @@ export default function CandidateOnboarding() {
   const [searchParams] = useSearchParams();
   const editMode = searchParams.get('edit') === '1';
 
-  // Блокировка полей после проверки СБ
-  const isSbVerified = candidate?.sb_check === 'Согласован';
-  const isFieldLocked = (value) => isSbVerified && !!value;
-
   const [formRecord, setFormRecord] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -182,6 +178,10 @@ export default function CandidateOnboarding() {
   const [uploadErrors, setUploadErrors] = useState({});
   const [cityObject, setCityObject] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+
+  // Блокировка полей после проверки СБ — должно быть после объявления candidate
+  const isSbVerified = candidate?.sb_check === 'Согласован';
+  const isFieldLocked = (value) => isSbVerified && !!value;
 
   useEffect(() => {
     const loadForm = async () => {
