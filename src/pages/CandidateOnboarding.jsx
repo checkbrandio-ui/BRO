@@ -163,6 +163,10 @@ export default function CandidateOnboarding() {
   const [searchParams] = useSearchParams();
   const editMode = searchParams.get('edit') === '1';
 
+  // Блокировка полей после проверки СБ
+  const isSbVerified = candidate?.sb_check === 'Согласован';
+  const isFieldLocked = (value) => isSbVerified && !!value;
+
   const [formRecord, setFormRecord] = useState(null);
   const [candidate, setCandidate] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -294,14 +298,11 @@ export default function CandidateOnboarding() {
         }
       }
 
-      await base44.entities.Candidate.update(formRecord.candidate_id, {
-        full_name: form.full_name,
-        birth_date: form.birth_date,
-        birth_place: form.birth_place,
+      // После проверки СБ заблокированные поля не перезаписываем
+      const candidateUpdate = {
         phone: form.phone,
         email: form.email,
         city: form.city,
-        citizenship: form.citizenship,
         position: form.position,
         arrival_date: form.arrival_date,
         arrival_time: form.arrival_time,
@@ -312,7 +313,14 @@ export default function CandidateOnboarding() {
         health_details: form.health_notes,
         form_status: 'completed',
         form_submitted_at: now,
-      });
+      };
+      if (!isSbVerified) {
+        candidateUpdate.full_name = form.full_name;
+        candidateUpdate.birth_date = form.birth_date;
+        candidateUpdate.birth_place = form.birth_place;
+        candidateUpdate.citizenship = form.citizenship;
+      }
+      await base44.entities.Candidate.update(formRecord.candidate_id, candidateUpdate);
       // Уведомляем админа при изменении логистики
       await notifyLogisticsChange(
         { ...candidate, id: formRecord.candidate_id, full_name: form.full_name, logistics_status: newLogisticsStatus, assembly_point: form.assembly_point, arrival_date: form.arrival_date, arrival_time: form.arrival_time, agency_id: candidate?.agency_id, agency_name: candidate?.agency_name },
@@ -360,29 +368,70 @@ export default function CandidateOnboarding() {
     setSubmitting(false);
   };
 
-  const [logisticsConfirming, setLogisticsConfirming] = useState(false);
-  const [logisticsConfirmed, setLogisticsConfirmed] = useState(false);
+  const [logisticsAction, setLogisticsAction] = useState(null); // 'confirm' | 'reject' | null
 
-  const handleLogisticsConfirm = async () => {
+  const handleLogisticsAction = async (action) => {
     if (!formRecord?.candidate_id) return;
-    setLogisticsConfirming(true);
+    setLogisticsAction(action);
     try {
       const now = new Date().toISOString();
-      await base44.entities.Candidate.update(formRecord.candidate_id, {
-        logistics_status: 'confirmed',
-        logistics_confirmed_at: now,
-      });
-      // Уведомляем админа, что кандидат согласовал логистику
-      await notifyLogisticsChange(
-        { ...candidate, id: formRecord.candidate_id, logistics_status: 'confirmed' },
-        { ...candidate, logistics_status: 'pending_candidate' }
-      );
-      setLogisticsConfirmed(true);
+      if (action === 'confirm') {
+        // Кандидат соглашается с предложением админа
+        const confirmedAssembly = candidate.proposed_assembly_point || candidate.assembly_point;
+        const confirmedDate = candidate.proposed_arrival_date || candidate.arrival_date;
+        const confirmedTime = candidate.proposed_arrival_time || candidate.arrival_time;
+        await base44.entities.Candidate.update(formRecord.candidate_id, {
+          assembly_point: confirmedAssembly,
+          arrival_date: confirmedDate,
+          arrival_time: confirmedTime,
+          logistics_status: 'confirmed',
+          logistics_confirmed_at: now,
+        });
+        // Синхронизируем форму
+        set('logistics_status', 'confirmed');
+        set('assembly_point', confirmedAssembly);
+        set('arrival_date', confirmedDate);
+        set('arrival_time', confirmedTime);
+        await notifyLogisticsChange(
+          { ...candidate, id: formRecord.candidate_id, logistics_status: 'confirmed',
+            assembly_point: candidate.proposed_assembly_point || candidate.assembly_point,
+            arrival_date: candidate.proposed_arrival_date || candidate.arrival_date,
+            arrival_time: candidate.proposed_arrival_time || candidate.arrival_time },
+          { ...candidate, logistics_status: 'pending_candidate' },
+          { name: form.full_name, role: 'candidate' }
+        );
+        // Обновляем локальное состояние кандидата
+        setCandidate(prev => ({ ...prev,
+          logistics_status: 'confirmed',
+          logistics_confirmed_at: now,
+          assembly_point: candidate.proposed_assembly_point || prev.assembly_point,
+          arrival_date: candidate.proposed_arrival_date || prev.arrival_date,
+          arrival_time: candidate.proposed_arrival_time || prev.arrival_time,
+        }));
+      } else if (action === 'reject') {
+        // Кандидат отклоняет и предлагает свои данные
+        await base44.entities.Candidate.update(formRecord.candidate_id, {
+          logistics_status: 'pending_admin',
+          proposed_by: 'candidate',
+        });
+        // Синхронизируем форму
+        set('logistics_status', 'pending_admin');
+        await notifyLogisticsChange(
+          { ...candidate, id: formRecord.candidate_id, logistics_status: 'pending_admin' },
+          { ...candidate, logistics_status: 'pending_candidate' },
+          { name: form.full_name, role: 'candidate' }
+        );
+        setCandidate(prev => ({ ...prev, logistics_status: 'pending_admin', proposed_by: 'candidate' }));
+      }
     } catch (e) {
       alert('Ошибка при согласовании логистики. Попробуйте позже.');
     }
-    setLogisticsConfirming(false);
+    setLogisticsAction(null);
   };
+
+  // Совместимость со старым именем
+  const logisticsConfirming = logisticsAction === 'confirm';
+  const logisticsConfirmed = candidate?.logistics_status === 'confirmed';
 
   // Строгий рабочий стиль
   const inp = "w-full bg-[#1a1a1a] border border-[#333] rounded px-3 py-2.5 text-sm text-[#e0e0e0] placeholder:text-[#444] focus:outline-none focus:border-[#666] transition-colors";
@@ -433,11 +482,18 @@ export default function CandidateOnboarding() {
               {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
               {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
             </div>
-            <button onClick={handleLogisticsConfirm} disabled={logisticsConfirming}
-              className="w-full py-2.5 rounded bg-green-700/40 border border-green-600/50 text-sm text-green-300 hover:bg-green-700/60 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
-              {logisticsConfirming ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
-              {logisticsConfirming ? 'Сохранение...' : 'Согласовать логистику'}
-            </button>
+            <div className="flex gap-2">
+              <button onClick={() => handleLogisticsAction('confirm')} disabled={!!logisticsAction}
+                className="flex-1 py-2.5 rounded bg-green-700/40 border border-green-600/50 text-sm text-green-300 hover:bg-green-700/60 transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {logisticsAction === 'confirm' ? <Loader2 size={14} className="animate-spin" /> : <CheckCircle size={14} />}
+                {logisticsAction === 'confirm' ? 'Сохранение...' : '✓ Согласовать'}
+              </button>
+              <button onClick={() => handleLogisticsAction('reject')} disabled={!!logisticsAction}
+                className="flex-1 py-2.5 rounded border border-[#444] text-sm text-[#888] hover:text-[#ccc] hover:border-[#666] transition-all disabled:opacity-50 flex items-center justify-center gap-2">
+                {logisticsAction === 'reject' ? <Loader2 size={14} className="animate-spin" /> : <X size={14} />}
+                {logisticsAction === 'reject' ? 'Сохранение...' : '✗ Отклонить'}
+              </button>
+            </div>
           </div>
         )}
         {logisticsConfirmed && (
@@ -486,20 +542,131 @@ export default function CandidateOnboarding() {
 
         <form onSubmit={handleSubmit} className="space-y-3">
 
+          {/* Баннер о блокировке полей после проверки СБ */}
+          {isSbVerified && (
+            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/25 text-xs text-[#C9A84C]">
+              <CheckCircle size={14} className="flex-shrink-0" />
+              <span>Проверка СБ пройдена. Персональные данные и паспорт заблокированы от изменений. Доступны: контакты, логистика и комментарии.</span>
+            </div>
+          )}
+
+          {/* БЛОК ЛОГИСТИКИ — наверху анкеты, доступен без сохранения формы */}
+          <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3">
+            <div className="flex items-center justify-between">
+              <p className="text-xs text-[#C9A84C] uppercase tracking-wide font-bold">📍 Логистика и согласование</p>
+              {form.logistics_status && form.logistics_status !== 'none' && (
+                <span className={`text-xs px-2 py-0.5 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
+                  {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
+                </span>
+              )}
+            </div>
+
+            {/* Предложение администратора — ждёт ответа кандидата */}
+            {form.logistics_status === 'pending_candidate' && candidate?.proposed_assembly_point && (
+              <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+                <p className="text-xs text-[#C9A84C] font-bold mb-2">Администратор предложил:</p>
+                <div className="text-xs text-[#e0e0e0] space-y-0.5 mb-3">
+                  <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
+                  {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
+                  {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
+                </div>
+                <div className="flex gap-2">
+                  <button type="button" onClick={() => handleLogisticsAction('confirm')} disabled={!!logisticsAction}
+                    className="flex-1 py-2 rounded bg-green-900/30 border border-green-700/50 text-xs text-green-400 hover:bg-green-900/50 transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    {logisticsAction === 'confirm' ? <Loader2 size={12} className="animate-spin" /> : <CheckCircle size={12} />}
+                    {logisticsAction === 'confirm' ? 'Сохранение...' : 'Согласовать'}
+                  </button>
+                  <button type="button" onClick={() => handleLogisticsAction('reject')} disabled={!!logisticsAction}
+                    className="flex-1 py-2 rounded border border-[#444] text-xs text-[#888] hover:text-[#ccc] hover:border-[#666] transition-all disabled:opacity-50 flex items-center justify-center gap-1.5">
+                    {logisticsAction === 'reject' ? <Loader2 size={12} className="animate-spin" /> : <X size={12} />}
+                    Отклонить и указать свои
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* Подтверждено — кандидат не может менять */}
+            {form.logistics_status === 'confirmed' && (
+              <div className="p-3 rounded-lg bg-green-900/15 border border-green-700/30">
+                <p className="text-xs text-green-400 font-bold flex items-center gap-1.5">
+                  <CheckCircle size={12} /> Логистика согласована. Изменения возможны только через администратора.
+                </p>
+              </div>
+            )}
+
+            {/* Поля ввода — если нет предложения от админа или кандидат отклонил */}
+            {form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
+              <>
+                <div>
+                  <label className={lbl}>Пункт сбора</label>
+                  <CitySelect
+                    value={form.assembly_point}
+                    onChange={val => set('assembly_point', val)}
+                    inputClassName={inp}
+                    placeholder="Выберите город..."
+                    assemblyPointsOnly
+                  />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className={lbl}>Дата прибытия</label>
+                    <input className={inp + (form.arrival_date ? '' : ' text-[#555]')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
+                  </div>
+                  <div>
+                    <label className={lbl}>Время прибытия</label>
+                    <input className={inp + (form.arrival_time ? '' : ' text-[#555]')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
+                  </div>
+                </div>
+                {form.logistics_status === 'none' && form.assembly_point && (
+                  <p className="text-xs text-[#555]">После отправки анкеты данные будут переданы на согласование администратору.</p>
+                )}
+                {form.logistics_status === 'pending_admin' && (
+                  <p className="text-xs text-[#C9A84C]/70">⏳ Данные переданы администратору. Ожидайте согласования.</p>
+                )}
+              </>
+            )}
+
+            {/* Загрузка фото билета */}
+            <div className="pt-2 border-t border-[#2a2a2a]">
+              <label className={lbl}>Фото билета (если есть)</label>
+              {form.ticket_photo_url ? (
+                <div className="flex items-center gap-2">
+                  <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть билет</a>
+                  <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-0.5">
+                    <X size={11} /> Удалить
+                  </button>
+                </div>
+              ) : (
+                <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[#333] text-[#666] hover:text-[#aaa] hover:border-[#555] text-xs cursor-pointer transition-colors w-fit">
+                  <Upload size={11} /> Загрузить фото билета
+                  <input type="file" className="hidden" accept="image/*,.pdf"
+                    onChange={async e => {
+                      const file = e.target.files?.[0]; if (!file) return;
+                      try {
+                        const compressed = await compressImage(file);
+                        const url = await uploadWithRetry(compressed);
+                        set('ticket_photo_url', url);
+                      } catch (err) { alert('Ошибка загрузки: ' + err.message); }
+                    }} />
+                </label>
+              )}
+            </div>
+          </div>
+
           {/* РАЗДЕЛ 1 */}
           <Section title="Раздел 1. Персональные данные">
             <div>
-              <label className={lbl}>ФИО <span className="text-red-500">*</span></label>
-              <input className={inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" required />
+              <label className={lbl}>ФИО <span className="text-red-500">*</span> {isFieldLocked(form.full_name) && <span className="text-[#C9A84C] normal-case">🔒 Проверено СБ</span>}</label>
+              <input className={isFieldLocked(form.full_name) ? inpRO : inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" readOnly={isFieldLocked(form.full_name)} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>
                 <label className={lbl}>Дата рождения <span className="text-red-500">*</span></label>
-                <input className={inp + (form.birth_date ? '' : ' text-[#555]')} type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} required />
+                <input className={(isFieldLocked(form.birth_date) ? inpRO : inp) + (form.birth_date ? '' : ' text-[#555]')} type="date" value={form.birth_date} onChange={e => set('birth_date', e.target.value)} readOnly={isFieldLocked(form.birth_date)} required />
               </div>
               <div>
-                <label className={lbl}>Гражданство</label>
-                <select className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)}>
+                <label className={lbl}>Гражданство {isFieldLocked(form.citizenship) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                <select className={isFieldLocked(form.citizenship) ? inpRO : inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)} disabled={isFieldLocked(form.citizenship)}>
                   {CITIZENSHIPS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
@@ -518,11 +685,11 @@ export default function CandidateOnboarding() {
             </div>
 
             <div>
-              <label className={lbl}>Место рождения</label>
-              <input className={inp} value={form.birth_place}
+              <label className={lbl}>Место рождения {isFieldLocked(form.birth_place) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+              <input className={isFieldLocked(form.birth_place) ? inpRO : inp} value={form.birth_place}
                 onChange={e => { set('birth_place', e.target.value); setBirthPlaceSameAsCity(false); }}
                 placeholder="г. Москва"
-                disabled={birthPlaceSameAsCity} />
+                disabled={birthPlaceSameAsCity || isFieldLocked(form.birth_place)} />
               <SameAsCheckbox label="Совпадает с городом проживания" checked={birthPlaceSameAsCity} onChange={handleBirthPlaceSameToggle} />
             </div>
 
@@ -541,128 +708,30 @@ export default function CandidateOnboarding() {
               <SameAsCheckbox label="Совпадает с адресом регистрации" checked={actualSameAsReg} onChange={handleActualSameToggle} />
             </div>
 
-            {/* Логистика и согласование */}
-            <div className="bg-[#161616] border border-[#2a2a2a] rounded-lg p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <p className="text-xs text-[#555] uppercase tracking-wide font-semibold">Логистика и согласование</p>
-                {form.logistics_status && form.logistics_status !== 'none' && (
-                  <span className={`text-xs px-2 py-0.5 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
-                    {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
-                  </span>
-                )}
-              </div>
-
-              {/* Предложение администратора */}
-              {form.logistics_status === 'pending_candidate' && candidate?.proposed_assembly_point && (
-                <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
-                  <p className="text-xs text-[#C9A84C] font-bold mb-2">📍 Администратор предложил:</p>
-                  <div className="text-xs text-[#e0e0e0] space-y-0.5">
-                    <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
-                    {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
-                    {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
-                  </div>
-                  <div className="flex gap-2 mt-3">
-                    <button type="button" onClick={() => set('logistics_status', 'confirmed')}
-                      className="px-3 py-1.5 text-xs rounded bg-green-900/30 border border-green-700/50 text-green-400 hover:bg-green-900/50 transition-all">
-                      ✓ Согласовать
-                    </button>
-                    <button type="button" onClick={() => set('logistics_status', 'none')}
-                      className="px-3 py-1.5 text-xs rounded border border-[#444] text-[#888] hover:text-[#ccc] hover:border-[#666] transition-all">
-                      ✗ Отклонить и указать свои данные
-                    </button>
-                  </div>
-                </div>
-              )}
-
-              {/* Подтверждено */}
-              {form.logistics_status === 'confirmed' && (
-                <div className="p-3 rounded-lg bg-green-900/15 border border-green-700/30">
-                  <p className="text-xs text-green-400 font-bold flex items-center gap-1.5">
-                    <CheckCircle size={12} /> Логистика согласована
-                  </p>
-                </div>
-              )}
-
-              {/* Поля ввода (если нет предложения от админа или отклонено) */}
-              {form.logistics_status !== 'pending_candidate' && (
-                <>
-                  <div>
-                    <label className={lbl}>Пункт сбора</label>
-                    <CitySelect
-                      value={form.assembly_point}
-                      onChange={val => set('assembly_point', val)}
-                      inputClassName={inp}
-                      placeholder="Выберите город..."
-                      assemblyPointsOnly
-                    />
-                  </div>
-                  <div className="grid grid-cols-2 gap-3">
-                    <div>
-                      <label className={lbl}>Дата прибытия</label>
-                      <input className={inp + (form.arrival_date ? '' : ' text-[#555]')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
-                    </div>
-                    <div>
-                      <label className={lbl}>Время прибытия</label>
-                      <input className={inp + (form.arrival_time ? '' : ' text-[#555]')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
-                    </div>
-                  </div>
-                  {form.logistics_status === 'none' && form.assembly_point && (
-                    <p className="text-xs text-[#555]">После отправки анкеты данные будут переданы на согласование администратору.</p>
-                  )}
-                </>
-              )}
-
-              {/* Загрузка фото билета */}
-              <div className="pt-2 border-t border-[#2a2a2a]">
-                <label className={lbl}>Фото билета (если есть)</label>
-                {form.ticket_photo_url ? (
-                  <div className="flex items-center gap-2">
-                    <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть билет</a>
-                    <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-0.5">
-                      <X size={11} /> Удалить
-                    </button>
-                  </div>
-                ) : (
-                  <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[#333] text-[#666] hover:text-[#aaa] hover:border-[#555] text-xs cursor-pointer transition-colors w-fit">
-                    <Upload size={11} /> Загрузить фото билета
-                    <input type="file" className="hidden" accept="image/*,.pdf"
-                      onChange={async e => {
-                        const file = e.target.files?.[0]; if (!file) return;
-                        try {
-                          const compressed = await compressImage(file);
-                          const url = await uploadWithRetry(compressed);
-                          set('ticket_photo_url', url);
-                        } catch (err) { alert('Ошибка загрузки: ' + err.message); }
-                      }} />
-                  </label>
-                )}
-              </div>
-            </div>
-
             {/* Паспорт */}
             <div className="pt-3 border-t border-[#222]">
               <p className="text-xs font-semibold text-[#666] uppercase tracking-wide mb-3">Паспорт гражданина РФ</p>
               <div className="grid grid-cols-2 gap-3">
                 <div>
-                  <label className={lbl}>Серия</label>
-                  <input className={inp} value={form.passport_series} onChange={e => set('passport_series', e.target.value)} placeholder="1234" />
-                </div>
-                <div>
-                  <label className={lbl}>Номер</label>
-                  <input className={inp} value={form.passport_number} onChange={e => set('passport_number', e.target.value)} placeholder="567890" />
-                </div>
-                <div className="col-span-2">
-                  <label className={lbl}>Кем выдан</label>
-                  <input className={inp} value={form.passport_issued_by} onChange={e => set('passport_issued_by', e.target.value)} placeholder="МВД России по г. Москва" />
-                </div>
-                <div>
-                  <label className={lbl}>Дата выдачи</label>
-                  <input className={inp + (form.passport_issued_date ? '' : ' text-[#555]')} type="date" value={form.passport_issued_date} onChange={e => set('passport_issued_date', e.target.value)} />
-                </div>
-                <div>
-                  <label className={lbl}>Код подразделения</label>
-                  <input className={inp} value={form.passport_dept_code} onChange={e => set('passport_dept_code', e.target.value)} placeholder="770-001" />
-                </div>
+                   <label className={lbl}>Серия {isFieldLocked(form.passport_series) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                   <input className={isFieldLocked(form.passport_series) ? inpRO : inp} value={form.passport_series} onChange={e => set('passport_series', e.target.value)} placeholder="1234" readOnly={isFieldLocked(form.passport_series)} />
+                 </div>
+                 <div>
+                   <label className={lbl}>Номер {isFieldLocked(form.passport_number) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                   <input className={isFieldLocked(form.passport_number) ? inpRO : inp} value={form.passport_number} onChange={e => set('passport_number', e.target.value)} placeholder="567890" readOnly={isFieldLocked(form.passport_number)} />
+                 </div>
+                 <div className="col-span-2">
+                   <label className={lbl}>Кем выдан {isFieldLocked(form.passport_issued_by) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                   <input className={isFieldLocked(form.passport_issued_by) ? inpRO : inp} value={form.passport_issued_by} onChange={e => set('passport_issued_by', e.target.value)} placeholder="МВД России по г. Москва" readOnly={isFieldLocked(form.passport_issued_by)} />
+                 </div>
+                 <div>
+                   <label className={lbl}>Дата выдачи {isFieldLocked(form.passport_issued_date) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                   <input className={(isFieldLocked(form.passport_issued_date) ? inpRO : inp) + (form.passport_issued_date ? '' : ' text-[#555]')} type="date" value={form.passport_issued_date} onChange={e => set('passport_issued_date', e.target.value)} readOnly={isFieldLocked(form.passport_issued_date)} />
+                 </div>
+                 <div>
+                   <label className={lbl}>Код подразделения {isFieldLocked(form.passport_dept_code) && <span className="text-[#C9A84C] normal-case">🔒</span>}</label>
+                   <input className={isFieldLocked(form.passport_dept_code) ? inpRO : inp} value={form.passport_dept_code} onChange={e => set('passport_dept_code', e.target.value)} placeholder="770-001" readOnly={isFieldLocked(form.passport_dept_code)} />
+                 </div>
               </div>
             </div>
 

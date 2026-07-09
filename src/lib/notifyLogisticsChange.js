@@ -7,13 +7,13 @@ import { LOGISTICS_STATUS } from '@/lib/candidateConstants';
  * @param oldData - предыдущие данные кандидата
  * @param actor - { name, role } инициатор действия
  *
- * Сценарии:
- * — none → pending_candidate: админ предложил → уведомляем агентство
- * — none → pending_admin: кандидат/менеджер указал данные → уведомляем админа
- * — pending_admin → confirmed: админ подтвердил → уведомляем агентство
+ * FSM (две стороны согласования: Карточка vs Анкета):
+ * — none → pending_candidate: админ (сторона А) предложил → уведомляем кандидата (сторона Б)
+ * — none → pending_admin: кандидат (сторона Б) указал данные → уведомляем админа (сторона А)
+ * — pending_admin → confirmed: админ подтвердил → уведомляем кандидата
  * — pending_candidate → confirmed: кандидат согласовал → уведомляем админа
- * — none → confirmed: админ утвердил без согласования → уведомляем агентство
- * — confirmed → pending_admin: кандидат изменил логистику после согласования → уведомляем админа
+ * — none → confirmed: админ утвердил без согласования → уведомляем кандидата
+ * — confirmed → pending_admin/pending_candidate: пересогласование → уведомляем противоположную сторону
  */
 export async function notifyLogisticsChange(newData, oldData, actor = null) {
   if (!oldData) return;
@@ -42,28 +42,39 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
   const actorRole = actor?.role || '';
 
   let message = '';
-  let notifyAgency = false;
-  let notifyAdmin = false;
+  let notifyCandidate = false; // сторона Б (анкета)
+  let notifyAdmin = false;     // сторона А (карточка)
 
-  if (logisticsFieldsChanged || (oldStatus === 'confirmed' && newStatus === 'pending_admin')) {
-    message = `📍 Кандидат «${candidateName}» изменил данные логистики после согласования. Требуется пересогласование.`;
-    notifyAdmin = true;
+  if (logisticsFieldsChanged || (oldStatus === 'confirmed' && (newStatus === 'pending_admin' || newStatus === 'pending_candidate'))) {
+    // Пересогласование
+    if (newStatus === 'pending_admin') {
+      message = `📍 Кандидат «${candidateName}» изменил данные логистики после согласования. Требуется пересогласование.`;
+      notifyAdmin = true;
+    } else {
+      message = `📍 Администратор инициировал пересогласование логистики для «${candidateName}». Требуется согласование.`;
+      notifyCandidate = true;
+    }
   } else if (newStatus === 'pending_candidate') {
-    message = `📍 Администратор предложил логистику для «${candidateName}». Требуется согласование.`;
-    notifyAgency = true;
+    // Админ предложил → ждём кандидата
+    message = `📍 Администратор предложил логистику для «${candidateName}». Требуется ваше согласование.`;
+    notifyCandidate = true;
   } else if (newStatus === 'pending_admin') {
+    // Кандидат предложил → ждём админа
     message = `📍 Кандидат «${candidateName}» указал данные логистики. Требуется согласование администратором.`;
     notifyAdmin = true;
   } else if (newStatus === 'confirmed') {
     if (oldStatus === 'pending_admin') {
+      // Админ подтвердил предложение кандидата
       message = `✓ Администратор согласовал логистику для «${candidateName}».`;
-      notifyAgency = true;
+      notifyCandidate = true;
     } else if (oldStatus === 'pending_candidate') {
+      // Кандидат согласовал предложение админа
       message = `✓ Кандидат «${candidateName}» согласовал предложенную логистику.`;
       notifyAdmin = true;
     } else {
-      message = `✓ Логистика согласована для «${candidateName}».`;
-      notifyAgency = true;
+      // Утверждено без согласования
+      message = `✓ Логистика утверждена для «${candidateName}».`;
+      notifyCandidate = true;
     }
   }
 
@@ -81,26 +92,79 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
   };
 
   try {
-    if (notifyAgency && newData.agency_id) {
+    // Уведомление кандидату (сторона Б)
+    if (notifyCandidate) {
       await base44.entities.Notification.create({
         ...notifBase,
-        agency_id: newData.agency_id,
+        agency_id: newData.agency_id || '',
         agency_name: newData.agency_name || '',
       });
-      const agencies = await base44.entities.Agency.filter({ id: newData.agency_id });
-      const agency = agencies[0];
-      if (agency) {
-        const emails = [agency.email, agency.manager_email].filter(Boolean);
-        await Promise.allSettled(emails.map(email =>
-          base44.integrations.Core.SendEmail({ to: email, subject: `Логистика: ${candidateName}`, body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`, from_name: 'Bratouveriye SNB' })
-        ));
+      // Email кандидату
+      if (newData.email) {
+        const logisticsDetails = formatLogisticsDetails(newData);
+        await base44.integrations.Core.SendEmail({
+          to: newData.email,
+          subject: `Логистика: ${candidateName}`,
+          body: `${message}\n\n${logisticsDetails}\n\nИнициатор: ${actorName}\nДата: ${now}\n\nДля согласования перейдите в анкету: ${window.location.origin}/form/${newData.form_token || ''}`,
+          from_name: 'Bratouveriye SNB',
+        }).catch(() => {});
+      }
+      // Также уведомляем агентство
+      if (newData.agency_id) {
+        const agencies = await base44.entities.Agency.filter({ id: newData.agency_id });
+        const agency = agencies[0];
+        if (agency) {
+          const emails = [agency.email, agency.manager_email].filter(Boolean);
+          await Promise.allSettled(emails.map(email =>
+            base44.integrations.Core.SendEmail({ to: email, subject: `Логистика: ${candidateName}`, body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`, from_name: 'Bratouveriye SNB' })
+          ));
+        }
       }
     }
 
+    // Уведомление админу (сторона А)
     if (notifyAdmin) {
       await base44.entities.Notification.create(notifBase);
+      // Email админам и модераторам
+      try {
+        const admins = await base44.entities.User.filter({ role: 'admin' });
+        const emailPromises = admins
+          .filter(a => a.email)
+          .map(a => base44.integrations.Core.SendEmail({
+            to: a.email,
+            subject: `Логистика: ${candidateName}`,
+            body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
+            from_name: 'Bratouveriye SNB',
+          }).catch(() => {}));
+        try {
+          const moderators = await base44.entities.User.filter({ role: 'moderator' });
+          moderators.filter(m => m.email).forEach(m =>
+            emailPromises.push(base44.integrations.Core.SendEmail({
+              to: m.email,
+              subject: `Логистика: ${candidateName}`,
+              body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
+              from_name: 'Bratouveriye SNB',
+            }).catch(() => {}))
+          );
+        } catch (_) {}
+        await Promise.allSettled(emailPromises);
+      } catch (_) {}
     }
   } catch (e) {
     // Silent
   }
+}
+
+function formatLogisticsDetails(data) {
+  const lines = [];
+  if (data.proposed_assembly_point || data.assembly_point) {
+    lines.push(`📍 Пункт сбора: ${data.proposed_assembly_point || data.assembly_point}`);
+  }
+  if (data.proposed_arrival_date || data.arrival_date) {
+    lines.push(`📅 Дата прибытия: ${data.proposed_arrival_date || data.arrival_date}`);
+  }
+  if (data.proposed_arrival_time || data.arrival_time) {
+    lines.push(`⏰ Время прибытия: ${data.proposed_arrival_time || data.arrival_time}`);
+  }
+  return lines.length > 0 ? lines.join('\n') : 'Данные логистики не указаны';
 }

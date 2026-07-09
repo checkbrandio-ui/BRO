@@ -9,6 +9,9 @@ import { base44 } from '@/api/base44Client';
  * candidate: объект кандидата
  * oldData: предыдущее состояние (для update)
  * actor: { name, role: 'admin'|'agency', agency_name? }
+ * 
+ * Для изменений логистики записывает proposed_data,
+ * чтобы можно было восстановить полную историю согласований.
  */
 export async function logCandidateAction({ action, candidate, oldData, actor }) {
   let changes = null;

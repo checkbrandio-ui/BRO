@@ -12,6 +12,7 @@ import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 import { getCrmAdmin, getCurrentActor } from '@/lib/crmSession';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import DocumentQuickPreview from './DocumentQuickPreview';
+import LogisticsHistory from './LogisticsHistory';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -272,10 +273,14 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
               className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'questionnaire' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
               Анкета кандидата
             </button>
+            <button onClick={() => setActiveTab('history')}
+              className={`flex-1 py-3 text-sm font-bold transition-all ${activeTab === 'history' ? 'text-[#7B3FBF] border-b-2 border-[#7B3FBF]' : 'text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70'}`}>
+              История логистики
+            </button>
           </div>
         )}
 
-        <div className={`p-6 space-y-5 ${activeTab === 'card' || !candidate?.id ? '' : 'hidden'}`}>
+        <div className={`p-6 space-y-5 ${(activeTab === 'card' || !candidate?.id) && activeTab !== 'history' ? '' : 'hidden'}`}>
           {/* Предупреждение о неполных документах */}
           {candidate?.id && missingDocs.length > 0 && (
             <div className="flex items-start gap-3 p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
@@ -681,6 +686,12 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
         {activeTab === 'questionnaire' && candidate?.id && (
           <div className="p-6">
             <CandidateFormView candidateId={candidate.id} />
+          </div>
+        )}
+
+        {activeTab === 'history' && candidate?.id && (
+          <div className="p-6">
+            <LogisticsHistory candidateId={candidate.id} candidateName={candidate.full_name} />
           </div>
         )}
       </div>
