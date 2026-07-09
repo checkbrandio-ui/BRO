@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, Navigation, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -13,7 +13,7 @@ import { getCrmAdmin, getCurrentActor } from '@/lib/crmSession';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import DocumentQuickPreview from './DocumentQuickPreview';
-import LogisticsHistory from './LogisticsHistory';
+import LogisticsBlock from './LogisticsBlock';
 import { formatDate } from '@/lib/formatDate';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
@@ -385,171 +385,16 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             )}
           </div>
 
-          {/* Логистика и согласование — выделенный блок */}
-          <div className="rounded-xl bg-[rgba(123,63,191,0.06)] border border-[rgba(123,63,191,0.25)] p-4 space-y-4">
-            <div className="flex items-center justify-between">
-              <div className="text-xs text-[#C9A84C] font-bold uppercase tracking-widest flex items-center gap-1.5">
-                <Navigation size={13} /> Логистика и согласование
-              </div>
-              {form.logistics_status && form.logistics_status !== 'none' && (
-                <span className={`text-xs px-2 py-1 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
-                  {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
-                </span>
-              )}
-            </div>
-
-            {/* Поля логистики: пункт сбора, дата, время */}
-            <div className="grid sm:grid-cols-3 gap-3">
-              <div>
-                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Пункт сбора</label>
-                <select className={inp} value={form.assembly_point} onChange={e => handleAssemblyPointChange(e.target.value)}>
-                  <option value="">Выберите...</option>
-                  {assemblyPoints.map(c => <option key={c.id} value={c.name}>{c.name}</option>)}
-                </select>
-              </div>
-              <div>
-                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата прибытия</label>
-                <input className={inp + (form.arrival_date ? '' : ' text-[#F8FAFC]/30')} type="date" value={form.arrival_date} onChange={e => set('arrival_date', e.target.value)} />
-              </div>
-              <div>
-                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Время прибытия</label>
-                <input className={inp + (form.arrival_time ? '' : ' text-[#F8FAFC]/30')} type="time" value={form.arrival_time} onChange={e => set('arrival_time', e.target.value)} />
-              </div>
-            </div>
-
-            {/* Предложение от кандидата/менеджера (для админа — pending_admin) */}
-            {form.logistics_status === 'pending_admin' && form.proposed_assembly_point && (
-              <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
-                <div className="text-xs text-[#C9A84C] font-bold mb-2">Предложено ({form.proposed_by || 'кандидатом'}):</div>
-                <div className="text-xs text-[#F8FAFC]/60 space-y-0.5">
-                  {form.proposed_assembly_point && <div>📍 Пункт сбора: {form.proposed_assembly_point}</div>}
-                  {form.proposed_arrival_date && <div>📅 Дата: {formatDate(form.proposed_arrival_date)}</div>}
-                  {form.proposed_arrival_time && <div>⏰ Время: {form.proposed_arrival_time}</div>}
-                </div>
-              </div>
-            )}
-
-            {/* Фото билета с предпросмотром */}
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Фото билета</label>
-              {form.ticket_photo_url ? (
-                <div className="flex items-center gap-3">
-                  <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="block flex-shrink-0">
-                    <img src={form.ticket_photo_url} alt="Билет" className="w-16 h-16 object-cover rounded-lg border border-[rgba(123,63,191,0.3)] hover:border-[#C9A84C] transition-all" />
-                  </a>
-                  <div className="flex flex-col gap-1">
-                    <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть в полном размере</a>
-                    <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 w-fit">
-                      <Trash2 size={11} /> Удалить
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] text-xs cursor-pointer transition-all w-fit">
-                  <Upload size={11} /> Загрузить фото билета
-                  <input type="file" className="hidden" accept="image/*,.pdf"
-                    onChange={async e => {
-                      const file = e.target.files?.[0]; if (!file) return;
-                      try { const url = await uploadWithRetry(file); set('ticket_photo_url', url); } catch (err) { alert('Ошибка загрузки: ' + err.message); }
-                    }} />
-                </label>
-              )}
-            </div>
-            <div className="flex flex-wrap gap-2">
-              {form.logistics_status === 'none' && candidate?.id && (
-                <>
-                  <button type="button" onClick={() => {
-                    const updates = {
-                      proposed_assembly_point: form.assembly_point,
-                      proposed_arrival_date: form.arrival_date,
-                      proposed_arrival_time: form.arrival_time,
-                      proposed_by: 'admin',
-                      logistics_status: 'pending_candidate',
-                    };
-                    set('proposed_assembly_point', form.assembly_point);
-                    set('proposed_arrival_date', form.arrival_date);
-                    set('proposed_arrival_time', form.arrival_time);
-                    set('proposed_by', 'admin');
-                    set('logistics_status', 'pending_candidate');
-                    instantLogisticsSave(updates);
-                  }} className="px-3 py-1.5 text-xs rounded border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
-                    Отправить на согласование
-                  </button>
-</>
-              )}
-              {form.logistics_status === 'pending_admin' && (
-                <>
-                  <button type="button" onClick={() => {
-                    const ts = new Date().toISOString();
-                    const updates = {
-                      assembly_point: form.proposed_assembly_point || form.assembly_point,
-                      arrival_date: form.proposed_arrival_date || form.arrival_date,
-                      arrival_time: form.proposed_arrival_time || form.arrival_time,
-                      logistics_status: 'confirmed',
-                      logistics_confirmed_at: ts,
-                    };
-                    set('assembly_point', updates.assembly_point);
-                    set('arrival_date', updates.arrival_date);
-                    set('arrival_time', updates.arrival_time);
-                    set('logistics_status', 'confirmed');
-                    set('logistics_confirmed_at', ts);
-                    instantLogisticsSave(updates);
-                  }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
-                    ✓ Подтвердить предложенные данные
-                  </button>
-                  <button type="button" onClick={() => {
-                    const updates = {
-                      proposed_assembly_point: '',
-                      proposed_arrival_date: '',
-                      proposed_arrival_time: '',
-                      proposed_by: '',
-                      logistics_status: 'none',
-                    };
-                    set('proposed_assembly_point', '');
-                    set('proposed_arrival_date', '');
-                    set('proposed_arrival_time', '');
-                    set('proposed_by', '');
-                    set('logistics_status', 'none');
-                    instantLogisticsSave(updates);
-                  }} className="px-3 py-1.5 text-xs rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
-                    Отклонить
-                  </button>
-                </>
-              )}
-              {form.logistics_status === 'pending_candidate' && (
-                <button type="button" onClick={() => {
-                  const ts = new Date().toISOString();
-                  set('logistics_status', 'confirmed');
-                  set('logistics_confirmed_at', ts);
-                  instantLogisticsSave({
-                    logistics_status: 'confirmed',
-                    logistics_confirmed_at: ts,
-                    assembly_point: form.assembly_point,
-                    arrival_date: form.arrival_date,
-                    arrival_time: form.arrival_time,
-                  });
-                }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
-                  ✓ Подтвердить окончательно
-                </button>
-              )}
-              {form.logistics_status === 'confirmed' && (
-                <button type="button" onClick={() => {
-                  set('logistics_status', 'none');
-                  set('logistics_confirmed_at', '');
-                  instantLogisticsSave({ logistics_status: 'none', logistics_confirmed_at: '' });
-                }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
-                  Пересогласовать
-                </button>
-              )}
-            </div>
-
-            {/* История логистики — единый блок внутри раздела */}
-            {candidate?.id && (
-              <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
-                <LogisticsHistory candidateId={candidate.id} defaultExpanded />
-              </div>
-            )}
-          </div>
+          {/* Логистика и согласование — вынесено в отдельный компонент */}
+          <LogisticsBlock
+            form={form}
+            set={set}
+            candidate={candidate}
+            instantLogisticsSave={instantLogisticsSave}
+            handleAssemblyPointChange={handleAssemblyPointChange}
+            assemblyPoints={assemblyPoints}
+            inp={inp}
+          />
 
           {/* Admin statuses — только для администратора */}
           {!isAgencyMode && (
