@@ -1,17 +1,27 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Search, X, ChevronDown, ChevronRight } from 'lucide-react';
+import { RefreshCw, Search, X, ChevronDown, ChevronRight, Undo2, Loader2 } from 'lucide-react';
+import { getCurrentActor } from '@/lib/crmSession';
 
 const ACTION_LABELS = { create: 'Создание', update: 'Изменение', delete: 'Удаление' };
 const ACTION_COLORS = { create: 'text-green-400 bg-green-400/10 border-green-400/20', update: 'text-blue-400 bg-blue-400/10 border-blue-400/20', delete: 'text-red-400 bg-red-400/10 border-red-400/20' };
 
 const FIELD_LABELS = {
-  full_name: 'ФИО', position: 'Должность', phone: 'Телефон', birth_date: 'Дата рождения',
-  citizenship: 'Гражданство', birth_place: 'Место рождения', health_status: 'Здоровье',
-  city: 'Город', assembly_point: 'Пункт сбора', arrival_date: 'Дата прибытия',
+  full_name: 'ФИО', position: 'Должность', phone: 'Телефон', email: 'Email',
+  birth_date: 'Дата рождения', citizenship: 'Гражданство', birth_place: 'Место рождения',
+  gender: 'Пол', health_status: 'Здоровье', health_details: 'Детали здоровья',
+  city: 'Город', assembly_point: 'Пункт сбора', assembly_distance: 'Дистанция',
+  arrival_date: 'Дата прибытия', arrival_time: 'Время прибытия', ticket_photo_url: 'Фото билета',
+  logistics_status: 'Статус логистики', logistics_confirmed_at: 'Логистика подтверждена',
+  proposed_assembly_point: 'Предл. пункт сбора', proposed_arrival_date: 'Предл. дата',
+  proposed_arrival_time: 'Предл. время', proposed_by: 'Предложил',
   sb_check: 'Проверка СБ', medical_check: 'Медкомиссия', comment: 'Комментарий',
-  payment_basis: 'Основание выплаты', payment_made: 'Выплачено', is_archived: 'Архив'
+  payment_basis: 'Основание выплаты', payment_made: 'Выплачено',
+  agency_id: 'ID агентства', agency_name: 'Агентство',
+  is_archived: 'Архив', deleted_at: 'Удалён', form_token: 'Токен анкеты',
+  form_status: 'Статус анкеты', form_submitted_at: 'Анкета отправлена',
+  _undo: 'Отмена действия'
 };
 
 function formatDate(iso) {
@@ -63,6 +73,46 @@ export default function CandidateLogs() {
   };
 
   useEffect(() => { load(); }, []);
+
+  const [undoing, setUndoing] = useState(null);
+
+  const handleUndo = async (log) => {
+    if (!log.candidate_id || log.candidate_id === 'new') return;
+    if (!confirm(`Отменить: ${ACTION_LABELS[log.action] || log.action} — «${log.candidate_name}»?`)) return;
+    setUndoing(log.id);
+    try {
+      if (log.action === 'update') {
+        let diff = {};
+        try { diff = JSON.parse(log.changes); } catch {}
+        const undoData = {};
+        Object.keys(diff).forEach(k => {
+          if (k !== '_undo') undoData[k] = diff[k].from;
+        });
+        if (Object.keys(undoData).length > 0) {
+          await base44.entities.Candidate.update(log.candidate_id, undoData);
+        }
+      } else if (log.action === 'delete') {
+        await base44.entities.Candidate.update(log.candidate_id, { deleted_at: null });
+      } else if (log.action === 'create') {
+        await base44.entities.Candidate.update(log.candidate_id, { deleted_at: new Date().toISOString() });
+      }
+      const actor = getCurrentActor();
+      await base44.entities.CandidateLog.create({
+        candidate_id: log.candidate_id,
+        candidate_name: log.candidate_name,
+        action: 'update',
+        changed_by_name: actor.name,
+        changed_by_role: actor.role,
+        agency_name: '',
+        changes: JSON.stringify({ _undo: { from: ACTION_LABELS[log.action] || log.action, to: '↩ Отмена действия' } }),
+        timestamp: new Date().toISOString(),
+      });
+      load();
+    } catch (e) {
+      alert('Не удалось отменить: ' + (e.message || 'запись не найдена'));
+    }
+    setUndoing(null);
+  };
 
   const filtered = logs.filter(l => {
     const q = search.toLowerCase();
@@ -126,7 +176,7 @@ export default function CandidateLogs() {
               <table className="w-full text-sm">
                 <thead>
                   <tr className="border-b border-[rgba(123,63,191,0.15)]">
-                    {['Дата и время', 'Действие', 'Кандидат', 'Кто изменил', 'Детали'].map(h => (
+                    {['Дата и время', 'Действие', 'Кандидат', 'Кто изменил', 'Детали', 'Отмена'].map(h => (
                       <th key={h} className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">{h}</th>
                     ))}
                   </tr>
@@ -154,10 +204,20 @@ export default function CandidateLogs() {
                         {l.action === 'delete' && <span className="text-xs text-red-400/70">Запись удалена</span>}
                         {l.action === 'update' && <ChangesRow changesJson={l.changes} />}
                       </td>
+                      <td className="px-4 py-3">
+                        {l.candidate_id && l.candidate_id !== 'new' && (
+                          <button onClick={() => handleUndo(l)} disabled={undoing === l.id}
+                            className="flex items-center gap-1 px-2 py-1 text-xs rounded border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] transition-all disabled:opacity-40 whitespace-nowrap"
+                            title="Отменить это действие">
+                            {undoing === l.id ? <Loader2 size={11} className="animate-spin" /> : <Undo2 size={11} />}
+                            Отменить
+                          </button>
+                        )}
+                      </td>
                     </tr>
                   ))}
                   {filtered.length === 0 && (
-                    <tr><td colSpan={5} className="text-center py-12 text-[#F8FAFC]/30">Записей не найдено</td></tr>
+                    <tr><td colSpan={6} className="text-center py-12 text-[#F8FAFC]/30">Записей не найдено</td></tr>
                   )}
                 </tbody>
               </table>

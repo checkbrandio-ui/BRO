@@ -17,6 +17,7 @@ import { useToast } from '@/components/ui/use-toast';
 import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS, isCIS } from '@/lib/candidateConstants';
 import StatusDropdown from '@/components/ui/StatusDropdown';
 import ArrivalsCalendar from '@/components/admin/ArrivalsCalendar';
+import { getCurrentActor } from '@/lib/crmSession';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -110,10 +111,7 @@ export default function Candidates() {
     if (agencyParam) setFilters(f => ({ ...f, agency: agencyParam }));
   }, []);
 
-  const getActor = () => ({
-    name: currentUser?.full_name || currentUser?.email || 'Администратор',
-    role: 'admin',
-  });
+  const getActor = () => getCurrentActor();
 
   const handleSave = async (data, id) => {
     if (id) {

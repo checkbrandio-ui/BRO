@@ -34,6 +34,10 @@ import Notifications from './pages/admin/Notifications';
 import AgencyNotifications from './pages/AgencyNotifications';
 import AssistantWidget from '@/components/admin/AssistantWidget';
 import NotificationBell from '@/components/admin/NotificationBell';
+import CrmLogin from './pages/CrmLogin';
+import CrmAdmins from './pages/admin/CrmAdmins';
+import CrmUserBadge from '@/components/admin/CrmUserBadge';
+import CrmProtectedRoute, { CrmSuperAdminRoute } from '@/components/CrmProtectedRoute';
 
 function App() {
   return (
@@ -59,9 +63,10 @@ function App() {
             <Route path="/form/:token" element={<CandidateOnboarding />} />
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/handbook" element={<ManagerHandbook />} />
+            <Route path="/crm-login" element={<CrmLogin />} />
 
-            {/* Protected routes (any authenticated user) */}
-            <Route element={<ProtectedRoute />}>
+            {/* CRM-protected routes (secret code auth) */}
+            <Route element={<CrmProtectedRoute />}>
               <Route path="/admin/agencies" element={<Agencies />} />
               <Route path="/admin/candidates" element={<Candidates />} />
               <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
@@ -72,7 +77,12 @@ function App() {
               <Route path="/admin/trash" element={<Trash />} />
             </Route>
 
-            {/* Admin-only routes */}
+            {/* CRM super-admin only */}
+            <Route element={<CrmSuperAdminRoute />}>
+              <Route path="/admin/crm-admins" element={<CrmAdmins />} />
+            </Route>
+
+            {/* Base44 admin-only routes (backward compatibility) */}
             <Route element={<AdminRoute />}>
               <Route path="/admin/users" element={<Users />} />
             </Route>
@@ -81,6 +91,7 @@ function App() {
           </Routes>
           <AssistantWidget />
           <NotificationBell />
+          <CrmUserBadge />
         </Router>
         <Toaster />
       </QueryClientProvider>

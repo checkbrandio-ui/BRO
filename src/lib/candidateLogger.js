@@ -15,9 +15,12 @@ export async function logCandidateAction({ action, candidate, oldData, actor }) 
 
   if (action === 'update' && oldData) {
     const diff = {};
-    const FIELDS = ['full_name','position','phone','birth_date','citizenship','birth_place',
-      'health_status','city','assembly_point','arrival_date','sb_check','medical_check',
-      'comment','payment_basis','payment_made','is_archived'];
+    const FIELDS = ['full_name','position','phone','email','birth_date','citizenship','birth_place',
+      'gender','health_status','health_details','city','assembly_point','assembly_distance',
+      'arrival_date','arrival_time','ticket_photo_url','logistics_status','logistics_confirmed_at',
+      'proposed_assembly_point','proposed_arrival_date','proposed_arrival_time','proposed_by',
+      'sb_check','medical_check','comment','payment_basis','payment_made',
+      'agency_id','agency_name','is_archived','deleted_at','form_token','form_status','form_submitted_at'];
     for (const f of FIELDS) {
       if (String(oldData[f] ?? '') !== String(candidate[f] ?? '')) {
         diff[f] = { from: oldData[f] ?? '', to: candidate[f] ?? '' };

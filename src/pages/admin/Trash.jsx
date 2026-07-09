@@ -1,8 +1,9 @@
 import { useState, useEffect, useCallback } from 'react';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Trash2, RotateCcw, RefreshCw, AlertTriangle, ArrowLeft, Loader2 } from 'lucide-react';
+import { Trash2, RotateCcw, RefreshCw, AlertTriangle, ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { logCandidateAction } from '@/lib/candidateLogger';
+import { getCurrentActor, canPermanentDelete } from '@/lib/crmSession';
 
 export default function Trash() {
   const [candidates, setCandidates] = useState([]);
@@ -25,13 +26,9 @@ export default function Trash() {
 
   useEffect(() => {
     load();
-    base44.auth.me().then(setCurrentUser).catch(() => {});
   }, [load]);
 
-  const getActor = () => ({
-    name: currentUser?.full_name || currentUser?.email || 'Администратор',
-    role: 'admin',
-  });
+  const getActor = () => getCurrentActor();
 
   const handleRestore = async (c) => {
     setRestoring(c.id);
@@ -155,15 +152,21 @@ export default function Trash() {
                             {restoring === c.id ? <Loader2 size={12} className="animate-spin" /> : <RotateCcw size={12} />}
                             Восстановить
                           </button>
-                          <button
-                            onClick={() => handlePermanentDelete(c)}
-                            disabled={permaDeleting === c.id}
-                            title="Удалить безвозвратно"
-                            className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-40"
-                          >
-                            {permaDeleting === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
-                            Удалить навсегда
-                          </button>
+                          {canPermanentDelete() ? (
+                            <button
+                              onClick={() => handlePermanentDelete(c)}
+                              disabled={permaDeleting === c.id}
+                              title="Удалить безвозвратно"
+                              className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg bg-red-500/10 text-red-400 border border-red-500/20 hover:bg-red-500/20 transition-all disabled:opacity-40"
+                            >
+                              {permaDeleting === c.id ? <Loader2 size={12} className="animate-spin" /> : <Trash2 size={12} />}
+                              Удалить навсегда
+                            </button>
+                          ) : (
+                            <span className="flex items-center gap-1 px-3 py-1.5 text-xs text-[#F8FAFC]/25" title="Окончательное удаление доступно только супер-администратору">
+                              <Lock size={11} /> Только супер-админ
+                            </span>
+                          )}
                         </div>
                       </td>
                     </tr>

@@ -9,6 +9,7 @@ import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS } from '
 import SbReportButton from '@/components/admin/SbReportButton';
 import StatusDropdown from '@/components/ui/StatusDropdown';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
+import { getCrmAdmin } from '@/lib/crmSession';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -61,7 +62,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
   const [user, setUser] = useState(null);
 
   useEffect(() => {
-    base44.auth.me().then(setUser).catch(() => {});
+    setUser(getCrmAdmin());
     base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200)
       .then(setAssemblyPoints)
       .catch(() => {});
@@ -510,7 +511,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, on
               onChange={e => set('comment', e.target.value)} 
               placeholder="Комментарий..."
               disabled={candidate && !user} />
-            {candidate && user && <p className="text-xs text-[#F8FAFC]/30 mt-1">От: {user.role === 'admin' ? 'Администратор' : user.role === 'moderator' ? 'Модератор' : 'Система'}</p>}
+            {candidate && user && <p className="text-xs text-[#F8FAFC]/30 mt-1">От: {user.role === 'super_admin' ? 'Супер-админ' : user.role === 'manager' ? 'Менеджер' : 'Администратор'}</p>}
           </div>
 
           {/* Documents — типизированные слоты, сохраняются в анкету */}
