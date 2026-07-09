@@ -1,23 +1,23 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { History, Loader2, MapPin, Calendar, Clock, CheckCircle, X } from 'lucide-react';
-import { LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import { Loader2, MapPin, Calendar, Clock, CheckCircle, XCircle, History, ArrowRight } from 'lucide-react';
+import { formatDate } from '@/lib/formatDate';
 
 /**
- * Отображает полную историю согласований логистики для кандидата.
- * Берёт данные из CandidateLog, фильтрует по logistics-полям.
+ * История согласований логистики — единый хронологический список.
+ * Каждая запись = факт действия + конкретные данные (город, дата, время).
+ * Берётся из CandidateLog (включает действия и админа, и кандидата).
  */
-export default function LogisticsHistory({ candidateId, candidateName }) {
+export default function LogisticsHistory({ candidateId, defaultExpanded = false }) {
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [expanded, setExpanded] = useState(false);
+  const [expanded, setExpanded] = useState(defaultExpanded);
 
   useEffect(() => {
     if (!candidateId) return;
     setLoading(true);
     base44.entities.CandidateLog.filter({ candidate_id: candidateId }, '-timestamp', 100)
       .then(records => {
-        // Фильтруем только логи, связанные с логистикой
         const logisticsLogs = records.filter(r => {
           if (!r.changes) return false;
           try {
@@ -25,8 +25,7 @@ export default function LogisticsHistory({ candidateId, candidateName }) {
             const logisticsFields = [
               'logistics_status', 'assembly_point', 'arrival_date', 'arrival_time',
               'proposed_assembly_point', 'proposed_arrival_date', 'proposed_arrival_time',
-              'proposed_by', 'logistics_confirmed_at', 'ticket_photo_url',
-              'assembly_distance',
+              'proposed_by', 'logistics_confirmed_at', 'ticket_photo_url', 'assembly_distance',
             ];
             return logisticsFields.some(f => parsed[f]);
           } catch { return false; }
@@ -53,30 +52,50 @@ export default function LogisticsHistory({ candidateId, candidateName }) {
     );
   }
 
-  const formatLogEntry = (log) => {
-    let details = [];
-    try {
-      const parsed = JSON.parse(log.changes);
-      const fieldLabels = {
-        logistics_status: 'Статус',
-        assembly_point: 'Пункт сбора',
-        arrival_date: 'Дата',
-        arrival_time: 'Время',
-        proposed_assembly_point: 'Предложен пункт',
-        proposed_arrival_date: 'Предложена дата',
-        proposed_arrival_time: 'Предложено время',
-        proposed_by: 'Инициатор предложения',
-        logistics_confirmed_at: 'Подтверждено в',
-        ticket_photo_url: 'Фото билета',
-        assembly_distance: 'Расстояние',
-      };
-      for (const [field, change] of Object.entries(parsed)) {
-        if (fieldLabels[field]) {
-          details.push({ label: fieldLabels[field], from: change.from, to: change.to });
-        }
-      }
-    } catch {}
-    return details;
+  /**
+   * Извлекает из записи лога человекочитаемое описание действия + данные логистики.
+   */
+  const describeLog = (log) => {
+    let parsed = {};
+    try { parsed = JSON.parse(log.changes || '{}'); } catch {}
+
+    const get = (key) => parsed[key]?.to ?? '';
+    const statusTo = get('logistics_status');
+    const point = get('proposed_assembly_point') || get('assembly_point');
+    const date = get('proposed_arrival_date') || get('arrival_date');
+    const time = get('proposed_arrival_time') || get('arrival_time');
+    const proposedBy = get('proposed_by');
+
+    const role = log.changed_by_role;
+    const actorLabel = role === 'candidate' ? 'Кандидат'
+      : role === 'agency' ? `Агентство${log.agency_name ? ` (${log.agency_name})` : ''}`
+      : role === 'manager' ? 'Менеджер'
+      : 'Администратор';
+
+    // Описание действия в зависимости от перехода статуса
+    let action = '';
+    let icon = <ArrowRight size={11} className="text-[#7B3FBF]" />;
+
+    if (statusTo === 'pending_candidate') {
+      action = proposedBy === 'admin' ? 'предложил логистику кандидату' : 'отправил данные на согласование';
+      icon = <Calendar size={11} className="text-[#C9A84C]" />;
+    } else if (statusTo === 'pending_admin') {
+      action = 'предложил новые данные, ожидает согласования администратора';
+      icon = <Clock size={11} className="text-[#C9A84C]" />;
+    } else if (statusTo === 'confirmed') {
+      action = 'согласовал логистику';
+      icon = <CheckCircle size={11} className="text-green-400" />;
+    } else if (statusTo === 'none') {
+      action = 'сбросил согласование (пересогласование)';
+      icon = <XCircle size={11} className="text-red-400" />;
+    } else if (!statusTo && (point || date || time)) {
+      action = 'изменил данные логистики';
+      icon = <ArrowRight size={11} className="text-[#7B3FBF]" />;
+    } else {
+      action = 'действие зафиксировано';
+    }
+
+    return { actorLabel, action, icon, point, date, time };
   };
 
   return (
@@ -96,41 +115,26 @@ export default function LogisticsHistory({ candidateId, candidateName }) {
       </button>
 
       {expanded && (
-        <div className="px-4 pb-4 space-y-2 max-h-[300px] overflow-y-auto">
+        <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto">
           {logs.map((log, idx) => {
-            const details = formatLogEntry(log);
-            const statusChange = details.find(d => d.label === 'Статус');
-            const actorLabel = log.changed_by_role === 'candidate'
-              ? 'Кандидат'
-              : log.changed_by_role === 'agency'
-                ? `Агентство${log.agency_name ? ` (${log.agency_name})` : ''}`
-                : log.changed_by_role === 'manager'
-                  ? 'Менеджер'
-                  : 'Администратор';
+            const { actorLabel, action, icon, point, date, time } = describeLog(log);
             return (
-              <div key={log.id || idx} className="relative pl-5 pb-3 border-l border-[rgba(123,63,191,0.2)]">
+              <div key={log.id || idx} className="relative pl-5 border-l border-[rgba(123,63,191,0.2)]">
                 <div className="absolute left-0 top-1 w-2 h-2 rounded-full bg-[#7B3FBF]" />
-                <div className="flex items-center gap-2 mb-1">
+                <div className="flex items-center gap-2 flex-wrap mb-0.5">
                   <span className="text-xs font-bold text-[#F8FAFC]/70">{actorLabel}</span>
-                  <span className="text-xs text-[#F8FAFC]/30">·</span>
-                  <span className="text-xs text-[#F8FAFC]/40">{log.changed_by_name}</span>
+                  <span className="text-[#F8FAFC]/30">·</span>
+                  <span className="text-xs text-[#F8FAFC]/50 flex items-center gap-1">{icon} {action}</span>
                 </div>
                 <div className="text-[10px] text-[#F8FAFC]/30 mb-1.5">
                   {new Date(log.timestamp).toLocaleString('ru-RU')}
                 </div>
-                {details.length > 0 ? (
-                  <div className="space-y-0.5">
-                    {details.map((d, i) => (
-                      <div key={i} className="text-xs flex items-start gap-1.5">
-                        <span className="text-[#F8FAFC]/40 min-w-[100px]">{d.label}:</span>
-                        <span className="text-[#F8FAFC]/50 line-through">{d.from || '—'}</span>
-                        <span className="text-[#7B3FBF]">→</span>
-                        <span className="text-[#F8FAFC]/80">{d.to || '—'}</span>
-                      </div>
-                    ))}
+                {(point || date || time) && (
+                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#F8FAFC]/60">
+                    {point && <span className="flex items-center gap-1"><MapPin size={10} className="text-[#7B3FBF]/60" /> {point}</span>}
+                    {date && <span className="flex items-center gap-1"><Calendar size={10} className="text-[#7B3FBF]/60" /> {formatDate(date)}</span>}
+                    {time && <span className="flex items-center gap-1"><Clock size={10} className="text-[#7B3FBF]/60" /> {time}</span>}
                   </div>
-                ) : (
-                  <div className="text-xs text-[#F8FAFC]/30">Изменение зафиксировано</div>
                 )}
               </div>
             );

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -10,6 +10,8 @@ import DocumentUploader from '@/components/candidate/DocumentUploader';
 import DocumentLightbox from '@/components/candidate/DocumentLightbox';
 import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
+import { logCandidateAction } from '@/lib/candidateLogger';
+import { formatDate } from '@/lib/formatDate';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -401,13 +403,21 @@ export default function CandidateOnboarding() {
           { name: form.full_name, role: 'candidate' }
         );
         // Обновляем локальное состояние кандидата
-        setCandidate(prev => ({ ...prev,
+        const updatedCandidate = { ...candidate,
           logistics_status: 'confirmed',
           logistics_confirmed_at: now,
-          assembly_point: candidate.proposed_assembly_point || prev.assembly_point,
-          arrival_date: candidate.proposed_arrival_date || prev.arrival_date,
-          arrival_time: candidate.proposed_arrival_time || prev.arrival_time,
-        }));
+          assembly_point: candidate.proposed_assembly_point || candidate.assembly_point,
+          arrival_date: candidate.proposed_arrival_date || candidate.arrival_date,
+          arrival_time: candidate.proposed_arrival_time || candidate.arrival_time,
+        };
+        setCandidate(updatedCandidate);
+        // Логируем действие кандидата
+        await logCandidateAction({
+          action: 'update',
+          candidate: { ...updatedCandidate, id: formRecord.candidate_id },
+          oldData: candidate,
+          actor: { name: form.full_name, role: 'candidate' },
+        });
       } else if (action === 'reject') {
         // Кандидат отклоняет и предлагает свои данные
         await base44.entities.Candidate.update(formRecord.candidate_id, {
@@ -422,6 +432,13 @@ export default function CandidateOnboarding() {
           { name: form.full_name, role: 'candidate' }
         );
         setCandidate(prev => ({ ...prev, logistics_status: 'pending_admin', proposed_by: 'candidate' }));
+        // Логируем отклонение кандидатом
+        await logCandidateAction({
+          action: 'update',
+          candidate: { ...candidate, id: formRecord.candidate_id, logistics_status: 'pending_admin', proposed_by: 'candidate' },
+          oldData: candidate,
+          actor: { name: form.full_name, role: 'candidate' },
+        });
       }
     } catch (e) {
       alert('Ошибка при согласовании логистики. Попробуйте позже.');
@@ -479,7 +496,7 @@ export default function CandidateOnboarding() {
             <p className="text-sm font-bold text-[#C9A84C] mb-3">📍 Администратор предложил логистику</p>
             <div className="text-xs text-[#ccc] space-y-1 mb-3">
               <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
-              {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
+              {candidate.proposed_arrival_date && <div>Дата: <strong>{formatDate(candidate.proposed_arrival_date)}</strong></div>}
               {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
             </div>
             <div className="flex gap-2">
@@ -497,9 +514,28 @@ export default function CandidateOnboarding() {
           </div>
         )}
         {logisticsConfirmed && (
-          <div className="mt-6 p-4 rounded-xl bg-green-900/20 border border-green-700/40 text-left flex items-center gap-2">
-            <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
-            <span className="text-sm text-green-400">Логистика согласована. Администратор уведомлён.</span>
+          <div className="mt-6 p-4 rounded-xl bg-gradient-to-br from-green-900/25 to-green-800/10 border border-green-600/40 text-left">
+            <div className="flex items-center gap-2 mb-3">
+              <CheckCircle size={16} className="text-green-500 flex-shrink-0" />
+              <span className="text-sm font-bold text-green-400">Логистика согласована</span>
+            </div>
+            <div className="space-y-1.5 text-xs">
+              {candidate?.assembly_point && (
+                <div className="flex items-center gap-2 text-[#ccc]">
+                  <MapPin size={12} className="text-green-400/70" /> {candidate.assembly_point}
+                </div>
+              )}
+              {candidate?.arrival_date && (
+                <div className="flex items-center gap-2 text-[#ccc]">
+                  <Calendar size={12} className="text-green-400/70" /> {formatDate(candidate.arrival_date)}
+                </div>
+              )}
+              {candidate?.arrival_time && (
+                <div className="flex items-center gap-2 text-[#ccc]">
+                  <Clock size={12} className="text-green-400/70" /> {candidate.arrival_time}
+                </div>
+              )}
+            </div>
           </div>
         )}
       </div>
@@ -567,7 +603,7 @@ export default function CandidateOnboarding() {
                 <p className="text-xs text-[#C9A84C] font-bold mb-2">Администратор предложил:</p>
                 <div className="text-xs text-[#e0e0e0] space-y-0.5 mb-3">
                   <div>Пункт сбора: <strong>{candidate.proposed_assembly_point}</strong></div>
-                  {candidate.proposed_arrival_date && <div>Дата: <strong>{candidate.proposed_arrival_date}</strong></div>}
+                  {candidate.proposed_arrival_date && <div>Дата: <strong>{formatDate(candidate.proposed_arrival_date)}</strong></div>}
                   {candidate.proposed_arrival_time && <div>Время: <strong>{candidate.proposed_arrival_time}</strong></div>}
                 </div>
                 <div className="flex gap-2">
@@ -585,11 +621,43 @@ export default function CandidateOnboarding() {
               </div>
             )}
 
-            {/* Подтверждено — кандидат не может менять */}
+            {/* Подтверждено — красивая карточка с утверждёнными данными */}
             {form.logistics_status === 'confirmed' && (
-              <div className="p-3 rounded-lg bg-green-900/15 border border-green-700/30">
-                <p className="text-xs text-green-400 font-bold flex items-center gap-1.5">
-                  <CheckCircle size={12} /> Логистика согласована. Изменения возможны только через администратора.
+              <div className="p-4 rounded-xl bg-gradient-to-br from-green-900/25 to-green-800/10 border border-green-600/40">
+                <div className="flex items-center gap-2 mb-3">
+                  <div className="w-7 h-7 rounded-full bg-green-500/20 border border-green-500/40 flex items-center justify-center">
+                    <CheckCircle size={15} className="text-green-400" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-bold text-green-400">Логистика согласована</p>
+                    <p className="text-[10px] text-green-500/60">Вы едете на работу! Данные утверждены администратором.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-2 text-sm">
+                  {form.assembly_point && (
+                    <div className="flex items-center gap-2 text-[#e0e0e0]">
+                      <MapPin size={13} className="text-green-400/70 flex-shrink-0" />
+                      <span className="text-[#888] text-xs">Пункт сбора:</span>
+                      <span className="font-semibold">{form.assembly_point}</span>
+                    </div>
+                  )}
+                  {form.arrival_date && (
+                    <div className="flex items-center gap-2 text-[#e0e0e0]">
+                      <Calendar size={13} className="text-green-400/70 flex-shrink-0" />
+                      <span className="text-[#888] text-xs">Дата прибытия:</span>
+                      <span className="font-semibold">{formatDate(form.arrival_date)}</span>
+                    </div>
+                  )}
+                  {form.arrival_time && (
+                    <div className="flex items-center gap-2 text-[#e0e0e0]">
+                      <Clock size={13} className="text-green-400/70 flex-shrink-0" />
+                      <span className="text-[#888] text-xs">Время:</span>
+                      <span className="font-semibold">{form.arrival_time}</span>
+                    </div>
+                  )}
+                </div>
+                <p className="text-[10px] text-green-500/50 mt-3 pt-2 border-t border-green-700/20">
+                  Изменения возможны только через администратора.
                 </p>
               </div>
             )}

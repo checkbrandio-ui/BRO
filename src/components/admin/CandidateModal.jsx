@@ -11,8 +11,10 @@ import StatusDropdown from '@/components/ui/StatusDropdown';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
 import { getCrmAdmin, getCurrentActor } from '@/lib/crmSession';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
+import { logCandidateAction } from '@/lib/candidateLogger';
 import DocumentQuickPreview from './DocumentQuickPreview';
 import LogisticsHistory from './LogisticsHistory';
+import { formatDate } from '@/lib/formatDate';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
 
@@ -110,13 +112,16 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
   };
 
   // Мгновенное сохранение логистики (без нажатия «Сохранить»)
-  const instantLogisticsSave = async (updates, oldForm) => {
+  // oldData берём из candidate (реальное состояние БД), newData = candidate + updates
+  const instantLogisticsSave = async (updates) => {
     if (!candidate?.id) return;
     try {
-      const oldData = { ...candidate, ...oldForm };
-      const newData = { ...candidate, ...form, ...updates };
+      const oldData = { ...candidate };
+      const newData = { ...candidate, ...updates };
       await base44.entities.Candidate.update(candidate.id, updates);
       await notifyLogisticsChange(newData, oldData, getCurrentActor());
+      // Логируем действие
+      await logCandidateAction({ action: 'update', candidate: newData, oldData, actor: getCurrentActor() });
     } catch (e) {
       alert('Ошибка сохранения: ' + e.message);
     }
@@ -418,19 +423,26 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                 <div className="text-xs text-[#C9A84C] font-bold mb-2">Предложено ({form.proposed_by || 'кандидатом'}):</div>
                 <div className="text-xs text-[#F8FAFC]/60 space-y-0.5">
                   {form.proposed_assembly_point && <div>📍 Пункт сбора: {form.proposed_assembly_point}</div>}
-                  {form.proposed_arrival_date && <div>📅 Дата: {form.proposed_arrival_date}</div>}
+                  {form.proposed_arrival_date && <div>📅 Дата: {formatDate(form.proposed_arrival_date)}</div>}
                   {form.proposed_arrival_time && <div>⏰ Время: {form.proposed_arrival_time}</div>}
                 </div>
               </div>
             )}
 
-            {/* Фото билета */}
+            {/* Фото билета с предпросмотром */}
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Фото билета</label>
               {form.ticket_photo_url ? (
-                <div className="flex items-center gap-2">
-                  <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть билет</a>
-                  <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300">Удалить</button>
+                <div className="flex items-center gap-3">
+                  <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="block flex-shrink-0">
+                    <img src={form.ticket_photo_url} alt="Билет" className="w-16 h-16 object-cover rounded-lg border border-[rgba(123,63,191,0.3)] hover:border-[#C9A84C] transition-all" />
+                  </a>
+                  <div className="flex flex-col gap-1">
+                    <a href={form.ticket_photo_url} target="_blank" rel="noreferrer" className="text-xs text-[#C9A84C] underline">Открыть в полном размере</a>
+                    <button type="button" onClick={() => set('ticket_photo_url', '')} className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 w-fit">
+                      <Trash2 size={11} /> Удалить
+                    </button>
+                  </div>
                 </div>
               ) : (
                 <label className="flex items-center gap-1.5 px-3 py-2 rounded border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[rgba(123,63,191,0.1)] text-xs cursor-pointer transition-all w-fit">
@@ -459,7 +471,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                     set('proposed_arrival_time', form.arrival_time);
                     set('proposed_by', 'admin');
                     set('logistics_status', 'pending_candidate');
-                    instantLogisticsSave(updates, form);
+                    instantLogisticsSave(updates);
                   }} className="px-3 py-1.5 text-xs rounded border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
                     Отправить на согласование
                   </button>
@@ -467,7 +479,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                     const ts = new Date().toISOString();
                     set('logistics_status', 'confirmed');
                     set('logistics_confirmed_at', ts);
-                    instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts }, form);
+                    instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts });
                   }} className="px-3 py-1.5 text-xs rounded border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all">
                     Утвердить без согласования
                   </button>
@@ -489,7 +501,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                     set('arrival_time', updates.arrival_time);
                     set('logistics_status', 'confirmed');
                     set('logistics_confirmed_at', ts);
-                    instantLogisticsSave(updates, form);
+                    instantLogisticsSave(updates);
                   }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
                     ✓ Подтвердить предложенные данные
                   </button>
@@ -506,7 +518,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                     set('proposed_arrival_time', '');
                     set('proposed_by', '');
                     set('logistics_status', 'none');
-                    instantLogisticsSave(updates, form);
+                    instantLogisticsSave(updates);
                   }} className="px-3 py-1.5 text-xs rounded border border-red-500/30 text-red-400 hover:bg-red-500/10 transition-all">
                     Отклонить
                   </button>
@@ -517,7 +529,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                   const ts = new Date().toISOString();
                   set('logistics_status', 'confirmed');
                   set('logistics_confirmed_at', ts);
-                  instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts }, form);
+                  instantLogisticsSave({ logistics_status: 'confirmed', logistics_confirmed_at: ts });
                 }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all">
                   ✓ Подтвердить окончательно
                 </button>
@@ -526,25 +538,17 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                 <button type="button" onClick={() => {
                   set('logistics_status', 'none');
                   set('logistics_confirmed_at', '');
-                  instantLogisticsSave({ logistics_status: 'none', logistics_confirmed_at: '' }, form);
+                  instantLogisticsSave({ logistics_status: 'none', logistics_confirmed_at: '' });
                 }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
                   Пересогласовать
                 </button>
               )}
             </div>
 
-            {/* История логистики — свёрнутый блок внутри раздела */}
+            {/* История логистики — единый блок внутри раздела */}
             {candidate?.id && (
               <div className="pt-2 border-t border-[rgba(123,63,191,0.15)]">
-                <details className="group">
-                  <summary className="cursor-pointer text-xs text-[#F8FAFC]/40 hover:text-[#F8FAFC]/70 transition-colors select-none flex items-center gap-1.5">
-                    <ChevronRight size={12} className="group-open:rotate-90 transition-transform" />
-                    История согласования логистики
-                  </summary>
-                  <div className="mt-2">
-                    <LogisticsHistory candidateId={candidate.id} candidateName={candidate.full_name} />
-                  </div>
-                </details>
+                <LogisticsHistory candidateId={candidate.id} defaultExpanded />
               </div>
             )}
           </div>
