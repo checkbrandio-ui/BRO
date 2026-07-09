@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -16,40 +16,41 @@ import DocumentQuickPreview from './DocumentQuickPreview';
 import LogisticsBlock from './LogisticsBlock';
 import { formatDate } from '@/lib/formatDate';
 
-const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
+const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 
 export default function CandidateModal({ candidate, agencies, lockedAgencyId, candidateList, onSave, onClose, onNavigate }) {
   const isAgencyMode = !!lockedAgencyId; // режим агентства — без выбора агентства и статусов
 
-  const [form, setForm] = useState({
-    full_name: candidate?.full_name || '',
-    position: candidate?.position || '',
-    agency_id: candidate?.agency_id || lockedAgencyId || '',
-    agency_name: candidate?.agency_name || (agencies?.find(a => a.id === lockedAgencyId)?.name || ''),
-    birth_date: candidate?.birth_date ?? '',
-    citizenship: candidate?.citizenship ?? '',
-    birth_place: candidate?.birth_place ?? '',
-    health_status: candidate?.health_status ?? '',
-    health_details: candidate?.health_details ?? '',
-    city: candidate?.city ?? '',
-    assembly_point: candidate?.assembly_point ?? '',
-    arrival_date: candidate?.arrival_date ?? '',
-    sb_check: candidate?.sb_check ?? '',
-    medical_check: candidate?.medical_check ?? '',
-    comment: candidate?.comment ?? '',
-    phone: candidate?.phone ?? '',
-    email: candidate?.email ?? '',
-    payment_basis: candidate?.payment_basis ?? '',
-    payment_made: candidate?.payment_made ?? '',
-    arrival_time: candidate?.arrival_time ?? '',
-    ticket_photo_url: candidate?.ticket_photo_url ?? '',
-    logistics_status: candidate?.logistics_status ?? 'none',
-    logistics_confirmed_at: candidate?.logistics_confirmed_at ?? '',
-    proposed_assembly_point: candidate?.proposed_assembly_point ?? '',
-    proposed_arrival_date: candidate?.proposed_arrival_date ?? '',
-    proposed_arrival_time: candidate?.proposed_arrival_time ?? '',
-    proposed_by: candidate?.proposed_by ?? '',
+  const buildForm = (c) => ({
+    full_name: c?.full_name || '',
+    position: c?.position || '',
+    agency_id: c?.agency_id || lockedAgencyId || '',
+    agency_name: c?.agency_name || (agencies?.find(a => a.id === lockedAgencyId)?.name || ''),
+    birth_date: c?.birth_date ?? '',
+    citizenship: c?.citizenship ?? '',
+    birth_place: c?.birth_place ?? '',
+    health_status: c?.health_status ?? '',
+    health_details: c?.health_details ?? '',
+    city: c?.city ?? '',
+    assembly_point: c?.assembly_point ?? '',
+    arrival_date: c?.arrival_date ?? '',
+    sb_check: c?.sb_check ?? '',
+    medical_check: c?.medical_check ?? '',
+    comment: c?.comment ?? '',
+    phone: c?.phone ?? '',
+    email: c?.email ?? '',
+    payment_basis: c?.payment_basis ?? '',
+    payment_made: c?.payment_made ?? '',
+    arrival_time: c?.arrival_time ?? '',
+    ticket_photo_url: c?.ticket_photo_url ?? '',
+    logistics_status: c?.logistics_status ?? 'none',
+    logistics_confirmed_at: c?.logistics_confirmed_at ?? '',
+    proposed_assembly_point: c?.proposed_assembly_point ?? '',
+    proposed_arrival_date: c?.proposed_arrival_date ?? '',
+    proposed_arrival_time: c?.proposed_arrival_time ?? '',
+    proposed_by: c?.proposed_by ?? '',
   });
+  const [form, setForm] = useState(buildForm(candidate));
 
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
@@ -65,6 +66,24 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
   const [errors, setErrors] = useState({});
   const [cityCache, setCityCache] = useState({});
   const [user, setUser] = useState(null);
+  const [refreshing, setRefreshing] = useState(false);
+
+  // Сброс формы при переключении на другого кандидата (навигация стрелками)
+  useEffect(() => {
+    setForm(buildForm(candidate));
+    setErrors({});
+    setStopList(null);
+  }, [candidate?.id]);
+
+  const refreshCandidate = async () => {
+    if (!candidate?.id) return;
+    setRefreshing(true);
+    try {
+      const results = await base44.entities.Candidate.filter({ id: candidate.id });
+      if (results[0]) setForm(buildForm(results[0]));
+    } catch (e) {}
+    setRefreshing(false);
+  };
 
   useEffect(() => {
     setUser(getCrmAdmin());
@@ -265,7 +284,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             )}
             <h2 className="text-lg font-black text-[#F8FAFC]">{candidate ? 'Редактировать кандидата' : 'Новый кандидат'}</h2>
           </div>
-          <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
+          <div className="flex items-center gap-1">
+            {candidate?.id && (
+              <button onClick={refreshCandidate} title="Обновить данные" disabled={refreshing}
+                className="p-2 rounded-lg hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all disabled:opacity-50">
+                <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
+              </button>
+            )}
+            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
+          </div>
         </div>
 
         {candidate?.id && (

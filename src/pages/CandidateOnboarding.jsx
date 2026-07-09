@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -13,7 +13,7 @@ import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { formatDate } from '@/lib/formatDate';
 
-const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
+const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
 const FAMILY_STATUSES = ['Холост/Не замужем','Женат/Замужем','Разведён/Разведена','Вдовец/Вдова'];
 const MILITARY_RANKS = ['Рядовой','Ефрейтор','Младший сержант','Сержант','Старший сержант','Старшина','Прапорщик','Офицер','Не служил'];
@@ -26,9 +26,7 @@ const SKILLS_BY_POSITION = {
   'Водитель CE': ['Вождение авто с прицепом','Знание ПДД','Работа с тахографом','Управление полуприцепом','Мелкий ремонт ТС','Оформление путевых листов'],
   'Водитель D': ['Вождение автобуса','Знание ПДД','Работа с пассажирами','Оформление путевых листов','Работа с тахографом','Мелкий ремонт ТС'],
   'Автослесарь': ['Диагностика авто','Ремонт двигателя','Ремонт ходовой части','Сварочные работы','Работа с инструментом','Электрика авто','Шиномонтаж','Работа с документацией'],
-  'Инженер связи': ['Монтаж кабельных линий','Настройка оборудования связи','Знание протоколов TCP/IP','Работа с волоконной оптикой','Пайка','Чтение технической документации','Работа с ПК','Диагностика неисправностей'],
-  'Оператор БПЛА': ['Управление БПЛА','Обработка аэрофотосъёмки','Работа с ПК','Навигация','Техническое обслуживание БПЛА','Знание воздушного законодательства'],
-  'Взрывотехник': ['Взрывные работы','Обращение со взрывчатыми веществами','Работа с документацией','Техника безопасности','Оценка рисков','Маркировка и учёт ВВ'],
+
   'Медицинский работник': ['Первая медицинская помощь','Введение инъекций','Перевязочные работы','Транспортировка пострадавших','Работа с медоборудованием','Ведение медицинской документации','Реанимационные мероприятия'],
   'Охранник': ['Охрана порядка','Физическая подготовка','Работа с оружием','Видеонаблюдение','Оформление документов','Работа в ЧС','Тактика охраны','Знание законодательства'],
 };
@@ -180,6 +178,21 @@ export default function CandidateOnboarding() {
   const [uploadErrors, setUploadErrors] = useState({});
   const [cityObject, setCityObject] = useState(null);
   const [lightboxIndex, setLightboxIndex] = useState(null);
+  const [curator, setCurator] = useState(null);
+
+  // Загрузка куратора точки сбора при подтверждённой логистике
+  useEffect(() => {
+    if (candidate?.logistics_status === 'confirmed' && candidate?.assembly_point) {
+      base44.entities.City.filter({ name: candidate.assembly_point, is_assembly_point: true })
+        .then(cities => {
+          const c = cities[0];
+          setCurator(c && (c.curator_name || c.curator_phone) ? { name: c.curator_name, phone: c.curator_phone } : null);
+        })
+        .catch(() => setCurator(null));
+    } else {
+      setCurator(null);
+    }
+  }, [candidate?.logistics_status, candidate?.assembly_point]);
 
   // Блокировка полей после проверки СБ — должно быть после объявления candidate
   const isSbVerified = candidate?.sb_check === 'Согласован';
@@ -508,10 +521,16 @@ export default function CandidateOnboarding() {
         {formRecord?.submitted_at && (
           <p className="text-[#555] text-xs mt-4">Отправлено: {new Date(formRecord.submitted_at).toLocaleString('ru-RU')}</p>
         )}
-        <button onClick={() => { setSubmitted(false); setIsEditing(true); }}
-          className="mt-5 px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors">
-          Редактировать анкету
-        </button>
+        <div className="mt-5 flex items-center gap-2 justify-center">
+          <button onClick={() => { setSubmitted(false); setIsEditing(true); }}
+            className="px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors">
+            Редактировать анкету
+          </button>
+          <button onClick={() => window.location.reload()}
+            className="px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors flex items-center gap-1.5">
+            <RefreshCw size={14} /> Обновить
+          </button>
+        </div>
 
         {/* Подтверждение логистики — если админ предложил, а анкета уже отправлена */}
         {candidate?.logistics_status === 'pending_candidate' && candidate?.proposed_assembly_point && !logisticsConfirmed && (
@@ -559,6 +578,13 @@ export default function CandidateOnboarding() {
                 </div>
               )}
             </div>
+          </div>
+        )}
+        {curator && (
+          <div className="mt-3 p-4 rounded-xl bg-[#C9A84C]/8 border border-[#C9A84C]/25 text-left">
+            <p className="text-sm font-bold text-[#C9A84C] mb-2">👤 Ваш куратор</p>
+            {curator.name && <p className="text-sm text-[#F8FAFC] font-semibold mb-1">{curator.name}</p>}
+            {curator.phone && <p className="text-xl text-[#C9A84C] font-bold tracking-wide">{curator.phone}</p>}
           </div>
         )}
       </div>
@@ -685,6 +711,15 @@ export default function CandidateOnboarding() {
               </div>
             )}
 
+            {/* Куратор точки сбора */}
+            {curator && (
+              <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+                <p className="text-xs text-[#C9A84C] font-bold mb-1">👤 Ваш куратор</p>
+                {curator.name && <p className="text-sm text-[#F8FAFC] font-semibold">{curator.name}</p>}
+                {curator.phone && <p className="text-lg text-[#C9A84C] font-bold tracking-wide">{curator.phone}</p>}
+              </div>
+            )}
+
             {/* Поля ввода — если нет предложения от админа или кандидат отклонил */}
             {form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
               <>
@@ -748,7 +783,7 @@ export default function CandidateOnboarding() {
           <Section title="Раздел 1. Персональные данные">
             <div>
               <label className={lbl}>ФИО <span className="text-red-500">*</span> {isFieldLocked(form.full_name) && <span className="text-[#C9A84C] normal-case">🔒 Проверено СБ</span>}</label>
-              <input className={isFieldLocked(form.full_name) ? inpRO : inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" readOnly={isFieldLocked(form.full_name)} required />
+              <input className={isFieldLocked(form.full_name) ? inpRO : inp} value={form.full_name} onChange={e => set('full_name', e.target.value)} placeholder="Иванов Иван Иванович" readOnly={isFieldLocked(form.full_name)} autoComplete="off" autoCorrect="off" spellCheck={false} required />
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div>

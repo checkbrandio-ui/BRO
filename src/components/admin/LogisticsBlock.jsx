@@ -18,6 +18,12 @@ export default function LogisticsBlock({
   assemblyPoints,
   inp,
 }) {
+  // Куратор выбранной точки сбора
+  const selectedPoint = assemblyPoints?.find(ap => ap.name === form.assembly_point);
+  const curator = selectedPoint?.curator_name || selectedPoint?.curator_phone
+    ? { name: selectedPoint.curator_name, phone: selectedPoint.curator_phone }
+    : null;
+
   return (
     <div className="rounded-xl bg-[rgba(123,63,191,0.06)] border border-[rgba(123,63,191,0.25)] p-4 space-y-4">
       <div className="flex items-center justify-between">
@@ -175,6 +181,15 @@ export default function LogisticsBlock({
           </button>
         )}
       </div>
+
+      {/* Куратор точки сбора */}
+      {curator && form.logistics_status === 'confirmed' && (
+        <div className="p-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+          <p className="text-xs text-[#C9A84C] font-bold mb-1">👤 Куратор точки сбора</p>
+          {curator.name && <p className="text-sm text-[#F8FAFC] font-semibold">{curator.name}</p>}
+          {curator.phone && <p className="text-lg text-[#C9A84C] font-bold tracking-wide">{curator.phone}</p>}
+        </div>
+      )}
 
       {/* История логистики — единый блок внутри раздела */}
       {candidate?.id && (

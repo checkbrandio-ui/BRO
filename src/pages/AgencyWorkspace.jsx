@@ -13,7 +13,7 @@ import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 
-const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
+const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся': 'text-[#F8FAFC]/40', 'На проверке': 'text-yellow-400', 'Согласован': 'text-green-400', 'Не согласован': 'text-red-400' };
 const MED_COLORS = { 'Не проверялся': 'text-[#F8FAFC]/40', 'Прошёл': 'text-green-400', 'Не прошёл': 'text-red-400' };
 const PAY_COLORS = { 'Готовится к отправке': 'text-green-400', 'Отказался от отправки': 'text-red-400/70' };
@@ -42,7 +42,7 @@ export default function AgencyWorkspace() {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
-  const [filters, setFilters] = useState({ position: '', sb_check: '', medical_check: '', incomplete_docs: false });
+  const [filters, setFilters] = useState({ position: '', sb_check: '', medical_check: '', docs_filter: '' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -201,7 +201,7 @@ export default function AgencyWorkspace() {
         || (filters.sb_check === 'Не проверялся' ? (!c.sb_check || c.sb_check === 'Не проверялся') : c.sb_check === filters.sb_check);
       const matchMed = !filters.medical_check
         || (filters.medical_check === 'Не проверялся' ? (!c.medical_check || c.medical_check === 'Не проверялся') : c.medical_check === filters.medical_check);
-      const matchDocs = !filters.incomplete_docs || hasMissingRequiredDocs(c);
+      const matchDocs = filters.docs_filter === '' ? true : filters.docs_filter === 'missing' ? hasMissingRequiredDocs(c) : !hasMissingRequiredDocs(c);
       return matchSearch && matchPos && matchSB && matchMed && matchDocs;
     });
   };
@@ -389,12 +389,17 @@ export default function AgencyWorkspace() {
             {['Не проверялся','Прошёл','Не прошёл'].map(s => <option key={s} value={s}>{s}</option>)}
           </select>
           <button
-            onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
-            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.incomplete_docs ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400'}`}>
-            <AlertTriangle size={13} /> Без обяз. док.
+            onClick={() => setF('docs_filter', filters.docs_filter === '' ? 'missing' : filters.docs_filter === 'missing' ? 'complete' : '')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${
+              filters.docs_filter === 'missing' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
+              filters.docs_filter === 'complete' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+              'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#7B3FBF]'
+            }`}>
+            {filters.docs_filter === 'complete' ? <CheckCircle size={13} /> : <AlertTriangle size={13} />}
+            {filters.docs_filter === 'missing' ? 'Без обяз. док.' : filters.docs_filter === 'complete' ? 'С полным пак.' : 'Документы'}
           </button>
           {hasFilters && (
-            <button onClick={() => { setFilters({ position: '', sb_check: '', medical_check: '', incomplete_docs: false }); setSearch(''); }}
+            <button onClick={() => {             setFilters({ position: '', sb_check: '', medical_check: '', docs_filter: '' }); setSearch(''); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
@@ -622,8 +627,10 @@ export default function AgencyWorkspace() {
           candidate={editCandidate}
           agencies={agency ? [agency] : []}
           lockedAgencyId={session.id}
+          candidateList={displayed}
           onSave={handleSave}
           onClose={() => { setModalOpen(false); setEditCandidate(null); }}
+          onNavigate={(cand) => setEditCandidate(cand)}
         />
       )}
     </div>

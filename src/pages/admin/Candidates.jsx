@@ -20,7 +20,7 @@ import StatusDropdown from '@/components/ui/StatusDropdown';
 import ArrivalsCalendar from '@/components/admin/ArrivalsCalendar';
 import { getCurrentActor } from '@/lib/crmSession';
 
-const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Инженер связи','Оператор БПЛА','Взрывотехник','Медицинский работник','Охранник'];
+const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
 const MED_COLORS = { 'Не проверялся':'text-[#F8FAFC]/40', 'Прошёл':'text-green-400', 'Не прошёл':'text-red-400' };
 const PAY_COLORS = { 'Готовится к отправке':'text-green-400', 'Отказался от отправки':'text-red-400/70' };
@@ -47,7 +47,7 @@ export default function Candidates() {
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', incomplete_docs: false, logistics_status: '' });
+  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', docs_filter: '', logistics_status: '' });
   const [showArchive, setShowArchive] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
@@ -206,7 +206,7 @@ export default function Candidates() {
       const matchMed    = !filters.medical_check
         || (filters.medical_check === 'Не проверялся' ? (!c.medical_check || c.medical_check === 'Не проверялся') : c.medical_check === filters.medical_check);
       const matchForm   = !filters.form_status || c.form_status === filters.form_status;
-      const matchDocs   = !filters.incomplete_docs || hasMissingRequiredDocs(c);
+      const matchDocs   = filters.docs_filter === '' ? true : filters.docs_filter === 'missing' ? hasMissingRequiredDocs(c) : !hasMissingRequiredDocs(c);
       const matchLogistics = !filters.logistics_status
         || (filters.logistics_status === 'confirmed' && c.logistics_status === 'confirmed')
         || (filters.logistics_status === 'pending' && (c.logistics_status === 'pending_admin' || c.logistics_status === 'pending_candidate'))
@@ -577,9 +577,14 @@ export default function Candidates() {
               ))}
           </select>
           <button
-            onClick={() => setF('incomplete_docs', !filters.incomplete_docs)}
-            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${filters.incomplete_docs ? 'border-red-500/50 text-red-400 bg-red-500/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400'}`}>
-            <AlertTriangle size={13} /> Без обяз. документов
+            onClick={() => setF('docs_filter', filters.docs_filter === '' ? 'missing' : filters.docs_filter === 'missing' ? 'complete' : '')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${
+              filters.docs_filter === 'missing' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
+              filters.docs_filter === 'complete' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+              'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#7B3FBF]'
+            }`}>
+            {filters.docs_filter === 'complete' ? <CheckCircle size={13} /> : <AlertTriangle size={13} />}
+            {filters.docs_filter === 'missing' ? 'Без обяз. док.' : filters.docs_filter === 'complete' ? 'С полным пак.' : 'Документы'}
           </button>
           <StatusDropdown
             value={filters.logistics_status}
@@ -596,7 +601,7 @@ export default function Candidates() {
             compact
           />
           {(Object.values(filters).some(f => typeof f === 'string' ? f : f) || logisticsPoint) && (
-            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', incomplete_docs: false, logistics_status: '' }); setLogisticsPoint(''); setSortDir(null); }}
+            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', docs_filter: '', logistics_status: '' }); setLogisticsPoint(''); setSortDir(null); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
