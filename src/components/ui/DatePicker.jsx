@@ -1,20 +1,54 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import { Calendar as CalendarIcon } from 'lucide-react';
 import { Popover, PopoverTrigger, PopoverContent } from '@/components/ui/popover';
 import { Calendar } from '@/components/ui/calendar';
 import { ru } from 'date-fns/locale';
 import { cn } from '@/lib/utils';
 
-/**
- * Красивый выбор даты с календарём.
- * value: ISO строка "yyyy-MM-dd"
- * onChange: callback(isoString)
- */
-export default function DatePicker({ value, onChange, className, placeholder = 'Выберите дату', readOnly = false, disabled = false }) {
+/** value(ISO "yyyy-MM-dd") → "dd.mm.yyyy" */
+function formatDisplay(value) {
+  if (!value) return '';
+  const d = new Date(value + 'T00:00:00');
+  if (isNaN(d.getTime())) return '';
+  const dd = String(d.getDate()).padStart(2, '0');
+  const mm = String(d.getMonth() + 1).padStart(2, '0');
+  return `${dd}.${mm}.${d.getFullYear()}`;
+}
+
+/** Текст пользователя → ISO "yyyy-MM-dd" или null если не распознано */
+function parseManual(text) {
+  if (!text) return '';
+  const t = text.trim();
+  // dd.mm.yyyy
+  let m = t.match(/^(\d{1,2})[.](\d{1,2})[.](\d{4})$/);
+  if (m) return `${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  // dd.mm.yy
+  m = t.match(/^(\d{1,2})[.](\d{1,2})[.](\d{2})$/);
+  if (m) {
+    const yy = parseInt(m[3]);
+    return `${yy > 50 ? '19' : '20'}${m[3]}-${m[2].padStart(2,'0')}-${m[1].padStart(2,'0')}`;
+  }
+  // yyyy-mm-dd
+  m = t.match(/^(\d{4})-(\d{1,2})-(\d{1,2})$/);
+  if (m) return `${m[1]}-${m[2].padStart(2,'0')}-${m[3].padStart(2,'0')}`;
+  // ddMMyyyy (8 цифр без разделителей)
+  m = t.match(/^(\d{2})(\d{2})(\d{4})$/);
+  if (m) return `${m[3]}-${m[2]}-${m[1]}`;
+  return null;
+}
+
+export default function DatePicker({ value, onChange, className, placeholder = 'дд.мм.гггг', readOnly = false, disabled = false }) {
   const [open, setOpen] = useState(false);
+  const [text, setText] = useState(formatDisplay(value));
+
+  // Синхронизируем локальный текст при изменении внешнего value (календарь, сброс и т.д.)
+  useEffect(() => {
+    setText(formatDisplay(value));
+  }, [value]);
+
   const date = value ? new Date(value + 'T00:00:00') : undefined;
 
-  const handleSelect = (d) => {
+  const handleCalendarSelect = (d) => {
     if (!d) return;
     const yyyy = d.getFullYear();
     const mm = String(d.getMonth() + 1).padStart(2, '0');
@@ -23,28 +57,42 @@ export default function DatePicker({ value, onChange, className, placeholder = '
     setOpen(false);
   };
 
-  const formatted = value ? new Date(value + 'T00:00:00').toLocaleDateString('ru-RU') : '';
+  const handleInputChange = (e) => {
+    const raw = e.target.value;
+    setText(raw);
+    const parsed = parseManual(raw);
+    if (parsed) onChange(parsed);
+  };
 
   return (
     <Popover open={open} onOpenChange={setOpen}>
-      <PopoverTrigger asChild>
-        <button
-          type="button"
+      <div className="relative w-full">
+        <input
+          type="text"
+          value={text}
+          onChange={handleInputChange}
           disabled={readOnly || disabled}
+          placeholder={placeholder}
           className={cn(
-            'flex items-center justify-between gap-2 w-full px-3 py-2.5 text-sm rounded-lg border bg-[rgba(255,255,255,0.04)] border-[rgba(123,63,191,0.2)] text-[#F8FAFC] focus:outline-none focus:border-[#7B3FBF] transition-all cursor-pointer hover:border-[rgba(123,63,191,0.4)] disabled:cursor-not-allowed disabled:opacity-60',
+            'flex items-center justify-between gap-2 w-full px-3 py-2.5 text-sm rounded-lg border bg-[rgba(255,255,255,0.04)] border-[rgba(123,63,191,0.2)] text-[#F8FAFC] focus:outline-none focus:border-[#7B3FBF] transition-all disabled:cursor-not-allowed disabled:opacity-60 pr-9',
             className
           )}
-        >
-          <span className={formatted ? '' : 'text-[#F8FAFC]/30'}>{formatted || placeholder}</span>
-          <CalendarIcon size={14} className="opacity-40 flex-shrink-0" />
-        </button>
-      </PopoverTrigger>
+        />
+        <PopoverTrigger asChild>
+          <button
+            type="button"
+            disabled={readOnly || disabled}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/40 hover:text-[#7B3FBF] transition-colors disabled:cursor-not-allowed"
+          >
+            <CalendarIcon size={14} />
+          </button>
+        </PopoverTrigger>
+      </div>
       <PopoverContent className="w-auto p-0 bg-[#0D1B3E] border-[rgba(123,63,191,0.25)]" align="start">
         <Calendar
           mode="single"
           selected={date}
-          onSelect={handleSelect}
+          onSelect={handleCalendarSelect}
           locale={ru}
           initialFocus
           classNames={{
