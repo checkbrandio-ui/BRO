@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { X, Phone, Copy, Check, FileText, Save } from 'lucide-react';
+import { X, Phone, Copy, Check, Save } from 'lucide-react';
 import VoiceRecorder from './VoiceRecorder';
 import { CALL_SCRIPT_BLOCKS } from '@/lib/callScripts';
 

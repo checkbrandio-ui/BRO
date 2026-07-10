@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { BookOpen, Target, Zap, MessageSquare, Shield, ClipboardList, Send, Phone, Star, HelpCircle, CheckSquare, Copy, Check, ArrowRight, MapPin, Clock, Banknote, Mail, Users, TrendingUp, Award, Home, Heart, AlertTriangle, ChevronUp } from 'lucide-react';
+import { BookOpen, Target, Zap, MessageSquare, Shield, ClipboardList, Send, Phone, Star, HelpCircle, CheckSquare, Check, ArrowRight, Clock, Banknote, Mail, Users, TrendingUp, Award, Home, Heart, AlertTriangle, ChevronUp } from 'lucide-react';
 import CopyBlock from '@/components/handbook/CopyBlock';
 import { CALL_SCRIPT_BLOCKS } from '@/lib/callScripts';
 

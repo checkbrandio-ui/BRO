@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Search, RefreshCw, MapPin, ArrowLeft, Check, Plus, Pencil, Trash2, X } from 'lucide-react';
+import { Search, RefreshCw, MapPin, ArrowLeft, Check, Plus, Pencil, Trash2 } from 'lucide-react';
 import AddCityModal from '@/components/admin/AddCityModal';
 import CityEditModal from '@/components/admin/CityEditModal';
 

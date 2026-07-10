@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { RefreshCw, Search, X, Ticket, CheckCircle, Clock, AlertCircle, Send } from 'lucide-react';
+import { RefreshCw, Search, X, Ticket, CheckCircle, Send } from 'lucide-react';
 
 const PRIORITY_COLORS = {
   low: 'text-blue-400 bg-blue-400/10 border-blue-400/20',

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { FileText, Download, ExternalLink, User, Phone, MapPin, Calendar, Briefcase, Heart, Shield, Banknote, FileCheck, AlertTriangle, MessageSquare } from 'lucide-react';
+import { FileText, Download, ExternalLink, User, Phone, Calendar, Briefcase, Heart, Shield, Banknote, FileCheck, AlertTriangle, MessageSquare } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { getMissingRequiredDocs } from '@/lib/docUtils';
 import { isCIS } from '@/lib/candidateConstants';

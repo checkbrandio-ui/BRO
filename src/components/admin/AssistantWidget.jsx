@@ -1,7 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { useLocation } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Send, Loader2, Sparkles, X, AlertCircle, RefreshCw, Zap, MapPin } from 'lucide-react';
+import { Send, Loader2, Sparkles, X, RefreshCw, Zap } from 'lucide-react';
 import MessageBubble from '@/components/admin/AssistantMessage';
 import DispatchDashboard from '@/components/admin/DispatchDashboard';
 

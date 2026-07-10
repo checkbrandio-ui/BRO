@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
-import { Plus, RefreshCw, Trash2, Power, KeyRound, ShieldCheck, UserCog, Copy, Check, X, Loader2, Lock } from 'lucide-react';
+import { Plus, RefreshCw, Trash2, Power, KeyRound, ShieldCheck, UserCog, Copy, Check, X, Loader2 } from 'lucide-react';
 import { getCrmAdmin, generateAccessCode } from '@/lib/crmSession';
 import { useToast } from '@/components/ui/use-toast';
 
