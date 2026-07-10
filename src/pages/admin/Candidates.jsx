@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
@@ -47,13 +47,16 @@ export default function Candidates() {
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', docs_filter: '', logistics_status: '', final_call: '' });
+  const [searchParams] = useSearchParams();
+  const [filters, setFilters] = useState({ agency: searchParams.get('agency') || '', position: '', sb_check: '', medical_check: '', form_status: '', docs_filter: '', logistics_status: '', final_call: '' });
   const [showArchive, setShowArchive] = useState(false);
+  const agenciesRef = useRef([]);
+  const formDocsRef = useRef({});
+  const [refLoaded, setRefLoaded] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
   const [cityCache, setCityCache] = useState({});
-  const [searchParams] = useSearchParams();
   const [animatingId, setAnimatingId] = useState(null);
   const [linkModalCandidate, setLinkModalCandidate] = useState(null);
   const [selectedIds, setSelectedIds] = useState(new Set());
@@ -62,33 +65,47 @@ export default function Candidates() {
   const [sortDir, setSortDir] = useState(null);
   const [mapCandidate, setMapCandidate] = useState(null);
 
-  const load = useCallback(async () => {
-    setLoading(true);
-    const [cand, ag] = await Promise.all([
-      base44.entities.Candidate.list('-created_date', 500),
+  // Загрузка справочных данных (агентства, города, анкеты) — один раз при монтировании
+  const loadReferenceData = useCallback(async () => {
+    const [ag, cities, forms] = await Promise.all([
       base44.entities.Agency.list('-created_date', 200),
-    ]);
-    // Параллельно загружаем пункты сбора, справочник городов и анкеты
-    const [cities, forms] = await Promise.all([
       base44.entities.City.list('-created_date', 500),
       base44.entities.CandidateForm.filter({ status: 'completed' }, '-created_date', 500),
     ]);
-    // Мёрджим документы из завершённых анкет в карточки кандидатов
-    const formDocsByCandidate = {};
+    const fDocsMap = {};
     forms.forEach(f => {
       if (f.candidate_id && f.uploaded_docs?.length) {
-        formDocsByCandidate[f.candidate_id] = f.uploaded_docs;
+        fDocsMap[f.candidate_id] = f.uploaded_docs;
       }
     });
     const cityMap = {};
     cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
     const activeAg = ag.filter(a => !a.deleted_at);
-    const activeAgIds = new Set(activeAg.map(a => a.id));
+    agenciesRef.current = activeAg;
+    formDocsRef.current = fDocsMap;
+    setAgencies(activeAg);
+    setCityCache(cityMap);
+    setRefLoaded(true);
+  }, []);
+
+  // Загрузка кандидатов с серверной фильтрацией (deleted_at + базовые фильтры)
+  const load = useCallback(async () => {
+    if (!refLoaded) return;
+    setLoading(true);
+    // Серверный запрос: не загружаем удалённые записи + применяем активные фильтры
+    const query = { deleted_at: null };
+    if (filters.agency) query.agency_id = filters.agency;
+    if (filters.position) query.position = filters.position;
+    if (filters.sb_check && filters.sb_check !== 'Не проверялся') query.sb_check = filters.sb_check;
+    if (filters.medical_check && filters.medical_check !== 'Не проверялся') query.medical_check = filters.medical_check;
+    if (filters.form_status) query.form_status = filters.form_status;
+    if (filters.logistics_status === 'confirmed') query.logistics_status = 'confirmed';
+    const cand = await base44.entities.Candidate.filter(query, '-created_date', 500);
+    const activeAgIds = new Set(agenciesRef.current.map(a => a.id));
     const filtered = cand
-      .filter(c => !c.deleted_at)
       .filter(c => !c.agency_id || activeAgIds.has(c.agency_id))
       .map(c => {
-        const formDocs = formDocsByCandidate[c.id];
+        const formDocs = formDocsRef.current[c.id];
         if (formDocs?.length) {
           const existingUrls = new Set((c.documents || []).map(d => d.url).filter(Boolean));
           const newDocs = formDocs.filter(fd => !existingUrls.has(fd.url));
@@ -98,19 +115,21 @@ export default function Candidates() {
       });
     setCandidates(filtered);
     setDuplicateIds(findDuplicateIds(filtered));
-    setAgencies(activeAg);
-    setCityCache(cityMap);
     setLoading(false);
     setSelectedIds(new Set());
-  }, []);
+  }, [refLoaded, filters.agency, filters.position, filters.sb_check, filters.medical_check, filters.form_status, filters.logistics_status]);
 
+  // Монтирование: справочные данные → затем кандидаты загружаются через [load] effect
   useEffect(() => {
-    load();
+    loadReferenceData();
     // Загружаем текущего пользователя для логов
     base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
-    const agencyParam = searchParams.get('agency');
-    if (agencyParam) setFilters(f => ({ ...f, agency: agencyParam }));
-  }, []);
+  }, [loadReferenceData]);
+
+  // Повторный запрос кандидатов при изменении серверных фильтров
+  useEffect(() => {
+    load();
+  }, [load]);
 
   // Realtime-подписка — обновляем только изменённую запись без перезагрузки таблицы
   useEffect(() => {
@@ -516,7 +535,7 @@ export default function Candidates() {
               <Trash2 size={13}/> Корзина
             </Link>
 
-            <button onClick={load} title="Обновить данные"
+            <button onClick={async () => { await loadReferenceData(); await load(); }} title="Обновить данные"
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <RefreshCw size={14} />
             </button>
