@@ -14,6 +14,7 @@ import { logCandidateAction } from '@/lib/candidateLogger';
 import { formatDate } from '@/lib/formatDate';
 import MissionBlock from '@/components/candidate/MissionBlock';
 import SbStatusBanner from '@/components/candidate/SbStatusBanner';
+import OnboardingBackground from '@/components/candidate/OnboardingBackground';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -506,13 +507,15 @@ export default function CandidateOnboarding() {
   const lbl = "block text-xs font-semibold text-[#888] mb-1.5 uppercase tracking-wide";
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center">
+    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center relative">
+      <OnboardingBackground />
       <Loader2 size={28} className="animate-spin text-[#666]" />
     </div>
   );
 
   if (notFound) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4 relative">
+      <OnboardingBackground />
       <div className="text-center">
         <AlertCircle size={40} className="text-red-500 mx-auto mb-4" />
         <h1 className="text-lg font-bold text-white mb-2">Анкета не найдена</h1>
@@ -522,7 +525,8 @@ export default function CandidateOnboarding() {
   );
 
   if (submitted && !isEditing) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4">
+    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4 relative">
+      <OnboardingBackground />
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center mx-auto mb-5">
           <CheckCircle size={32} className="text-green-500" />
@@ -607,7 +611,8 @@ export default function CandidateOnboarding() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-[#e0e0e0] py-8 px-4">
+    <div className="min-h-screen bg-[#0e0e0e] text-[#e0e0e0] py-8 px-4 relative">
+      <OnboardingBackground />
       <div className="max-w-2xl mx-auto">
         {/* Шапка */}
         <div className="mb-8 pb-6 border-b border-[#222]">
