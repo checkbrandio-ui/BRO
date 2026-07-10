@@ -1,5 +1,29 @@
 import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 
+// Module-level cache — persists across warm invocations (Deno Deploy keeps
+// the isolate warm between requests). Cities are reference data that changes
+// rarely, so a 5-minute TTL eliminates redundant 500-record queries per call.
+let citiesCache = null;
+let assemblyPointsCache = null;
+let cacheTime = 0;
+const CACHE_TTL_MS = 5 * 60 * 1000; // 5 минут
+
+async function getCitiesCache(base44) {
+  const now = Date.now();
+  if (citiesCache && assemblyPointsCache && (now - cacheTime) < CACHE_TTL_MS) {
+    return { cities: citiesCache, assemblyPoints: assemblyPointsCache };
+  }
+  // Свежая загрузка — параллельно
+  const [cities, assemblyPoints] = await Promise.all([
+    base44.entities.City.list('-created_date', 500),
+    base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200),
+  ]);
+  citiesCache = cities;
+  assemblyPointsCache = assemblyPoints;
+  cacheTime = now;
+  return { cities, assemblyPoints };
+}
+
 Deno.serve(async (req) => {
   try {
     const base44 = createClientFromRequest(req);
@@ -21,8 +45,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Candidate not found' }, { status: 404 });
     }
 
-    const cities = await base44.entities.City.list('-created_date', 500);
-    const assemblyPoints = await base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200);
+    const { cities, assemblyPoints } = await getCitiesCache(base44);
 
     const candidateCity = cities.find(c => c.name?.toLowerCase() === candidate.city?.toLowerCase());
     
