@@ -1,4 +1,4 @@
-import { useState, useRef } from 'react';
+import { useState, useRef, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { getCrmAdmin, clearCrmSession } from '@/lib/crmSession';
 import { LogOut, ShieldCheck, UserCog, ChevronUp, GripHorizontal } from 'lucide-react';
@@ -8,109 +8,110 @@ const DRAG_THRESHOLD = 5;
 
 /**
  * Плавающий перетаскиваемый бейдж текущего CRM-админа.
- * Показывает ФИО, роль и кнопку выхода.
- * Позиция сохраняется в localStorage.
- * Виден только когда есть активная CRM-сессия.
+ * Перетаскивание работает через window-слушатели и прямое
+ * обновление DOM — ноль ре-рендеров во время drag.
  */
 export default function CrmUserBadge() {
   const admin = getCrmAdmin();
   const navigate = useNavigate();
   const [open, setOpen] = useState(false);
+  const elRef = useRef(null);
+  const dragState = useRef({ active: false, startX: 0, startY: 0, posX: 0, posY: 0, moved: false });
 
-  const [pos, setPos] = useState(() => {
+  // Загружаем сохранённую позицию один раз
+  const savedPos = useRef(null);
+  if (savedPos.current === null) {
     try {
-      const saved = localStorage.getItem(STORAGE_KEY);
-      if (saved) {
-        const p = JSON.parse(saved);
-        if (typeof p.x === 'number' && typeof p.y === 'number') return p;
+      const s = localStorage.getItem(STORAGE_KEY);
+      if (s) {
+        const p = JSON.parse(s);
+        if (typeof p.x === 'number' && typeof p.y === 'number') savedPos.current = p;
       }
     } catch {}
-    return null; // null = позиция по умолчанию (top-right)
-  });
-
-  const [isDragging, setIsDragging] = useState(false);
-  const dragState = useRef({ startX: 0, startY: 0, posX: 0, posY: 0, moved: false });
-  const draggingRef = useRef(false);
-  const elRef = useRef(null);
+    if (savedPos.current === null) savedPos.current = false; // false = default position
+  }
 
   if (!admin) return null;
+
+  const isSuper = admin.role === 'super_admin';
 
   const handleLogout = () => {
     clearCrmSession();
     navigate('/crm-login');
   };
 
-  const isSuper = admin.role === 'super_admin';
-
-  const clamp = (x, y) => {
-    const el = elRef.current;
-    const w = el?.offsetWidth || 200;
-    const h = el?.offsetHeight || 50;
-    return {
-      x: Math.max(8, Math.min(x, window.innerWidth - w - 8)),
-      y: Math.max(8, Math.min(y, window.innerHeight - h - 8)),
-    };
-  };
-
-  const onPointerDown = (e) => {
-    // Клик по кнопке меню — не перетаскивание
+  const onDragStart = (e) => {
     if (e.target.closest('[data-menu-toggle]') || e.button !== 0) return;
     const el = elRef.current;
     if (!el) return;
     const rect = el.getBoundingClientRect();
-    // Если позиция не задана — берём текущую (top-right по умолчанию)
-    const currentX = pos ?? (window.innerWidth - rect.width - 16);
-    const currentY = pos ?? 16;
     dragState.current = {
+      active: true,
       startX: e.clientX,
       startY: e.clientY,
-      posX: currentX,
-      posY: currentY,
+      posX: rect.left,
+      posY: rect.top,
       moved: false,
     };
-    draggingRef.current = true;
-    el.setPointerCapture?.(e.pointerId);
+    el.style.transition = 'none';
+    el.style.cursor = 'grabbing';
     e.preventDefault();
+
+    const onMove = (ev) => {
+      if (!dragState.current.active) return;
+      const dx = ev.clientX - dragState.current.startX;
+      const dy = ev.clientY - dragState.current.startY;
+      if (!dragState.current.moved && (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD)) {
+        dragState.current.moved = true;
+      }
+      if (dragState.current.moved) {
+        const el2 = elRef.current;
+        if (!el2) return;
+        let nx = dragState.current.posX + dx;
+        let ny = dragState.current.posY + dy;
+        const w = el2.offsetWidth;
+        const h = el2.offsetHeight;
+        nx = Math.max(8, Math.min(nx, window.innerWidth - w - 8));
+        ny = Math.max(8, Math.min(ny, window.innerHeight - h - 8));
+        // Прямое обновление DOM — без React state, без ре-рендеров
+        el2.style.left = nx + 'px';
+        el2.style.top = ny + 'px';
+        el2.style.right = 'auto';
+      }
+    };
+
+    const onUp = () => {
+      dragState.current.active = false;
+      window.removeEventListener('mousemove', onMove);
+      window.removeEventListener('mouseup', onUp);
+      const el2 = elRef.current;
+      if (el2) {
+        el2.style.transition = '';
+        el2.style.cursor = '';
+      }
+      if (dragState.current.moved && el2) {
+        // Сохраняем финальную позицию
+        const rect = el2.getBoundingClientRect();
+        try {
+          localStorage.setItem(STORAGE_KEY, JSON.stringify({ x: Math.round(rect.left), y: Math.round(rect.top) }));
+        } catch {}
+      }
+    };
+
+    window.addEventListener('mousemove', onMove);
+    window.addEventListener('mouseup', onUp);
   };
 
-  const onPointerMove = (e) => {
-    if (!draggingRef.current) return;
-    const dx = e.clientX - dragState.current.startX;
-    const dy = e.clientY - dragState.current.startY;
-    if (Math.abs(dx) > DRAG_THRESHOLD || Math.abs(dy) > DRAG_THRESHOLD) {
-      dragState.current.moved = true;
-      setIsDragging(true);
-    }
-    if (dragState.current.moved) {
-      setPos(clamp(dragState.current.posX + dx, dragState.current.posY + dy));
-    }
-  };
-
-  const onPointerUp = (e) => {
-    if (!draggingRef.current) return;
-    draggingRef.current = false;
-    const wasDragged = dragState.current.moved;
-    setIsDragging(false);
-    if (wasDragged && pos) {
-      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(pos)); } catch {}
-      // Блокируем открытие меню после перетаскивания
-      e.stopPropagation();
-    }
-  };
-
-  // Позиция: если pos задан — absolute, иначе top-right по умолчанию
-  const style = pos
-    ? { left: `${pos.x}px`, top: `${pos.y}px` }
+  const style = savedPos.current
+    ? { left: `${savedPos.current.x}px`, top: `${savedPos.current.y}px` }
     : { top: '1rem', right: '1rem' };
 
   return (
     <div
       ref={elRef}
-      className={`fixed z-50 select-none ${isDragging ? 'cursor-grabbing' : 'cursor-grab'}`}
+      className="fixed z-40 select-none"
       style={style}
-      onPointerDown={onPointerDown}
-      onPointerMove={onPointerMove}
-      onPointerUp={onPointerUp}
+      onMouseDown={onDragStart}
     >
       {open && (
         <>
@@ -142,13 +143,12 @@ export default function CrmUserBadge() {
           </div>
         </>
       )}
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0D1B3E] border shadow-lg hover:shadow-xl transition-all group">
-        {/* Drag handle */}
-        <GripHorizontal size={12} className="text-[#F8FAFC]/20 group-hover:text-[#F8FAFC]/40 transition-colors flex-shrink-0" />
+      <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0D1B3E] border shadow-lg hover:shadow-xl transition-shadow group">
+        <GripHorizontal size={12} className="text-[#F8FAFC]/20 group-hover:text-[#F8FAFC]/40 transition-colors flex-shrink-0 cursor-grab active:cursor-grabbing" />
         <button
           data-menu-toggle
           onClick={() => setOpen(v => !v)}
-          className={`flex items-center gap-2 flex-1 cursor-pointer ${isDragging ? 'pointer-events-none' : ''}`}
+          className="flex items-center gap-2 flex-1 cursor-pointer"
         >
           {isSuper
             ? <ShieldCheck size={15} className="text-[#C9A84C] flex-shrink-0" />

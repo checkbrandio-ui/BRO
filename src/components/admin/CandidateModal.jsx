@@ -633,9 +633,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             <button
               onClick={handleSaveClick}
               disabled={!!stopList || saving}
-              className="flex items-center gap-2 px-6 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
-              {saving && <Loader2 size={14} className="animate-spin" />}
-              {saving ? 'Сохранение...' : candidate ? 'Сохранить' : 'Создать'}
+              className="flex items-center justify-center gap-2 px-6 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold disabled:opacity-40 disabled:cursor-not-allowed relative">
+              {saving ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" />
+                  <span>Сохранение...</span>
+                </>
+              ) : (
+                <span>{candidate ? 'Сохранить' : 'Создать'}</span>
+              )}
             </button>
           </div>
         </div>
