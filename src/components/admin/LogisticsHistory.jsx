@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Loader2, MapPin, Calendar, Clock, CheckCircle, XCircle, History, ArrowRight, Phone } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, CheckCircle, XCircle, History, ArrowRight, Phone, Zap } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
 
 /**
@@ -61,7 +61,9 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
 
     const get = (key) => parsed[key]?.to ?? '';
     const snapshot = parsed._snapshot || {};
-    const statusTo = get('logistics_status');
+    // Используем _snapshot как приоритетный источник — он отражает реальное состояние после действия,
+    // а diff-значение может отсутствовать в дублирующих записях (handleClose → onSave)
+    const statusTo = snapshot.logistics_status || get('logistics_status');
     const point = snapshot.assembly_point || get('proposed_assembly_point') || get('assembly_point');
     const date = snapshot.arrival_date || get('proposed_arrival_date') || get('arrival_date');
     const time = snapshot.arrival_time || get('proposed_arrival_time') || get('arrival_time');
@@ -69,6 +71,7 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
     const finalCallTo = get('final_call_confirmed');
 
     const role = log.changed_by_role;
+    const isAdmin = role === 'admin' || role === 'super_admin' || role === 'manager';
     const actorLabel = role === 'candidate' ? 'Кандидат'
       : role === 'agency' ? `Агентство${log.agency_name ? ` (${log.agency_name})` : ''}`
       : role === 'manager' ? 'Менеджер'
@@ -82,8 +85,9 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
       action = proposedBy === 'admin' ? 'предложил логистику кандидату' : 'отправил данные на согласование';
       icon = <Calendar size={11} className="text-[#C9A84C]" />;
     } else if (statusTo === 'pending_admin') {
-      action = 'предложил новые данные, ожидает согласования администратора';
-      icon = <Clock size={11} className="text-[#C9A84C]" />;
+      // pending_admin от админа — это принудительное обновление, а не предложение кандидата
+      action = isAdmin ? 'принудительно обновил данные логистики' : 'предложил новые данные, ожидает согласования администратора';
+      icon = isAdmin ? <Zap size={11} className="text-[#C9A84C]" /> : <Clock size={11} className="text-[#C9A84C]" />;
     } else if (statusTo === 'confirmed') {
       action = 'согласовал логистику';
       icon = <CheckCircle size={11} className="text-green-400" />;
