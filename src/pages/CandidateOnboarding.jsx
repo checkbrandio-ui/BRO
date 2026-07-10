@@ -186,9 +186,18 @@ export default function CandidateOnboarding() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [curator, setCurator] = useState(null);
 
-  // Устанавливаем заголовок страницы для корректного отображения в превью ссылок
+  // Устанавливаем заголовок страницы и OG-теги для корректного отображения в превью ссылок
   useEffect(() => {
     document.title = 'Анкета кандидата | БРО-СНБ';
+    const setMeta = (prop, content) => {
+      let el = document.querySelector(`meta[property="${prop}"]`);
+      if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
+      el.setAttribute('content', content);
+    };
+    setMeta('og:title', 'Анкета кандидата | БРО-СНБ');
+    setMeta('og:site_name', 'БРО-СНБ');
+    setMeta('og:description', 'Заполните анкету кандидата для участия в программе восстановления. ООО «БРО-СНБ» — генеральный подрядчик госрекрутинга.');
+    return () => { document.title = 'БРО-СНБ — Подбор персонала для госпроектов'; };
   }, []);
 
   // Загрузка куратора точки сбора при подтверждённой логистике
@@ -418,7 +427,7 @@ export default function CandidateOnboarding() {
     try {
       const agencyName = candidate?.agency_name || 'Агентство';
       const subject = `Анкета заполнена: ${form.full_name}`;
-      const body = `Кандидат ${form.full_name} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть: ${window.location.origin}/form/${token}?edit=1`;
+      const body = `Кандидат ${form.full_name} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть: ${window.location.origin}/anketa/${token}?edit=1`;
       const emailPromises = [];
       if (candidate?.agency_id) {
         const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });

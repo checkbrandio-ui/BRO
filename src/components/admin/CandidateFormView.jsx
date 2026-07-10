@@ -76,7 +76,7 @@ export default function CandidateFormView({ candidateId, candidate, isCandidateV
           {f.submitted_at && <span className="text-[#F8FAFC]/40 ml-2">· {new Date(f.submitted_at).toLocaleString('ru-RU')}</span>}
         </span>
         {f.form_token && (
-          <a href={`/form/${f.form_token}?edit=1`} target="_blank" rel="noreferrer"
+          <a href={`/anketa/${f.form_token}?edit=1`} target="_blank" rel="noreferrer"
             className="ml-auto flex items-center gap-1 text-xs text-[#7B3FBF] hover:text-[#8B4FCF] transition-colors">
             <ExternalLink size={11} /> Открыть анкету
           </a>

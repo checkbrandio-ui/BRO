@@ -11,7 +11,7 @@ export default function RegenerateLinkButton({ candidate, onRegenerated }) {
   const [newToken, setNewToken] = useState(candidate?.form_token || '');
   const [copied, setCopied] = useState(false);
 
-  const formUrl = newToken ? `${window.location.origin}/form/${newToken}` : '';
+  const formUrl = newToken ? `${window.location.origin}/anketa/${newToken}` : '';
 
   const handleRegenerate = async () => {
     if (!candidate?.id) return;

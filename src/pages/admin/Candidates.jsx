@@ -351,13 +351,13 @@ export default function Candidates() {
 
   const copyFormLink = (c) => {
     if (!c.form_token) return;
-    const url = `${window.location.origin}/form/${c.form_token}`;
+    const url = `${window.location.origin}/anketa/${c.form_token}`;
     navigator.clipboard.writeText(url);
   };
 
   const sendFormEmail = async (c) => {
     if (!c.email || !c.form_token) return;
-    const url = `${window.location.origin}/form/${c.form_token}`;
+    const url = `${window.location.origin}/anketa/${c.form_token}`;
     try {
       await base44.integrations.Core.SendEmail({
         to: c.email,
@@ -454,7 +454,7 @@ export default function Candidates() {
       return;
     }
     const lines = withToken.map((c, i) =>
-      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/form/${c.form_token}`
+      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/anketa/${c.form_token}`
     );
     const text = `📋 Подборка кандидатов (${withToken.length} чел.):\n\n${lines.join('\n\n')}`;
     navigator.clipboard.writeText(text);
@@ -862,7 +862,7 @@ export default function Candidates() {
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             {c.form_status === 'completed' && (
-                              <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+                              <a href={`/anketa/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
                                 className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all cursor-pointer">✓ Заполнена</a>
                             )}
                             {c.form_token && c.form_status !== 'completed' && (
