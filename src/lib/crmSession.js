@@ -1,7 +1,7 @@
 /**
  * Управление сессией CRM-администратора.
  * Вход по секретному коду — не зависит от стандартной авторизации Base44.
- * Сессия хранится в localStorage (переживает перезапуск браузера).
+ * Сессия хранится в sessionStorage (удаляется при закрытии вкладки).
  */
 
 const CRM_SESSION_KEY = 'crm_admin_session';
@@ -12,7 +12,7 @@ const CRM_SESSION_KEY = 'crm_admin_session';
  */
 export function getCrmAdmin() {
   try {
-    const raw = localStorage.getItem(CRM_SESSION_KEY);
+    const raw = sessionStorage.getItem(CRM_SESSION_KEY);
     return raw ? JSON.parse(raw) : null;
   } catch {
     return null;
@@ -23,7 +23,7 @@ export function getCrmAdmin() {
  * Сохранить сессию CRM-админа (без access_code — код не храним в браузере).
  */
 export function setCrmAdmin(admin) {
-  localStorage.setItem(CRM_SESSION_KEY, JSON.stringify({
+  sessionStorage.setItem(CRM_SESSION_KEY, JSON.stringify({
     id: admin.id,
     full_name: admin.full_name,
     role: admin.role,
@@ -34,7 +34,7 @@ export function setCrmAdmin(admin) {
  * Очистить сессию (выход).
  */
 export function clearCrmSession() {
-  localStorage.removeItem(CRM_SESSION_KEY);
+  sessionStorage.removeItem(CRM_SESSION_KEY);
 }
 
 /**
