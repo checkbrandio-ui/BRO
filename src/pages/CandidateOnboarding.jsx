@@ -527,6 +527,7 @@ export default function CandidateOnboarding() {
         <div className="w-16 h-16 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center mx-auto mb-5">
           <CheckCircle size={32} className="text-green-500" />
         </div>
+        <SbStatusBanner sbCheck={candidate?.sb_check} candidateName={form.full_name} />
         <h1 className="text-xl font-bold text-white mb-3">Анкета отправлена</h1>
         <p className="text-[#888] text-sm leading-relaxed">
           Данные получены и переданы в кадровый отдел.<br />
@@ -764,7 +765,15 @@ export default function CandidateOnboarding() {
               </>
             )}
 
-            {/* Загрузка фото билета */}
+            {!logisticsUnlocked && (
+              <div className="flex items-center gap-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#333]">
+                <Clock size={16} className="text-[#555] flex-shrink-0" />
+                <p className="text-xs text-[#555] leading-relaxed">Логистика станет доступна после прохождения проверки СБ. Заполните анкету и ожидайте результата.</p>
+              </div>
+            )}
+
+            {/* Загрузка фото билета — только после СБ */}
+            {logisticsUnlocked && (
             <div className="pt-2 border-t border-[#2a2a2a]">
               <label className={lbl}>Фото билета (если есть)</label>
               {form.ticket_photo_url ? (
@@ -789,6 +798,7 @@ export default function CandidateOnboarding() {
                 </label>
               )}
             </div>
+            )}
           </div>
 
           {/* РАЗДЕЛ 1 */}
