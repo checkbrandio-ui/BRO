@@ -34,6 +34,20 @@ export default function BulkDocumentGenerator({ candidates, onClose }) {
           state.errors.push({ candidate: c, error: res.data.error });
         } else if (res.data?.documents) {
           state.docs[c.id] = { candidate: c, documents: res.data.documents };
+          // Сохраняем документы в анкету кандидата
+          try {
+            const combined = res.data.documents.map(d => `<!-- ${d.title} -->\n${d.html}`).join('\n\n<hr style="page-break-after:always;">\n\n');
+            const blob = new Blob([combined], { type: 'text/html;charset=utf-8' });
+            const file = new File([blob], `documents_${(c.full_name || 'candidate').replace(/\s+/g, '_')}.html`, { type: 'text/html' });
+            const uploadRes = await base44.integrations.Core.UploadFile({ file });
+            const existingDocs = c.documents || [];
+            const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
+            await base44.entities.Candidate.update(c.id, {
+              documents: [...filteredDocs, { name: 'Пакет документов', url: uploadRes.file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
+            });
+          } catch (saveErr) {
+            // Документ сгенерирован, но не сохранён в анкету — не блокируем процесс
+          }
         } else {
           state.errors.push({ candidate: c, error: 'Пустой ответ от генератора' });
         }

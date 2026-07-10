@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info, Send } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info, Send, Download, Printer, FileText } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -743,6 +743,48 @@ export default function CandidateOnboarding() {
 
         {/* Приветственный блок с миссией */}
         <MissionBlock />
+
+        {/* Сгенерированные документы */}
+        {candidate?.documents?.filter(d => d.type === 'generated').length > 0 && (
+          <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <FileText size={16} className="text-[#C9A84C]" />
+              <p className="text-sm font-bold text-[#C9A84C]">Ваш пакет документов готов</p>
+            </div>
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
+              <Info size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
+              <div className="text-xs text-[#888] leading-relaxed">
+                <p className="font-bold text-[#aaa] mb-1">Инструкция:</p>
+                <ol className="list-decimal list-inside space-y-0.5">
+                  <li>Нажмите «Открыть» — документ откроется в новой вкладке</li>
+                  <li>Нажмите Ctrl+P (или ⌘+P на Mac) для печати</li>
+                  <li>Распечатайте все страницы документа</li>
+                  <li>Подпишите каждый документ</li>
+                  <li>Принесите подписанные документы на пункт сбора</li>
+                </ol>
+              </div>
+            </div>
+            <div className="space-y-2">
+              {candidate.documents.filter(d => d.type === 'generated').map((doc, idx) => (
+                <div key={idx} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <FileText size={14} className="text-[#C9A84C] flex-shrink-0" />
+                    <span className="text-sm text-[#ccc] truncate">{doc.name}</span>
+                    {doc.uploaded_at && <span className="text-xs text-[#555] flex-shrink-0">{new Date(doc.uploaded_at).toLocaleDateString('ru-RU')}</span>}
+                  </div>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <a href={doc.url} target="_blank" rel="noreferrer" className="px-3 py-1.5 text-xs rounded bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/25 transition-all flex items-center gap-1.5">
+                      <ExternalLink size={12} /> Открыть
+                    </a>
+                    <a href={doc.url} download className="px-3 py-1.5 text-xs rounded bg-[#7B3FBF]/15 border border-[#7B3FBF]/30 text-[#7B3FBF] hover:bg-[#7B3FBF]/25 transition-all flex items-center gap-1.5">
+                      <Download size={12} /> Скачать
+                    </a>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* Индикатор статуса проверки СБ — только после отправки анкеты (Этап 2+) */}
         {formRecord?.status === 'completed' && <SbStatusBanner sbCheck={candidate?.sb_check} candidateName={form.full_name} />}
