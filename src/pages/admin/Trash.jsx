@@ -47,6 +47,8 @@ export default function Trash() {
     if (!confirm('Последнее подтверждение: запись будет удалена безвозвратно. Продолжить?')) return;
     setPermaDeleting(c.id);
     try {
+      // Удаляем все связанные анкеты — иначе они остаются «сиротами» и доступны по токену
+      await base44.entities.CandidateForm.deleteMany({ candidate_id: c.id });
       await base44.entities.Candidate.delete(c.id);
       await logCandidateAction({ action: 'delete', candidate: { ...c }, actor: getActor() });
       setCandidates(prev => prev.filter(x => x.id !== c.id));
