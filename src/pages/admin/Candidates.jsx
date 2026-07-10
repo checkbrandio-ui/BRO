@@ -14,6 +14,7 @@ import { findNearestAssemblyPoint, haversineDistance } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
+import BulkDocumentGenerator from '@/components/admin/BulkDocumentGenerator';
 import { useToast } from '@/components/ui/use-toast';
 import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS, isCIS } from '@/lib/candidateConstants';
 import StatusDropdown from '@/components/ui/StatusDropdown';
@@ -64,6 +65,7 @@ export default function Candidates() {
   const [logisticsPoint, setLogisticsPoint] = useState('');
   const [sortDir, setSortDir] = useState(null);
   const [mapCandidate, setMapCandidate] = useState(null);
+  const [bulkDocsOpen, setBulkDocsOpen] = useState(false);
 
   // Загрузка справочных данных (агентства, города, анкеты) — один раз при монтировании
   const loadReferenceData = useCallback(async () => {
@@ -702,6 +704,7 @@ export default function Candidates() {
             onCopyLinks={handleBulkCopyLinks}
             onGenerateForms={handleBulkGenerateForms}
             onFinalCall={handleBulkFinalCall}
+            onGenerateDocs={() => setBulkDocsOpen(true)}
             busy={bulkBusy}
             canEditStatuses={true}
             missingFormsCount={missingFormsCount}
@@ -955,6 +958,13 @@ export default function Candidates() {
         <FormLinkModal
           candidate={linkModalCandidate}
           onClose={() => setLinkModalCandidate(null)}
+        />
+      )}
+
+      {bulkDocsOpen && (
+        <BulkDocumentGenerator
+          candidates={selectedCandidates}
+          onClose={() => setBulkDocsOpen(false)}
         />
       )}
 
