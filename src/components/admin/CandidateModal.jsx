@@ -412,7 +412,17 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
-              <input className={inp} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
+              <div className="flex gap-2">
+                <input className={inp + ' flex-1'} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
+                {form.phone && (
+                  <button type="button" onClick={() => setCallDrawerOpen(true)}
+                    title={`Позвонить: ${form.phone}`}
+                    className="flex items-center justify-center gap-1.5 px-3 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 hover:border-green-500/50 transition-all flex-shrink-0">
+                    <Phone size={15} />
+                    <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">Позвонить</span>
+                  </button>
+                )}
+              </div>
             </div>
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Email</label>
