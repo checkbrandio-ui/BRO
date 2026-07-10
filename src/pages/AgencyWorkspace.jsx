@@ -142,7 +142,9 @@ export default function AgencyWorkspace() {
       }
       const newCandidate = response.data?.candidate;
       if (newCandidate) {
-        setCandidates(prev => [{ ...newCandidate, ...dataWithAgency }, ...prev]);
+        setCandidates(prev => prev.some(c => c.id === newCandidate.id)
+          ? prev.map(c => c.id === newCandidate.id ? { ...c, ...newCandidate, ...dataWithAgency } : c)
+          : [{ ...newCandidate, ...dataWithAgency }, ...prev]);
       } else {
         await load();
       }
