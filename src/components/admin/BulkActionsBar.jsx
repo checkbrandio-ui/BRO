@@ -1,6 +1,6 @@
-import { X, ClipboardCopy, Link2, Loader2, Users } from 'lucide-react';
+import { X, ClipboardCopy, Link2, Loader2, Users, Phone } from 'lucide-react';
 
-export default function BulkActionsBar({ selectedCount, onClear, onApplyStatus, onCopyLinks, onGenerateForms, busy, canEditStatuses, missingFormsCount }) {
+export default function BulkActionsBar({ selectedCount, onClear, onApplyStatus, onCopyLinks, onGenerateForms, onFinalCall, busy, canEditStatuses, missingFormsCount }) {
   if (selectedCount === 0) return null;
   const sel = "px-2.5 py-1.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg text-xs text-[#F8FAFC] focus:outline-none focus:border-[#7B3FBF] disabled:opacity-50 cursor-pointer";
 
@@ -36,6 +36,11 @@ export default function BulkActionsBar({ selectedCount, onClear, onApplyStatus, 
           <div className="h-5 w-px bg-[rgba(123,63,191,0.2)]" />
         </>
       )}
+
+      <button onClick={onFinalCall} disabled={busy}
+        className="flex items-center gap-1.5 px-3 py-1.5 text-xs rounded-lg border border-green-500/30 text-green-400 hover:bg-green-500/10 transition-all disabled:opacity-50">
+        {busy ? <Loader2 size={13} className="animate-spin"/> : <Phone size={13}/>} Финальный прозвон
+      </button>
 
       {missingFormsCount > 0 && (
         <button onClick={onGenerateForms} disabled={busy}

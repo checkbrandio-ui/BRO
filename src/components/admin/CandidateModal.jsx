@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw } from 'lucide-react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw, Phone } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -15,6 +15,7 @@ import { notifyFinalCallConfirmed } from '@/lib/notifyFinalCallConfirmed';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import DocumentQuickPreview from './DocumentQuickPreview';
 import LogisticsBlock from './LogisticsBlock';
+import CallDrawer from './CallDrawer';
 import { formatDate } from '@/lib/formatDate';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
@@ -70,6 +71,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
   const [cityCache, setCityCache] = useState({});
   const [user, setUser] = useState(null);
   const [refreshing, setRefreshing] = useState(false);
+  const [callDrawerOpen, setCallDrawerOpen] = useState(false);
 
   // Сброс формы при переключении на другого кандидата (навигация стрелками)
   useEffect(() => {
@@ -126,8 +128,54 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
   const hasPrev = canNavigate && currentIndex > 0;
   const hasNext = canNavigate && currentIndex < candidateList.length - 1;
 
-  const handleNavigate = (dir) => {
+  const isFormDirty = () => {
+    if (!candidate) return false;
+    const initial = buildForm(candidate);
+    return Object.keys(initial).some(k => String(initial[k] ?? '') !== String(form[k] ?? ''));
+  };
+
+  const handleClose = async () => {
+    if (isFormDirty() && candidate?.id) {
+      try {
+        if (candidateFormId) {
+          await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
+        }
+        const { documents, ...candidateData } = form;
+        await onSave(candidateData, candidate?.id);
+        return;
+      } catch (e) {}
+    }
+    onClose();
+  };
+
+  const handleSaveCallNotes = async ({ notes, audioUrl, transcript }) => {
+    if (!candidate?.id) return;
+    const role = user?.role === 'super_admin' ? 'Супер-админ' : user?.role === 'manager' ? 'Менеджер' : 'Администратор';
+    const timestamp = new Date().toLocaleString('ru-RU');
+    let callLog = '\n---\n[📞 Звонок | ' + role + ' | ' + timestamp + ']';
+    if (notes) callLog += '\nЗаметки: ' + notes;
+    if (transcript) callLog += '\nТранскрипция: ' + transcript;
+    if (audioUrl) callLog += '\nЗапись: ' + audioUrl;
+    const newComment = (form.comment || '') + callLog;
+    set('comment', newComment);
+    try {
+      await base44.entities.Candidate.update(candidate.id, { comment: newComment });
+      await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
+    } catch (e) {}
+  };
+
+  const handleNavigate = async (dir) => {
     if (!canNavigate) return;
+    if (isFormDirty() && candidate?.id) {
+      try {
+        if (candidateFormId) {
+          await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
+        }
+        const { documents, ...candidateData } = form;
+        await base44.entities.Candidate.update(candidate.id, candidateData);
+        await logCandidateAction({ action: 'update', candidate: { ...candidateData, id: candidate.id }, oldData: candidate, actor: getCurrentActor() });
+      } catch (e) {}
+    }
     const newIdx = dir === 'prev' ? currentIndex - 1 : currentIndex + 1;
     const nextCand = candidateList[newIdx];
     if (nextCand && onNavigate) onNavigate(nextCand);
@@ -298,7 +346,13 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                 <RefreshCw size={16} className={refreshing ? 'animate-spin' : ''} />
               </button>
             )}
-            <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
+            {candidate?.phone && (
+              <button onClick={() => setCallDrawerOpen(true)} title={`Позвонить: ${candidate.phone}`}
+                className="p-2 rounded-lg hover:bg-green-500/20 text-[#F8FAFC]/50 hover:text-green-400 transition-all">
+                <Phone size={16} />
+              </button>
+            )}
+            <button onClick={handleClose} className="p-2 rounded-lg hover:bg-white/10 transition-all text-[#F8FAFC]/60"><X size={18} /></button>
           </div>
         </div>
 
@@ -581,9 +635,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             <CandidateFormView candidateId={candidate.id} candidate={candidate} />
           </div>
         )}
-
-
       </div>
+
+      {callDrawerOpen && (
+        <CallDrawer
+          candidate={{ ...candidate, ...form }}
+          onClose={() => setCallDrawerOpen(false)}
+          onSaveNotes={handleSaveCallNotes}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { Navigation, Upload, Trash2, Phone, PhoneOff, CheckCircle } from 'lucide-react';
+import { Navigation, Upload, Trash2, Phone, PhoneOff, CheckCircle, Zap } from 'lucide-react';
 import { uploadWithRetry } from '@/lib/uploadWithRetry';
 import { LOGISTICS_STATUS } from '@/lib/candidateConstants';
 import LogisticsHistory from './LogisticsHistory';
@@ -94,6 +94,37 @@ export default function LogisticsBlock({
           </label>
         )}
       </div>
+
+      {/* Принудительное согласование — админ ставит выбранную точку/дату/время без зависимостей */}
+      {candidate?.id && (
+        <div className="flex items-center gap-2 p-2.5 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/20">
+          <Zap size={13} className="text-[#C9A84C] flex-shrink-0" />
+          <button type="button" onClick={() => {
+            const ts = new Date().toISOString();
+            const updates = {
+              assembly_point: form.assembly_point,
+              arrival_date: form.arrival_date,
+              arrival_time: form.arrival_time,
+              logistics_status: 'confirmed',
+              logistics_confirmed_at: ts,
+              proposed_assembly_point: '',
+              proposed_arrival_date: '',
+              proposed_arrival_time: '',
+              proposed_by: '',
+            };
+            set('logistics_status', 'confirmed');
+            set('logistics_confirmed_at', ts);
+            set('proposed_assembly_point', '');
+            set('proposed_arrival_date', '');
+            set('proposed_arrival_time', '');
+            set('proposed_by', '');
+            instantLogisticsSave(updates);
+          }} className="text-xs font-bold text-[#C9A84C] hover:text-[#D9B85C] transition-colors">
+            ⚡ Принудительное согласование
+          </button>
+          <span className="text-[10px] text-[#F8FAFC]/30">Мгновенно утверждает текущие данные без ожидания</span>
+        </div>
+      )}
 
       {/* Кнопки управления логистикой */}
       <div className="flex flex-wrap gap-2">

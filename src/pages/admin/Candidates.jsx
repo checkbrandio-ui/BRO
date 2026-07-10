@@ -112,6 +112,19 @@ export default function Candidates() {
     if (agencyParam) setFilters(f => ({ ...f, agency: agencyParam }));
   }, []);
 
+  // Realtime-подписка — обновляем только изменённую запись без перезагрузки таблицы
+  useEffect(() => {
+    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
+      if (!event.data) return;
+      if (event.type === 'update') {
+        setCandidates(prev => prev.map(c => c.id === event.data.id ? { ...c, ...event.data } : c));
+      } else if (event.type === 'create') {
+        setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   const getActor = () => getCurrentActor();
 
   const handleSave = async (data, id) => {
@@ -379,6 +392,30 @@ export default function Candidates() {
     }
   };
 
+  const handleBulkFinalCall = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const ts = new Date().toISOString();
+      const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
+      await base44.entities.Candidate.bulkUpdate(updates);
+      await Promise.all(ids.map(id => {
+        const old = candidates.find(c => c.id === id);
+        return logCandidateAction({ action: 'update', candidate: { ...old, final_call_confirmed: true, final_call_confirmed_at: ts }, oldData: old, actor: getActor() });
+      }));
+      setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
+      const { dismiss } = toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });
+      setTimeout(dismiss, 3500);
+      setSelectedIds(new Set());
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
   const handleBulkCopyLinks = () => {
     const selected = candidates.filter(c => selectedIds.has(c.id));
     const withToken = selected.filter(c => c.form_token);
@@ -633,6 +670,7 @@ export default function Candidates() {
             onApplyStatus={handleBulkStatus}
             onCopyLinks={handleBulkCopyLinks}
             onGenerateForms={handleBulkGenerateForms}
+            onFinalCall={handleBulkFinalCall}
             busy={bulkBusy}
             canEditStatuses={true}
             missingFormsCount={missingFormsCount}

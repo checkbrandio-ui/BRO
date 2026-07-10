@@ -372,6 +372,14 @@ export default function CandidateOnboarding() {
         form_status: 'completed',
         form_submitted_at: now,
       };
+      // Авто-перевод в статус "На проверке СБ" при наличии всех обязательных документов
+      const missingDocs = getMissingRequiredDocs(uploadedDocs, form.citizenship);
+      if (missingDocs.length === 0) {
+        const currentSb = candidate?.sb_check || 'Не проверялся';
+        if (currentSb === 'Не проверялся' || !currentSb) {
+          candidateUpdate.sb_check = 'На проверке';
+        }
+      }
       if (!isSbVerified) {
         candidateUpdate.full_name = form.full_name;
         candidateUpdate.birth_date = form.birth_date;

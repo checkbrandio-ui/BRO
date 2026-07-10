@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
-import { Loader2, MapPin, Calendar, Clock, CheckCircle, XCircle, History, ArrowRight } from 'lucide-react';
+import { Loader2, MapPin, Calendar, Clock, CheckCircle, XCircle, History, ArrowRight, Phone } from 'lucide-react';
 import { formatDate } from '@/lib/formatDate';
 
 /**
@@ -60,11 +60,13 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
     try { parsed = JSON.parse(log.changes || '{}'); } catch {}
 
     const get = (key) => parsed[key]?.to ?? '';
+    const snapshot = parsed._snapshot || {};
     const statusTo = get('logistics_status');
-    const point = get('proposed_assembly_point') || get('assembly_point');
-    const date = get('proposed_arrival_date') || get('arrival_date');
-    const time = get('proposed_arrival_time') || get('arrival_time');
+    const point = snapshot.assembly_point || get('proposed_assembly_point') || get('assembly_point');
+    const date = snapshot.arrival_date || get('proposed_arrival_date') || get('arrival_date');
+    const time = snapshot.arrival_time || get('proposed_arrival_time') || get('arrival_time');
     const proposedBy = get('proposed_by');
+    const finalCallTo = get('final_call_confirmed');
 
     const role = log.changed_by_role;
     const actorLabel = role === 'candidate' ? 'Кандидат'
@@ -88,6 +90,9 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
     } else if (statusTo === 'none') {
       action = 'сбросил согласование (пересогласование)';
       icon = <XCircle size={11} className="text-red-400" />;
+    } else if (finalCallTo === 'true') {
+      action = 'подтвердил финальный прозвон кандидата';
+      icon = <Phone size={11} className="text-green-400" />;
     } else if (!statusTo && (point || date || time)) {
       action = 'изменил данные логистики';
       icon = <ArrowRight size={11} className="text-[#7B3FBF]" />;
@@ -95,7 +100,13 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
       action = 'действие зафиксировано';
     }
 
-    return { actorLabel, action, icon, point, date, time };
+    const result = [];
+    if (point) result.push(`📍 ${point}`);
+    if (date) result.push(`📅 ${formatDate(date)}`);
+    if (time) result.push(`⏰ ${time}`);
+    if (finalCallTo === 'true') result.push('📞 Прозвон ✓');
+
+    return { actorLabel, action, icon, point, date, time, result, finalCallTo };
   };
 
   return (
@@ -117,7 +128,7 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
       {expanded && (
         <div className="px-4 pb-4 space-y-3 max-h-[300px] overflow-y-auto">
           {logs.map((log, idx) => {
-            const { actorLabel, action, icon, point, date, time } = describeLog(log);
+            const { actorLabel, action, icon, point, date, time, finalCallTo } = describeLog(log);
             return (
               <div key={log.id || idx} className="relative pl-5 border-l border-[rgba(123,63,191,0.2)]">
                 <div className="absolute left-0 top-1 w-2 h-2 rounded-full bg-[#7B3FBF]" />
@@ -129,11 +140,15 @@ export default function LogisticsHistory({ candidateId, defaultExpanded = false 
                 <div className="text-[10px] text-[#F8FAFC]/30 mb-1.5">
                   {new Date(log.timestamp).toLocaleString('ru-RU')}
                 </div>
-                {(point || date || time) && (
-                  <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#F8FAFC]/60">
-                    {point && <span className="flex items-center gap-1"><MapPin size={10} className="text-[#7B3FBF]/60" /> {point}</span>}
-                    {date && <span className="flex items-center gap-1"><Calendar size={10} className="text-[#7B3FBF]/60" /> {formatDate(date)}</span>}
-                    {time && <span className="flex items-center gap-1"><Clock size={10} className="text-[#7B3FBF]/60" /> {time}</span>}
+                {(point || date || time || finalCallTo === 'true') && (
+                  <div className="mt-1 px-2 py-1.5 rounded bg-[rgba(123,63,191,0.06)] border border-[rgba(123,63,191,0.1)]">
+                    <div className="text-[9px] text-[#F8FAFC]/30 uppercase tracking-wide mb-1">Финальный результат:</div>
+                    <div className="flex flex-wrap gap-x-3 gap-y-0.5 text-xs text-[#F8FAFC]/60">
+                      {point && <span className="flex items-center gap-1"><MapPin size={10} className="text-[#7B3FBF]/60" /> {point}</span>}
+                      {date && <span className="flex items-center gap-1"><Calendar size={10} className="text-[#7B3FBF]/60" /> {formatDate(date)}</span>}
+                      {time && <span className="flex items-center gap-1"><Clock size={10} className="text-[#7B3FBF]/60" /> {time}</span>}
+                      {finalCallTo === 'true' && <span className="flex items-center gap-1 text-green-400"><Phone size={10} /> Прозвон ✓</span>}
+                    </div>
                   </div>
                 )}
               </div>

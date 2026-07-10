@@ -56,6 +56,20 @@ export default function AgencyWorkspace() {
     load();
   }, []);
 
+  // Realtime-подписка — обновляем только изменённую запись без перезагрузки таблицы
+  useEffect(() => {
+    if (!session?.id) return;
+    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
+      if (!event.data) return;
+      if (event.type === 'update') {
+        setCandidates(prev => prev.map(c => c.id === event.data.id ? { ...c, ...event.data } : c));
+      } else if (event.type === 'create' && event.data.agency_id === session.id) {
+        setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
+      }
+    });
+    return unsubscribe;
+  }, []);
+
   const load = async () => {
     if (!session?.id) return;
     setLoading(true);
@@ -113,6 +127,7 @@ export default function AgencyWorkspace() {
       await logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor: getActor() });
       await notifyStatusChange({ ...dataWithAgency, id }, old);
       await notifyLogisticsChange({ ...dataWithAgency, id }, old);
+      setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...dataWithAgency } : c));
     } else {
       const response = await base44.functions.invoke('createCandidateSafe', {
         candidate_data: dataWithAgency,
@@ -123,10 +138,15 @@ export default function AgencyWorkspace() {
         alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
         return;
       }
+      const newCandidate = response.data?.candidate;
+      if (newCandidate) {
+        setCandidates(prev => [{ ...newCandidate, ...dataWithAgency }, ...prev]);
+      } else {
+        await load();
+      }
     }
     setModalOpen(false);
     setEditCandidate(null);
-    load();
   };
 
   const handleDelete = async (id) => {
@@ -277,6 +297,30 @@ export default function AgencyWorkspace() {
       setTimeout(dismiss, 3500);
     } catch (e) {
       const { dismiss } = toast({ title: 'Ошибка создания анкет', variant: 'destructive' });
+      setTimeout(dismiss, 5000);
+    } finally {
+      setBulkBusy(false);
+    }
+  };
+
+  const handleBulkFinalCall = async () => {
+    const ids = [...selectedIds];
+    if (!ids.length) return;
+    setBulkBusy(true);
+    try {
+      const ts = new Date().toISOString();
+      const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
+      await base44.entities.Candidate.bulkUpdate(updates);
+      await Promise.all(ids.map(id => {
+        const old = candidates.find(c => c.id === id);
+        return logCandidateAction({ action: 'update', candidate: { ...old, final_call_confirmed: true, final_call_confirmed_at: ts }, oldData: old, actor: getActor() });
+      }));
+      setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
+      const { dismiss } = toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });
+      setTimeout(dismiss, 3500);
+      setSelectedIds(new Set());
+    } catch (e) {
+      const { dismiss } = toast({ title: 'Ошибка', variant: 'destructive' });
       setTimeout(dismiss, 5000);
     } finally {
       setBulkBusy(false);
@@ -436,6 +480,7 @@ export default function AgencyWorkspace() {
             onClear={() => setSelectedIds(new Set())}
             onCopyLinks={handleBulkCopyLinks}
             onGenerateForms={handleBulkGenerateForms}
+            onFinalCall={handleBulkFinalCall}
             busy={bulkBusy}
             canEditStatuses={false}
             missingFormsCount={missingFormsCount}
