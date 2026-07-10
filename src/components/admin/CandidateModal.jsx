@@ -17,6 +17,7 @@ import ContactsSection from './ContactsSection';
 import AdminStatusesSection from './AdminStatusesSection';
 import CommentSection from './CommentSection';
 import CandidateDocuments from './CandidateDocuments';
+import GeneratedDocumentsSection from './GeneratedDocumentsSection';
 
 export default function CandidateModal({ candidate, agencies, lockedAgencyId, candidateList, onSave, onClose, onNavigate }) {
   const isAgencyMode = !!lockedAgencyId;
@@ -410,6 +411,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             setFormDocs={setFormDocs}
             citizenship={form.citizenship}
           />
+
+          {candidate?.id && (
+            <GeneratedDocumentsSection candidateId={candidate.id} candidateName={form.full_name} />
+          )}
 
           {candidate?.id && (
             <div className="flex justify-start pt-2 border-t border-[rgba(123,63,191,0.15)]">

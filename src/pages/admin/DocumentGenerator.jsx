@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Shield, FileSignature, Lock, Printer, Search, Loader2, Layers, Briefcase, AlertCircle, ChevronLeft, ChevronRight, FileCheck, ArrowLeft, Save, CheckCircle } from 'lucide-react';
+import { FileText, Shield, FileSignature, Lock, Printer, Search, Loader2, Layers, Briefcase, AlertCircle, ChevronLeft, ChevronRight, FileCheck, ArrowLeft, Save, CheckCircle, Mail } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 const DOCUMENT_TYPES = [
@@ -143,10 +143,36 @@ export default function DocumentGenerator() {
         const cand = candidates.find(c => c.id === id);
         const existingDocs = cand?.documents || [];
         const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
-        const docName = mode === 'package' ? 'Пакет документов' : (DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ');
+        const docName = mode === 'package' ? 'Полный пакет документов' : (DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ');
         await base44.entities.Candidate.update(id, {
           documents: [...filteredDocs, { name: docName, url: file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
         });
+        // Уведомление в систему
+        try {
+          await base44.entities.Notification.create({
+            candidate_id: id,
+            candidate_name: cand?.full_name || '',
+            agency_id: cand?.agency_id || '',
+            agency_name: cand?.agency_name || '',
+            message: `Сгенерирован документ: ${docName}`,
+            link: '/admin/candidates',
+            is_read: false,
+            category: 'documents',
+            actor_name: 'Администратор',
+            actor_role: 'admin',
+          });
+        } catch (_) {}
+        // Email-уведомление кандидату
+        if (cand?.email) {
+          try {
+            await base44.integrations.Core.SendEmail({
+              to: cand.email,
+              subject: 'Ваши документы готовы — БРО-СНБ',
+              body: `Здравствуйте, ${cand.full_name}!\n\nВаш пакет документов сгенерирован и доступен в вашей анкете.\n\nДля просмотра и печати:\n1. Откройте вашу анкету по ссылке: ${window.location.origin}/anketa-kandidata/${cand.form_token || ''}\n2. Найдите раздел «Ваш пакет документов готов»\n3. Нажмите «Открыть» → Ctrl+P для печати\n4. Распечатайте все страницы и подпишите\n5. Принесите подписанные документы на пункт сбора\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+              from_name: 'БРО-СНБ',
+            });
+          } catch (_) {}
+        }
         done++;
         setSaveProgress({ done, total: ids.length, errors });
       } catch (e) {

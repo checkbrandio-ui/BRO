@@ -8,11 +8,55 @@ const PACKAGES = [
   { id: 'b', label: 'Пакет Б — Объект', desc: 'Расписка + NDA + Мат.отв. + ТБ + Режим + Акт' },
 ];
 
-export default function BulkDocumentGenerator({ candidates, onClose }) {
+export default function BulkDocumentGenerator({ candidates, onClose, onComplete }) {
   const [packageType, setPackageType] = useState('all');
   const [running, setRunning] = useState(false);
   const [results, setResults] = useState(null); // { total, done, errors[], docs{} }
   const stopRef = useRef(false);
+
+  // Сохранение документов в анкету кандидата + отправка уведомления
+  const saveAndNotify = async (c, documents) => {
+    try {
+      const combined = documents.map(d => `<!-- ${d.title} -->\n${d.html}`).join('\n\n<hr style="page-break-after:always;">\n\n');
+      const blob = new Blob([combined], { type: 'text/html;charset=utf-8' });
+      const file = new File([blob], `documents_${(c.full_name || 'candidate').replace(/\s+/g, '_')}.html`, { type: 'text/html' });
+      const uploadRes = await base44.integrations.Core.UploadFile({ file });
+      const existingDocs = c.documents || [];
+      const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
+      const docName = packageType === 'all' ? 'Полный пакет документов' : packageType === 'a' ? 'Пакет А (Штат)' : 'Пакет Б (Объект)';
+      await base44.entities.Candidate.update(c.id, {
+        documents: [...filteredDocs, { name: docName, url: uploadRes.file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
+      });
+      // Уведомление в систему
+      try {
+        await base44.entities.Notification.create({
+          candidate_id: c.id,
+          candidate_name: c.full_name,
+          agency_id: c.agency_id || '',
+          agency_name: c.agency_name || '',
+          message: `Сгенерированы документы (${docName})`,
+          link: '/admin/candidates',
+          is_read: false,
+          category: 'documents',
+          actor_name: 'Система',
+          actor_role: 'admin',
+        });
+      } catch (_) {}
+      // Email-уведомление кандидату
+      if (c.email) {
+        try {
+          await base44.integrations.Core.SendEmail({
+            to: c.email,
+            subject: 'Ваши документы готовы — БРО-СНБ',
+            body: `Здравствуйте, ${c.full_name}!\n\nВаш пакет документов сгенерирован и доступен в вашей анкете.\n\nДля просмотра и печати:\n1. Откройте вашу анкету по ссылке: ${window.location.origin}/anketa-kandidata/${c.form_token || ''}\n2. Найдите раздел «Ваш пакет документов готов»\n3. Нажмите «Открыть» → Ctrl+P для печати\n4. Распечатайте все страницы и подпишите\n5. Принесите подписанные документы на пункт сбора\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+            from_name: 'БРО-СНБ',
+          });
+        } catch (_) {}
+      }
+    } catch (saveErr) {
+      // Документ сгенерирован, но не сохранён — не блокируем процесс
+    }
+  };
 
   const start = async () => {
     setRunning(true);
@@ -34,20 +78,7 @@ export default function BulkDocumentGenerator({ candidates, onClose }) {
           state.errors.push({ candidate: c, error: res.data.error });
         } else if (res.data?.documents) {
           state.docs[c.id] = { candidate: c, documents: res.data.documents };
-          // Сохраняем документы в анкету кандидата
-          try {
-            const combined = res.data.documents.map(d => `<!-- ${d.title} -->\n${d.html}`).join('\n\n<hr style="page-break-after:always;">\n\n');
-            const blob = new Blob([combined], { type: 'text/html;charset=utf-8' });
-            const file = new File([blob], `documents_${(c.full_name || 'candidate').replace(/\s+/g, '_')}.html`, { type: 'text/html' });
-            const uploadRes = await base44.integrations.Core.UploadFile({ file });
-            const existingDocs = c.documents || [];
-            const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
-            await base44.entities.Candidate.update(c.id, {
-              documents: [...filteredDocs, { name: 'Пакет документов', url: uploadRes.file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
-            });
-          } catch (saveErr) {
-            // Документ сгенерирован, но не сохранён в анкету — не блокируем процесс
-          }
+          await saveAndNotify(c, res.data.documents);
         } else {
           state.errors.push({ candidate: c, error: 'Пустой ответ от генератора' });
         }
@@ -60,6 +91,10 @@ export default function BulkDocumentGenerator({ candidates, onClose }) {
     state.currentId = null;
     setRunning(false);
     setResults({ ...state });
+    // Уведомляем родительский компонент о завершении
+    if (onComplete && Object.keys(state.docs).length > 0) {
+      onComplete(Object.keys(state.docs));
+    }
   };
 
   const stop = () => { stopRef.current = true; };
@@ -83,11 +118,10 @@ export default function BulkDocumentGenerator({ candidates, onClose }) {
         setResults(prev => {
           const next = { ...prev };
           next.docs[entry.candidate.id] = { candidate: entry.candidate, documents: res.data.documents };
-          next.done = Object.keys(next.docs).length + (next.total - next.done - next.errors.length - 0);
-          // recalc done = total - remaining errors
           next.done = next.total - next.errors.length;
           return next;
         });
+        await saveAndNotify(entry.candidate, res.data.documents);
       }
     } catch (e) {
       setResults(prev => ({ ...prev, errors: [...prev.errors, { candidate: entry.candidate, error: e.message }] }));

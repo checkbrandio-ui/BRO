@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, Phone, FileText } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, Phone, FileText, FileCheck } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -140,9 +140,14 @@ export default function Candidates() {
       if (event.type === 'update') {
         setCandidates(prev => prev.map(c => {
           if (c.id !== event.data.id) return c;
-          // Не перезаписываем виртуальное поле documents — оно мёрджится из анкет при load()
-          const { documents, ...rest } = event.data;
-          return { ...c, ...rest };
+          // Сохраняем виртуальный мёрдж документов из анкет, но добавляем сгенерированные документы из сервера
+          const formDocs = formDocsRef.current[c.id];
+          const serverDocs = event.data.documents || [];
+          const formDocsUrls = new Set((formDocs || []).map(d => d.url).filter(Boolean));
+          const serverGenerated = serverDocs.filter(d => d.type === 'generated' && !formDocsUrls.has(d.url));
+          const existingNonGenerated = (c.documents || []).filter(d => d.type !== 'generated');
+          const mergedDocs = [...existingNonGenerated, ...serverGenerated];
+          return { ...c, ...event.data, documents: mergedDocs };
         }));
       } else if (event.type === 'create') {
         setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
@@ -745,6 +750,7 @@ export default function Candidates() {
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Добавлен</th>
                     <th className="px-4 py-3"><Tooltip text="Комментарий"><MessageSquare size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap"><Tooltip text="Онлайн-анкета"><Link2 size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    <th className="px-4 py-3"><Tooltip text="Сгенерированные документы"><FileCheck size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider">Действия</th>
                   </tr>
                 </thead>
@@ -895,6 +901,21 @@ export default function Candidates() {
                             )}
                           </div>
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          {(() => {
+                            const genDocs = (c.documents || []).filter(d => d.type === 'generated');
+                            if (genDocs.length > 0) {
+                              return (
+                                <Tooltip text={`Сгенерировано: ${genDocs.length} док. от ${new Date(genDocs[genDocs.length - 1].uploaded_at).toLocaleDateString('ru-RU')}`}>
+                                  <span className="inline-flex items-center gap-1 text-xs text-[#C9A84C]">
+                                    <FileCheck size={14} /> {genDocs.length}
+                                  </span>
+                                </Tooltip>
+                              );
+                            }
+                            return <FileCheck size={14} className="text-[#F8FAFC]/15 mx-auto" />;
+                          })()}
+                        </td>
                         <td className="px-4 py-3">
                           <div className="flex items-center gap-1">
                             {showArchive ? (
@@ -932,7 +953,7 @@ export default function Candidates() {
                     );
                   })}
                   {displayed.length === 0 && (
-                    <tr><td colSpan={(showArchive ? 12 : 13) + (logisticsPoint ? 1 : 0)} className="text-center py-12 text-[#F8FAFC]/30">
+                    <tr><td colSpan={(showArchive ? 13 : 14) + (logisticsPoint ? 1 : 0)} className="text-center py-12 text-[#F8FAFC]/30">
                       {showArchive ? 'Архив пуст' : 'Кандидаты не найдены'}
                     </td></tr>
                   )}
@@ -965,6 +986,17 @@ export default function Candidates() {
         <BulkDocumentGenerator
           candidates={selectedCandidates}
           onClose={() => setBulkDocsOpen(false)}
+          onComplete={(savedIds) => {
+            // Обновляем документы для сохранённых кандидатов из сервера
+            Promise.all(savedIds.map(id => base44.entities.Candidate.get(id))).then(updated => {
+              const updates = {};
+              updated.forEach(c => { if (c) updates[c.id] = c; });
+              setCandidates(prev => prev.map(c => updates[c.id] ? { ...c, ...updates[c.id] } : c));
+            });
+            setSelectedIds(new Set());
+            const { dismiss } = toast({ title: `✓ Документы сохранены: ${savedIds.length} чел.`, description: 'Кандидаты получили уведомление' });
+            setTimeout(dismiss, 4000);
+          }}
         />
       )}
 
