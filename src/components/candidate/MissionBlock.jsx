@@ -13,10 +13,10 @@ export default function MissionBlock() {
       <div className="text-center mb-4">
         <p className="text-xs text-[#C9A84C] font-bold tracking-widest uppercase mb-2">Программа восстановления ЛНР и ДНР</p>
         <h2 className="text-base font-bold text-[#F8FAFC] leading-snug">
-          Добро пожаловать в команду БРО-СНБ!
+          Работа на восстановлении новых территорий
         </h2>
         <p className="text-xs text-[#F8FAFC]/50 mt-1.5 leading-relaxed">
-          Вы делаете первый шаг к работе, которой можно гордиться. Ваш труд — это вклад в возрождение городов и жизней.
+          Ищем специалистов: строителей, водителей, рабочих. Официальное трудоустройство, стабильные выплаты, понятные задачи. Заполните анкету — свяжемся в течение дня.
         </p>
       </div>
       <div className="grid grid-cols-2 gap-2.5">
