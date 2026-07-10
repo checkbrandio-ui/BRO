@@ -1,5 +1,5 @@
-import { useState, useEffect } from 'react';
-import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw, Phone } from 'lucide-react';
+import { useState, useEffect, useRef } from 'react';
+import { X, Upload, Trash2, Download, FileText, AlertTriangle, Loader2, ChevronLeft, ChevronRight, RefreshCw, Phone, Save, User } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import CandidateFormView from './CandidateFormView';
@@ -17,6 +17,7 @@ import DocumentQuickPreview from './DocumentQuickPreview';
 import LogisticsBlock from './LogisticsBlock';
 import CallDrawer from './CallDrawer';
 import { formatDate } from '@/lib/formatDate';
+import DatePicker from '@/components/ui/DatePicker';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 
@@ -55,6 +56,16 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     final_call_confirmed_at: c?.final_call_confirmed_at ?? '',
   });
   const [form, setForm] = useState(buildForm(candidate));
+  const nameInputRef = useRef(null);
+  const savingRef = useRef(false);
+
+  // Автофокус на поле ФИО при создании нового кандидата
+  useEffect(() => {
+    if (!candidate?.id && nameInputRef.current) {
+      const timer = setTimeout(() => nameInputRef.current?.focus(), 200);
+      return () => clearTimeout(timer);
+    }
+  }, [candidate?.id]);
 
   const [stopList, setStopList]     = useState(null);
   const [checking, setChecking]     = useState(false);
@@ -298,6 +309,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
 
   const handleSaveClick = async () => {
     if (stopList) return;
+    if (savingRef.current) return; // Защита от двойного клика
     const newErrors = {};
     if (!form.full_name?.trim()) newErrors.full_name = true;
     if (!form.birth_date) newErrors.birth_date = true;
@@ -310,6 +322,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
       alert('Пожалуйста, выберите населённый пункт из списка. Текстовый ввод не допускается — выберите ближайший из каталога.');
       return;
     }
+    savingRef.current = true;
     setSaving(true);
     try {
       // Сохраняем документы в анкету (единый источник истины)
@@ -322,6 +335,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
       const { documents, ...candidateData } = form;
       await onSave(candidateData, candidate?.id);
     } finally {
+      savingRef.current = false;
       setSaving(false);
     }
   };
@@ -355,6 +369,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             <h2 className="text-lg font-black text-[#F8FAFC]">{candidate ? 'Редактировать кандидата' : 'Новый кандидат'}</h2>
           </div>
           <div className="flex items-center gap-1">
+            <button onClick={handleSaveClick} disabled={!!stopList || saving}
+              className="flex items-center gap-2 px-4 py-2 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold transition-all disabled:opacity-40 disabled:cursor-not-allowed">
+              {saving ? <Loader2 size={14} className="animate-spin" /> : <Save size={14} />}
+              <span className="hidden sm:inline">{candidate ? 'Сохранить' : 'Создать'}</span>
+            </button>
             {candidate?.id && (
               <button onClick={refreshCandidate} title="Обновить данные" disabled={refreshing}
                 className="p-2 rounded-lg hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all disabled:opacity-50">
@@ -414,64 +433,34 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
             </div>
           )}
 
-          {/* Base info */}
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div className="sm:col-span-2">
+          {/* Base info — сгруппированные карточки */}
+          {/* Карточка: Личность */}
+          <div className="rounded-xl border border-[rgba(123,63,191,0.15)] bg-[rgba(123,63,191,0.04)] p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#7B3FBF]">
+              <User size={12} /> Личные данные
+            </div>
+            <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">ФИО <span className="text-red-400">*</span></label>
-              <input className={inp + (errors.full_name ? ' !border-red-500' : '')} value={form.full_name} onChange={e => { handleNameChange(e.target.value); if (errors.full_name) setErrors(p => ({ ...p, full_name: false })); }} placeholder="Иванов Иван Иванович" />
+              <input ref={nameInputRef} className={inp + (errors.full_name ? ' !border-red-500' : '')} value={form.full_name} onChange={e => { handleNameChange(e.target.value); if (errors.full_name) setErrors(p => ({ ...p, full_name: false })); }} placeholder="Иванов Иван Иванович" />
             </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата рождения <span className="text-red-400">*</span></label>
-              <input className={inp + (errors.birth_date ? ' !border-red-500' : '')} type="date" value={form.birth_date} onChange={e => { handleBirthDateChange(e.target.value); if (errors.birth_date) setErrors(p => ({ ...p, birth_date: false })); }} />
-              {checking && <p className="text-xs text-[#F8FAFC]/30 mt-1">Проверка стоп-листа...</p>}
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
-              <div className="flex gap-2">
-                <input className={inp + ' flex-1'} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
-                {form.phone && (
-                  <button type="button" onClick={() => setCallDrawerOpen(true)}
-                    title={`Позвонить: ${form.phone}`}
-                    className="flex items-center justify-center gap-1.5 px-3 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 hover:border-green-500/50 transition-all flex-shrink-0">
-                    <Phone size={15} />
-                    <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">Позвонить</span>
-                  </button>
-                )}
-              </div>
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Email</label>
-              <input className={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="example@mail.ru" />
-            </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Должность</label>
-              <select className={inp} value={form.position} onChange={e => set('position', e.target.value)}>
-                <option value="">Выберите...</option>
-                {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
-              </select>
-            </div>
-            {/* Агентство показываем только в режиме администратора */}
-            {!isAgencyMode && (
+            <div className="grid sm:grid-cols-3 gap-3">
               <div>
-                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Кадровое агентство</label>
-                <select className={inp} value={form.agency_id} onChange={e => handleAgencyChange(e.target.value)}>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Дата рождения <span className="text-red-400">*</span></label>
+                <DatePicker value={form.birth_date} onChange={v => { handleBirthDateChange(v); if (errors.birth_date) setErrors(p => ({ ...p, birth_date: false })); }} className={errors.birth_date ? '!border-red-500' : ''} placeholder="Выберите дату" />
+                {checking && <p className="text-xs text-[#F8FAFC]/30 mt-1">Проверка стоп-листа...</p>}
+              </div>
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Гражданство</label>
+                <select className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)}>
                   <option value="">Выберите...</option>
-                  {agencies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  {CITIZENSHIPS.map(c => <option key={c} value={c}>{c}</option>)}
                 </select>
               </div>
-            )}
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Гражданство</label>
-              <select className={inp} value={form.citizenship} onChange={e => set('citizenship', e.target.value)}>
-                <option value="">Выберите...</option>
-                {CITIZENSHIPS.map(c => <option key={c} value={c}>{c}</option>)}
-              </select>
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Место рождения</label>
+                <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
+              </div>
             </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Место рождения</label>
-              <input className={inp} value={form.birth_place} onChange={e => set('birth_place', e.target.value)} placeholder="г. Москва" />
-            </div>
-
             <div>
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Город проживания</label>
               <CitySelect
@@ -482,20 +471,66 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
                 placeholder="г. Хабаровск"
               />
             </div>
-            <div>
-              <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Состояние здоровья</label>
-              <select className={inp} value={form.health_status} onChange={e => set('health_status', e.target.value)}>
-                <option value="">Не указано</option>
-                <option value="Без замечаний">Без замечаний</option>
-                <option value="Ограничения/жалобы">Ограничения/жалобы</option>
-              </select>
+          </div>
+
+          {/* Карточка: Контакты и должность */}
+          <div className="rounded-xl border border-[rgba(123,63,191,0.15)] bg-[rgba(123,63,191,0.04)] p-4 space-y-3">
+            <div className="flex items-center gap-1.5 text-xs font-bold uppercase tracking-widest text-[#7B3FBF]">
+              <Phone size={12} /> Контакты и должность
             </div>
-            {form.health_status === 'Ограничения/жалобы' && (
-              <div className="sm:col-span-2">
-                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Описание ограничений</label>
-                <input className={inp} value={form.health_details} onChange={e => set('health_details', e.target.value)} placeholder="Укажите ограничения..." />
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Телефон</label>
+                <div className="flex gap-2">
+                  <input className={inp + ' flex-1'} value={form.phone} onChange={e => set('phone', e.target.value)} placeholder="+7 (___) ___-__-__" />
+                  {form.phone && (
+                    <button type="button" onClick={() => setCallDrawerOpen(true)}
+                      title={`Позвонить: ${form.phone}`}
+                      className="flex items-center justify-center gap-1.5 px-3 rounded-lg bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 hover:border-green-500/50 transition-all flex-shrink-0">
+                      <Phone size={15} />
+                      <span className="text-xs font-bold whitespace-nowrap hidden sm:inline">Позвонить</span>
+                    </button>
+                  )}
+                </div>
               </div>
-            )}
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Email</label>
+                <input className={inp} type="email" value={form.email} onChange={e => set('email', e.target.value)} placeholder="example@mail.ru" />
+              </div>
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Должность</label>
+                <select className={inp} value={form.position} onChange={e => set('position', e.target.value)}>
+                  <option value="">Выберите...</option>
+                  {POSITIONS.map(p => <option key={p} value={p}>{p}</option>)}
+                </select>
+              </div>
+              {/* Агентство показываем только в режиме администратора */}
+              {!isAgencyMode && (
+                <div>
+                  <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Кадровое агентство</label>
+                  <select className={inp} value={form.agency_id} onChange={e => handleAgencyChange(e.target.value)}>
+                    <option value="">Выберите...</option>
+                    {agencies.map(a => <option key={a.id} value={a.id}>{a.name}</option>)}
+                  </select>
+                </div>
+              )}
+            </div>
+            <div className="grid sm:grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Состояние здоровья</label>
+                <select className={inp} value={form.health_status} onChange={e => set('health_status', e.target.value)}>
+                  <option value="">Не указано</option>
+                  <option value="Без замечаний">Без замечаний</option>
+                  <option value="Ограничения/жалобы">Ограничения/жалобы</option>
+                </select>
+              </div>
+              {form.health_status === 'Ограничения/жалобы' && (
+                <div>
+                  <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Описание ограничений</label>
+                  <input className={inp} value={form.health_details} onChange={e => set('health_details', e.target.value)} placeholder="Укажите ограничения..." />
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Логистика и согласование — вынесено в отдельный компонент */}

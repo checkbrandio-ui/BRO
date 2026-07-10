@@ -12,6 +12,7 @@ import { notifyStatusChange } from '@/lib/notifyStatusChange';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
+import FormLinkModal from '@/components/admin/FormLinkModal';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся': 'text-[#F8FAFC]/40', 'На проверке': 'text-yellow-400', 'Согласован': 'text-green-400', 'Не согласован': 'text-red-400' };
@@ -50,6 +51,7 @@ export default function AgencyWorkspace() {
   const [cityCache, setCityCache] = useState({});
   const [selectedIds, setSelectedIds] = useState(new Set());
   const [bulkBusy, setBulkBusy] = useState(false);
+  const [linkModalCandidate, setLinkModalCandidate] = useState(null);
 
   useEffect(() => {
     if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
@@ -143,6 +145,9 @@ export default function AgencyWorkspace() {
         setCandidates(prev => [{ ...newCandidate, ...dataWithAgency }, ...prev]);
       } else {
         await load();
+      }
+      if (newCandidate?.form_token) {
+        setLinkModalCandidate({ ...newCandidate, ...dataWithAgency });
       }
     }
     setModalOpen(false);
@@ -699,6 +704,13 @@ export default function AgencyWorkspace() {
           onSave={handleSave}
           onClose={() => { setModalOpen(false); setEditCandidate(null); }}
           onNavigate={(cand) => setEditCandidate(cand)}
+        />
+      )}
+
+      {linkModalCandidate && (
+        <FormLinkModal
+          candidate={linkModalCandidate}
+          onClose={() => setLinkModalCandidate(null)}
         />
       )}
     </div>
