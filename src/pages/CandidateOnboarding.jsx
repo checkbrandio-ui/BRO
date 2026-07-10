@@ -194,9 +194,9 @@ export default function CandidateOnboarding() {
       if (!el) { el = document.createElement('meta'); el.setAttribute('property', prop); document.head.appendChild(el); }
       el.setAttribute('content', content);
     };
-    setMeta('og:title', 'Анкета кандидата | БРО-СНБ');
+    setMeta('og:title', 'Анкета кандидата');
     setMeta('og:site_name', 'БРО-СНБ');
-    setMeta('og:description', 'Ищем специалистов: строителей, водителей, рабочих. Официальное трудоустройство, стабильные выплаты, понятные задачи. Заполните анкету — свяжемся в течение дня.');
+    setMeta('og:description', 'Ищем строителей, водителей и рабочих на восстановление новых территорий. Официальное трудоустройство, зарплата от 300 000 ₽, вахта 3 месяца. Заполните анкету — свяжемся сегодня.');
     return () => { document.title = 'БРО-СНБ — Подбор персонала для госпроектов'; };
   }, []);
 
