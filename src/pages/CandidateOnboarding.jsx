@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -99,8 +99,8 @@ function prefillFromRecord(rec, cand) {
     phone: rec.phone || cand?.phone || '',
     email: rec.email || '',
     city: rec.city || cand?.city || '',
-    assembly_point: rec.assembly_point || cand?.assembly_point || '',
-    arrival_date: rec.arrival_date || cand?.arrival_date || '',
+    assembly_point: cand?.assembly_point || rec.assembly_point || '',
+    arrival_date: cand?.arrival_date || rec.arrival_date || '',
     position: rec.position || cand?.position || '',
     education_level: rec.education_level || '',
     education_institution: rec.education_institution || '',
@@ -130,7 +130,7 @@ function prefillFromRecord(rec, cand) {
     consent_given: rec.consent_given || false,
     ticket_photo_url: cand?.ticket_photo_url || '',
     logistics_status: cand?.logistics_status || 'none',
-    arrival_time: rec.arrival_time || cand?.arrival_time || '',
+    arrival_time: cand?.arrival_time || rec.arrival_time || '',
   };
 }
 
@@ -218,27 +218,33 @@ export default function CandidateOnboarding() {
     }
   }, [isSbVerified]);
 
-  // Realtime-подписка на изменения кандидата — мгновенное обновление логистики
+  // Realtime-подписка на изменения кандидата — мгновенное обновление логистики.
+  // ВАЖНО: не перезаписываем поля формы, если кандидат активно редактирует анкету,
+  // чтобы не сбивать ввод. Обновляем только при подтверждённой/предложенной логистике.
   useEffect(() => {
-    if (!candidate?.id) return;
-    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
-      if (event.data?.id !== candidate.id) return;
-      const updated = event.data;
-      setCandidate(updated);
-      // Синхронизируем логистику в форме
-      setForm(f => ({
-        ...f,
-        logistics_status: updated.logistics_status ?? f.logistics_status,
-        assembly_point: updated.assembly_point ?? f.assembly_point,
-        arrival_date: updated.arrival_date ?? f.arrival_date,
-        arrival_time: updated.arrival_time ?? f.arrival_time,
-        proposed_assembly_point: updated.proposed_assembly_point ?? f.proposed_assembly_point,
-        proposed_arrival_date: updated.proposed_arrival_date ?? f.proposed_arrival_date,
-        proposed_arrival_time: updated.proposed_arrival_time ?? f.proposed_arrival_time,
-        ticket_photo_url: updated.ticket_photo_url ?? f.ticket_photo_url,
-      }));
-    });
-    return unsubscribe;
+   if (!candidate?.id) return;
+   const unsubscribe = base44.entities.Candidate.subscribe((event) => {
+     if (event.data?.id !== candidate.id) return;
+     const updated = event.data;
+     setCandidate(updated);
+     // Обновляем форму только если статус логистики — confirmed или pending_candidate
+     // (т.е. данные пришли от администратора, а не от самого кандидата)
+     const shouldSync = updated.logistics_status === 'confirmed' || updated.logistics_status === 'pending_candidate';
+     if (shouldSync) {
+       setForm(f => ({
+         ...f,
+         logistics_status: updated.logistics_status ?? f.logistics_status,
+         assembly_point: updated.assembly_point ?? f.assembly_point,
+         arrival_date: updated.arrival_date ?? f.arrival_date,
+         arrival_time: updated.arrival_time ?? f.arrival_time,
+         proposed_assembly_point: updated.proposed_assembly_point ?? f.proposed_assembly_point,
+         proposed_arrival_date: updated.proposed_arrival_date ?? f.proposed_arrival_date,
+         proposed_arrival_time: updated.proposed_arrival_time ?? f.proposed_arrival_time,
+         ticket_photo_url: updated.ticket_photo_url ?? f.ticket_photo_url,
+       }));
+     }
+   });
+   return unsubscribe;
   }, [candidate?.id]);
 
   useEffect(() => {
@@ -668,6 +674,14 @@ export default function CandidateOnboarding() {
 
           {/* БЛОК ЛОГИСТИКИ — только после согласования СБ */}
           <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3">
+            {/* Информационный блок */}
+            <div className="flex items-start gap-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
+              <Info size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
+              <p className="text-xs text-[#888] leading-relaxed">
+                Укажите пункт сбора и дату прибытия. После отправки анкеты данные передаются администратору на согласование.
+                Если администратор предложит другие даты — вы увидите их здесь и сможете согласовать или отклонить.
+              </p>
+            </div>
             <div className="flex items-center justify-between">
               <p className="text-xs text-[#C9A84C] uppercase tracking-wide font-bold">📍 Логистика</p>
               {form.logistics_status && form.logistics_status !== 'none' && (
@@ -701,7 +715,7 @@ export default function CandidateOnboarding() {
               </div>
             )}
 
-            {/* Подтверждено — красивая карточка с утверждёнными данными */}
+            {/* Подтверждено — данные берём из candidate (источник истины), а не из form */}
             {form.logistics_status === 'confirmed' && (
               <div className="p-4 rounded-xl bg-gradient-to-br from-green-900/25 to-green-800/10 border border-green-600/40">
                 <div className="flex items-center gap-2 mb-3">
@@ -714,25 +728,25 @@ export default function CandidateOnboarding() {
                   </div>
                 </div>
                 <div className="grid grid-cols-1 gap-2 text-sm">
-                  {form.assembly_point && (
+                  {candidate?.assembly_point && (
                     <div className="flex items-center gap-2 text-[#e0e0e0]">
                       <MapPin size={13} className="text-green-400/70 flex-shrink-0" />
                       <span className="text-[#888] text-xs">Пункт сбора:</span>
-                      <span className="font-semibold">{form.assembly_point}</span>
+                      <span className="font-semibold">{candidate.assembly_point}</span>
                     </div>
                   )}
-                  {form.arrival_date && (
+                  {candidate?.arrival_date && (
                     <div className="flex items-center gap-2 text-[#e0e0e0]">
                       <Calendar size={13} className="text-green-400/70 flex-shrink-0" />
                       <span className="text-[#888] text-xs">Дата прибытия:</span>
-                      <span className="font-semibold">{formatDate(form.arrival_date)}</span>
+                      <span className="font-semibold">{formatDate(candidate.arrival_date)}</span>
                     </div>
                   )}
-                  {form.arrival_time && (
+                  {candidate?.arrival_time && (
                     <div className="flex items-center gap-2 text-[#e0e0e0]">
                       <Clock size={13} className="text-green-400/70 flex-shrink-0" />
                       <span className="text-[#888] text-xs">Время:</span>
-                      <span className="font-semibold">{form.arrival_time}</span>
+                      <span className="font-semibold">{candidate.arrival_time}</span>
                     </div>
                   )}
                 </div>
