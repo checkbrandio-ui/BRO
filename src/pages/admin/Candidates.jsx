@@ -117,7 +117,12 @@ export default function Candidates() {
     const unsubscribe = base44.entities.Candidate.subscribe((event) => {
       if (!event.data) return;
       if (event.type === 'update') {
-        setCandidates(prev => prev.map(c => c.id === event.data.id ? { ...c, ...event.data } : c));
+        setCandidates(prev => prev.map(c => {
+          if (c.id !== event.data.id) return c;
+          // Не перезаписываем виртуальное поле documents — оно мёрджится из анкет при load()
+          const { documents, ...rest } = event.data;
+          return { ...c, ...rest };
+        }));
       } else if (event.type === 'create') {
         setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
       }

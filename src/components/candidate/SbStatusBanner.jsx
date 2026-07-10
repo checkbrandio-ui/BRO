@@ -10,8 +10,8 @@ export default function SbStatusBanner({ sbCheck, candidateName }) {
   let color = '#C9A84C';
   let bgColor = 'rgba(201,168,76,0.08)';
   let borderColor = 'rgba(201,168,76,0.25)';
-  let title = 'Анкета на проверке';
-  let desc = 'Служба безопасности проверяет ваши данные. Это обычно занимает 1–3 дня. Мы ценим ваше терпение!';
+  let title = 'Анкета получена';
+  let desc = 'Загрузите все обязательные документы для прохождения проверки службы безопасности.';
 
   if (sbCheck === 'Согласован') {
     status = 'approved';

@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info, Send } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -336,11 +336,12 @@ export default function CandidateOnboarding() {
     if (!form.full_name || !form.birth_date || !form.phone) {
       alert('Пожалуйста, заполните обязательные поля: ФИО, дату рождения, телефон'); return;
     }
-    if (form.city && !cityObject) {
+    if (form.city && !cityObject && formRecord?.status !== 'completed') {
       alert('Пожалуйста, выберите населённый пункт из списка (введите и выберите из выпадающего списка).'); return;
     }
     setSubmitting(true);
     const now = new Date().toISOString();
+    const missingDocs = getMissingRequiredDocs(uploadedDocs, form.citizenship);
     const saveData = { ...form, uploaded_docs: uploadedDocs, consent_timestamp: now, submitted_at: now, status: 'completed' };
     await base44.entities.CandidateForm.update(formRecord.id, saveData);
     if (formRecord.candidate_id) {
@@ -379,7 +380,6 @@ export default function CandidateOnboarding() {
         form_submitted_at: now,
       };
       // Авто-перевод в статус "На проверке СБ" при наличии всех обязательных документов
-      const missingDocs = getMissingRequiredDocs(uploadedDocs, form.citizenship);
       if (missingDocs.length === 0) {
         const currentSb = candidate?.sb_check || 'Не проверялся';
         if (currentSb === 'Не проверялся' || !currentSb) {
@@ -393,6 +393,7 @@ export default function CandidateOnboarding() {
         candidateUpdate.citizenship = form.citizenship;
       }
       await base44.entities.Candidate.update(formRecord.candidate_id, candidateUpdate);
+      setCandidate(prev => ({ ...prev, ...candidateUpdate }));
       // Уведомляем админа при изменении логистики
       await notifyLogisticsChange(
         { ...candidate, id: formRecord.candidate_id, full_name: form.full_name, logistics_status: newLogisticsStatus, assembly_point: form.assembly_point, arrival_date: form.arrival_date, arrival_time: form.arrival_time, agency_id: candidate?.agency_id, agency_name: candidate?.agency_name },
@@ -435,12 +436,52 @@ export default function CandidateOnboarding() {
       } catch (_) {}
     } catch (_) {}
     setFormRecord(prev => ({ ...prev, submitted_at: now, status: 'completed' }));
-    setSubmitted(true);
-    setIsEditing(false);
+    if (missingDocs.length > 0) {
+      setSubmitted(false);
+      setIsEditing(true);
+    } else {
+      setSubmitted(true);
+      setIsEditing(false);
+    }
     setSubmitting(false);
   };
 
   const [logisticsAction, setLogisticsAction] = useState(null); // 'confirm' | 'reject' | null
+  const [logisticsSaving, setLogisticsSaving] = useState(false);
+  const [logisticsSaveNotice, setLogisticsSaveNotice] = useState(false);
+
+  const handleLogisticsSave = async () => {
+    if (!formRecord?.candidate_id) return;
+    if (!form.assembly_point) { alert('Выберите пункт сбора'); return; }
+    setLogisticsSaving(true);
+    try {
+      const now = new Date().toISOString();
+      const oldLogistics = candidate?.logistics_status || 'none';
+      const newStatus = oldLogistics === 'none' ? 'pending_admin' : oldLogistics;
+      const update = {
+        assembly_point: form.assembly_point,
+        arrival_date: form.arrival_date,
+        arrival_time: form.arrival_time,
+        ticket_photo_url: form.ticket_photo_url,
+        logistics_status: newStatus,
+      };
+      await base44.entities.Candidate.update(formRecord.candidate_id, update);
+      setCandidate(prev => ({ ...prev, ...update }));
+      set('logistics_status', newStatus);
+      if (newStatus === 'pending_admin' && oldLogistics !== 'pending_admin') {
+        await notifyLogisticsChange(
+          { ...candidate, id: formRecord.candidate_id, ...update },
+          { ...candidate, logistics_status: oldLogistics },
+          { name: form.full_name, role: 'candidate' }
+        );
+      }
+      setLogisticsSaveNotice(true);
+      setTimeout(() => setLogisticsSaveNotice(false), 6000);
+    } catch (e) {
+      alert('Ошибка сохранения логистики. Попробуйте позже.');
+    }
+    setLogisticsSaving(false);
+  };
 
   const handleLogisticsAction = async (action) => {
     if (!formRecord?.candidate_id) return;
@@ -562,7 +603,7 @@ export default function CandidateOnboarding() {
         <div className="mt-5 flex items-center gap-2 justify-center">
           <button onClick={() => { setSubmitted(false); setIsEditing(true); }}
             className="px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors">
-            Редактировать анкету
+            {candidate?.sb_check === 'Согласован' ? 'Требуется действие' : 'Редактировать анкету'}
           </button>
           <button onClick={() => window.location.reload()}
             className="px-5 py-2.5 rounded border border-[#333] text-sm text-[#888] hover:text-[#ccc] hover:border-[#555] transition-colors flex items-center gap-1.5">
@@ -675,7 +716,8 @@ export default function CandidateOnboarding() {
 
           {/* БЛОК ЛОГИСТИКИ — только после прохождения проверки СБ (Этап 3) */}
           <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3" hidden={!isSbVerified}>
-            {/* Информационный блок */}
+            {/* Информационный блок — скрывается после подтверждения логистики */}
+            {form.logistics_status !== 'confirmed' && (
             <div className="flex items-start gap-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
               <Info size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
               <p className="text-xs text-[#888] leading-relaxed">
@@ -683,6 +725,7 @@ export default function CandidateOnboarding() {
                 Если администратор предложит другие даты — вы увидите их здесь и сможете согласовать или отклонить.
               </p>
             </div>
+            )}
             <div className="flex items-center justify-between">
               <p className="text-xs text-[#C9A84C] uppercase tracking-wide font-bold">📍 Логистика</p>
               {form.logistics_status && form.logistics_status !== 'none' && (
@@ -796,6 +839,21 @@ export default function CandidateOnboarding() {
                   <p className="text-xs text-[#C9A84C]/70">⏳ Данные переданы администратору. Ожидайте согласования.</p>
                 )}
               </>
+            )}
+
+            {/* Кнопка сохранения логистики */}
+            {logisticsUnlocked && form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
+              <button type="button" onClick={handleLogisticsSave} disabled={logisticsSaving}
+                className="w-full py-2.5 rounded bg-[#C9A84C]/20 border border-[#C9A84C]/40 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2 font-bold">
+                {logisticsSaving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
+                {logisticsSaving ? 'Сохранение...' : 'Отправить данные на согласование'}
+              </button>
+            )}
+            {logisticsSaveNotice && (
+              <div className="flex items-center gap-2 px-3 py-2.5 rounded-lg bg-green-900/20 border border-green-700/40 text-xs text-green-400">
+                <CheckCircle size={14} className="flex-shrink-0" />
+                Данные логистики переданы администратору на согласование. Ожидайте подтверждения.
+              </div>
             )}
 
             {/* Загрузка фото билета — только после СБ */}
