@@ -164,6 +164,21 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     } catch (e) {}
   };
 
+  // Быстрый звонок — инициирует вызов и логирует время без открытия CallDrawer
+  const handleQuickCall = async () => {
+    if (!candidate?.phone) return;
+    window.location.href = `tel:${candidate.phone}`;
+    const role = user?.role === 'super_admin' ? 'Супер-админ' : user?.role === 'manager' ? 'Менеджер' : 'Администратор';
+    const timestamp = new Date().toLocaleString('ru-RU');
+    const callLog = '\n---\n[📞 Быстрый звонок | ' + role + ' | ' + timestamp + ']';
+    const newComment = (form.comment || '') + callLog;
+    set('comment', newComment);
+    try {
+      await base44.entities.Candidate.update(candidate.id, { comment: newComment });
+      await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
+    } catch (e) {}
+  };
+
   const handleNavigate = async (dir) => {
     if (!canNavigate) return;
     if (isFormDirty() && candidate?.id) {
@@ -347,7 +362,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
               </button>
             )}
             {candidate?.phone && (
-              <button onClick={() => setCallDrawerOpen(true)} title={`Позвонить: ${candidate.phone}`}
+              <button onClick={handleQuickCall} title={`Быстрый звонок: ${candidate.phone}`}
                 className="p-2 rounded-lg hover:bg-green-500/20 text-[#F8FAFC]/50 hover:text-green-400 transition-all">
                 <Phone size={16} />
               </button>

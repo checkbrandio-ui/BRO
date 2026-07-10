@@ -653,7 +653,8 @@ export default function CandidateOnboarding() {
           )}
         </div>
 
-        {(() => {
+        {/* Уведомление о нехватке документов — только после отправки анкеты (Этап 2) */}
+        {formRecord?.status === 'completed' && (() => {
           const missing = getMissingRequiredDocs(uploadedDocs, form.citizenship);
           if (missing.length === 0) return null;
           return (
@@ -667,13 +668,13 @@ export default function CandidateOnboarding() {
         {/* Приветственный блок с миссией */}
         <MissionBlock />
 
-        {/* Индикатор статуса проверки СБ */}
-        <SbStatusBanner sbCheck={candidate?.sb_check} candidateName={form.full_name} />
+        {/* Индикатор статуса проверки СБ — только после отправки анкеты (Этап 2+) */}
+        {formRecord?.status === 'completed' && <SbStatusBanner sbCheck={candidate?.sb_check} candidateName={form.full_name} />}
 
         <form onSubmit={handleSubmit} className="space-y-3">
 
-          {/* БЛОК ЛОГИСТИКИ — только после согласования СБ */}
-          <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3">
+          {/* БЛОК ЛОГИСТИКИ — только после прохождения проверки СБ (Этап 3) */}
+          <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3" hidden={!isSbVerified}>
             {/* Информационный блок */}
             <div className="flex items-start gap-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
               <Info size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
@@ -795,13 +796,6 @@ export default function CandidateOnboarding() {
                   <p className="text-xs text-[#C9A84C]/70">⏳ Данные переданы администратору. Ожидайте согласования.</p>
                 )}
               </>
-            )}
-
-            {!logisticsUnlocked && (
-              <div className="flex items-center gap-2 p-3 rounded-lg bg-[#1a1a1a] border border-[#333]">
-                <Clock size={16} className="text-[#555] flex-shrink-0" />
-                <p className="text-xs text-[#555] leading-relaxed">Логистика станет доступна после прохождения проверки СБ. Заполните анкету и ожидайте результата.</p>
-              </div>
             )}
 
             {/* Загрузка фото билета — только после СБ */}

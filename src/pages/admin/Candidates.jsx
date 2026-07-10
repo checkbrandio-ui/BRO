@@ -152,9 +152,13 @@ export default function Candidates() {
       setModalOpen(false);
       setEditCandidate(null);
       const newCandidate = response.data?.candidate;
-      // Добавляем нового кандидата в локальное состояние без перезагрузки
+      // Добавляем нового кандидата в локальное состояние без перезагрузки.
+      // Проверяем по ID — realtime-подписка могла уже добавить запись,
+      // тогда обновляем, а не дублируем.
       if (newCandidate) {
-        setCandidates(prev => [{ ...newCandidate, ...data }, ...prev]);
+        setCandidates(prev => prev.some(c => c.id === newCandidate.id)
+          ? prev.map(c => c.id === newCandidate.id ? { ...c, ...newCandidate, ...data } : c)
+          : [{ ...newCandidate, ...data }, ...prev]);
       } else {
         await load();
       }
