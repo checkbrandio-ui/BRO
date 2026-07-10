@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, ChevronLeft, ChevronRight, Phone } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -47,7 +47,7 @@ export default function Candidates() {
   const [search, setSearch]         = useState('');
   const [modalOpen, setModalOpen]   = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', docs_filter: '', logistics_status: '' });
+  const [filters, setFilters] = useState({ agency: '', position: '', sb_check: '', medical_check: '', form_status: '', docs_filter: '', logistics_status: '', final_call: '' });
   const [showArchive, setShowArchive] = useState(false);
   const [duplicateIds, setDuplicateIds] = useState(new Set());
   const [currentUser, setCurrentUser] = useState(null);
@@ -178,11 +178,12 @@ export default function Candidates() {
 
   const exportCSV = () => {
     const src = showArchive ? filteredArchived : filteredActive;
-    const headers = ['ФИО','Телефон','Должность','Агентство','Город','Пункт сбора','Дата рождения','Проверка СБ','Медкомиссия','Основание выплаты','Выплачено','Дата прибытия','Дата добавления','Комментарий'];
+    const headers = ['ФИО','Телефон','Должность','Агентство','Город','Пункт сбора','Дата рождения','Проверка СБ','Медкомиссия','Основание выплаты','Выплачено','Дата прибытия','Финальный прозвон','Дата добавления','Комментарий'];
     const rows = src.map(c => [
       c.full_name, c.phone, c.position, c.agency_name, c.city, c.assembly_point,
       c.birth_date, c.sb_check, c.medical_check,
       c.payment_basis, c.payment_made, c.arrival_date,
+      c.final_call_confirmed ? 'Да' : 'Нет',
       c.created_date ? new Date(c.created_date).toLocaleString('ru-RU') : '',
       c.comment
     ]);
@@ -211,7 +212,10 @@ export default function Candidates() {
         || (filters.logistics_status === 'confirmed' && c.logistics_status === 'confirmed')
         || (filters.logistics_status === 'pending' && (c.logistics_status === 'pending_admin' || c.logistics_status === 'pending_candidate'))
         || (filters.logistics_status === 'none' && (c.logistics_status === 'none' || !c.logistics_status));
-      return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs && matchLogistics;
+      const matchFinalCall = !filters.final_call
+        || (filters.final_call === 'yes' && c.final_call_confirmed === true)
+        || (filters.final_call === 'no' && !c.final_call_confirmed);
+      return matchSearch && matchAgency && matchPos && matchSB && matchMed && matchForm && matchDocs && matchLogistics && matchFinalCall;
     });
   };
 
@@ -600,8 +604,18 @@ export default function Candidates() {
             icon={Navigation}
             compact
           />
+          <button
+            onClick={() => setF('final_call', filters.final_call === '' ? 'yes' : filters.final_call === 'yes' ? 'no' : '')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${
+              filters.final_call === 'yes' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+              filters.final_call === 'no' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
+              'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#7B3FBF]'
+            }`}>
+            <Phone size={13} />
+            {filters.final_call === 'yes' ? 'Прозвон ✓' : filters.final_call === 'no' ? 'Не прозвонен' : 'Прозвон'}
+          </button>
           {(Object.values(filters).some(f => typeof f === 'string' ? f : f) || logisticsPoint) && (
-            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', docs_filter: '', logistics_status: '' }); setLogisticsPoint(''); setSortDir(null); }}
+            <button onClick={() => {               setFilters({ agency:'', position:'', sb_check:'', medical_check:'', form_status:'', docs_filter: '', logistics_status: '', final_call: '' }); setLogisticsPoint(''); setSortDir(null); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
@@ -653,6 +667,7 @@ export default function Candidates() {
                     <th className="px-4 py-3"><Tooltip text="Проверка СБ"><Shield size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Медкомиссия"><Stethoscope size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Дата прибытия"><CalendarDays size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    <th className="px-4 py-3"><Tooltip text="Финальный прозвон"><Phone size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Основание для выплаты"><Banknote size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Выплачено"><CheckCircle size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="text-left px-4 py-3 text-xs font-bold text-[#F8FAFC]/35 uppercase tracking-wider whitespace-nowrap">Добавлен</th>
@@ -751,6 +766,15 @@ export default function Candidates() {
                             </div>
                           )}
                         </td>
+                        <td className="px-4 py-3 text-center">
+                          {c.final_call_confirmed ? (
+                            <Tooltip text={`Прозвон подтверждён: ${c.final_call_confirmed_at ? new Date(c.final_call_confirmed_at).toLocaleString('ru-RU') : ''}`}>
+                              <CheckCircle size={15} className="text-green-400 mx-auto" />
+                            </Tooltip>
+                          ) : (
+                            <Phone size={14} className="text-[#F8FAFC]/20 mx-auto" />
+                          )}
+                        </td>
                         <td className="px-4 py-3">
                           <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>
                             {c.payment_basis || '—'}
@@ -836,7 +860,7 @@ export default function Candidates() {
                     );
                   })}
                   {displayed.length === 0 && (
-                    <tr><td colSpan={(showArchive ? 11 : 12) + (logisticsPoint ? 1 : 0)} className="text-center py-12 text-[#F8FAFC]/30">
+                    <tr><td colSpan={(showArchive ? 12 : 13) + (logisticsPoint ? 1 : 0)} className="text-center py-12 text-[#F8FAFC]/30">
                       {showArchive ? 'Архив пуст' : 'Кандидаты не найдены'}
                     </td></tr>
                   )}

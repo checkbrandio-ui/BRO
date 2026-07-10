@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle } from 'lucide-react';
+import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle, Phone } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import AgencyNotificationBell from '../components/admin/AgencyNotificationBell';
 import BulkActionsBar from '../components/admin/BulkActionsBar';
@@ -42,7 +42,7 @@ export default function AgencyWorkspace() {
   const [candidates, setCandidates] = useState([]);
   const [loading, setLoading]     = useState(true);
   const [search, setSearch]       = useState('');
-  const [filters, setFilters] = useState({ position: '', sb_check: '', medical_check: '', docs_filter: '' });
+  const [filters, setFilters] = useState({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' });
   const [modalOpen, setModalOpen] = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
   const [copiedId, setCopiedId] = useState(null);
@@ -187,7 +187,7 @@ export default function AgencyWorkspace() {
   };
 
   const setF = (k, v) => setFilters(f => ({ ...f, [k]: v }));
-  const hasFilters = Object.values(filters).some(Boolean) || search;
+  const hasFilters = Object.values(filters).some(f => f !== '') || search;
 
   const active = candidates.filter(c => !c.is_archived);
   const archived = candidates.filter(c => c.is_archived);
@@ -202,7 +202,10 @@ export default function AgencyWorkspace() {
       const matchMed = !filters.medical_check
         || (filters.medical_check === 'Не проверялся' ? (!c.medical_check || c.medical_check === 'Не проверялся') : c.medical_check === filters.medical_check);
       const matchDocs = filters.docs_filter === '' ? true : filters.docs_filter === 'missing' ? hasMissingRequiredDocs(c) : !hasMissingRequiredDocs(c);
-      return matchSearch && matchPos && matchSB && matchMed && matchDocs;
+      const matchFinalCall = !filters.final_call
+        || (filters.final_call === 'yes' && c.final_call_confirmed === true)
+        || (filters.final_call === 'no' && !c.final_call_confirmed);
+      return matchSearch && matchPos && matchSB && matchMed && matchDocs && matchFinalCall;
     });
   };
 
@@ -398,8 +401,18 @@ export default function AgencyWorkspace() {
             {filters.docs_filter === 'complete' ? <CheckCircle size={13} /> : <AlertTriangle size={13} />}
             {filters.docs_filter === 'missing' ? 'Без обяз. док.' : filters.docs_filter === 'complete' ? 'С полным пак.' : 'Документы'}
           </button>
+          <button
+            onClick={() => setF('final_call', filters.final_call === '' ? 'yes' : filters.final_call === 'yes' ? 'no' : '')}
+            className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all whitespace-nowrap ${
+              filters.final_call === 'yes' ? 'border-green-500/50 text-green-400 bg-green-500/10' :
+              filters.final_call === 'no' ? 'border-red-500/50 text-red-400 bg-red-500/10' :
+              'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#7B3FBF]'
+            }`}>
+            <Phone size={13} />
+            {filters.final_call === 'yes' ? 'Прозвон ✓' : filters.final_call === 'no' ? 'Не прозвонен' : 'Прозвон'}
+          </button>
           {hasFilters && (
-            <button onClick={() => {             setFilters({ position: '', sb_check: '', medical_check: '', docs_filter: '' }); setSearch(''); }}
+            <button onClick={() => {             setFilters({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' }); setSearch(''); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
@@ -452,6 +465,7 @@ export default function AgencyWorkspace() {
                     <th className="px-4 py-3"><Tooltip text="Проверка СБ"><Shield size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Медкомиссия"><Stethoscope size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Дата прибытия"><CalendarDays size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
+                    <th className="px-4 py-3"><Tooltip text="Финальный прозвон"><Phone size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Основание для выплаты"><Banknote size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Выплачено"><CheckCircle size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
                     <th className="px-4 py-3"><Tooltip text="Комментарий"><MessageSquare size={13} className="text-[#F8FAFC]/35" /></Tooltip></th>
@@ -546,6 +560,15 @@ export default function AgencyWorkspace() {
                           </div>
                         )}
                       </td>
+                      <td className="px-4 py-3 text-center">
+                        {c.final_call_confirmed ? (
+                          <Tooltip text={`Прозвон подтверждён: ${c.final_call_confirmed_at ? new Date(c.final_call_confirmed_at).toLocaleString('ru-RU') : ''}`}>
+                            <CheckCircle size={15} className="text-green-400 mx-auto" />
+                          </Tooltip>
+                        ) : (
+                          <Phone size={14} className="text-[#F8FAFC]/20 mx-auto" />
+                        )}
+                      </td>
                       <td className="px-4 py-3">
                         <span className={`text-xs ${PAY_COLORS[c.payment_basis] || 'text-[#F8FAFC]/25'}`}>{c.payment_basis || '—'}</span>
                       </td>
@@ -607,7 +630,7 @@ export default function AgencyWorkspace() {
                   ))}
                   {displayed.length === 0 && (
                     <tr>
-                      <td colSpan={showArchive ? 11 : 12} className="text-center py-16 text-[#F8FAFC]/30">
+                      <td colSpan={showArchive ? 12 : 13} className="text-center py-16 text-[#F8FAFC]/30">
                         <div className="flex flex-col items-center gap-3">
                           <Users size={32} className="text-[#F8FAFC]/15" />
                           <p>{showArchive ? 'Архив пуст' : candidates.length > 0 ? 'Нет кандидатов по фильтрам' : 'Кандидатов пока нет. Добавьте первого!'}</p>

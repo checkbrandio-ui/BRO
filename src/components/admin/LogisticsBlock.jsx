@@ -1,4 +1,4 @@
-import { Navigation, Upload, Trash2 } from 'lucide-react';
+import { Navigation, Upload, Trash2, Phone, PhoneOff, CheckCircle } from 'lucide-react';
 import { uploadWithRetry } from '@/lib/uploadWithRetry';
 import { LOGISTICS_STATUS } from '@/lib/candidateConstants';
 import LogisticsHistory from './LogisticsHistory';
@@ -181,6 +181,47 @@ export default function LogisticsBlock({
           </button>
         )}
       </div>
+
+      {/* Финальный прозвон кандидата */}
+      {candidate?.id && (
+        <div className={`flex items-center justify-between gap-3 p-3 rounded-lg border ${form.final_call_confirmed ? 'bg-green-500/8 border-green-500/30' : 'bg-[rgba(255,255,255,0.02)] border-[rgba(255,255,255,0.08)]'}`}>
+          <div className="flex items-center gap-2">
+            <div className={`w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 ${form.final_call_confirmed ? 'bg-green-500/20 border border-green-500/40' : 'bg-[rgba(255,255,255,0.05)] border border-[rgba(255,255,255,0.1)]'}`}>
+              {form.final_call_confirmed
+                ? <CheckCircle size={15} className="text-green-400" />
+                : <Phone size={15} className="text-[#F8FAFC]/30" />}
+            </div>
+            <div>
+              <p className={`text-sm font-bold ${form.final_call_confirmed ? 'text-green-400' : 'text-[#F8FAFC]/60'}`}>
+                {form.final_call_confirmed ? 'Финальное согласование получено' : 'Финальный прозвон не проведён'}
+              </p>
+              {form.final_call_confirmed_at && (
+                <p className="text-[10px] text-[#F8FAFC]/35">
+                  {new Date(form.final_call_confirmed_at).toLocaleString('ru-RU')}
+                </p>
+              )}
+            </div>
+          </div>
+          {form.final_call_confirmed ? (
+            <button type="button" onClick={() => {
+              set('final_call_confirmed', false);
+              set('final_call_confirmed_at', '');
+              instantLogisticsSave({ final_call_confirmed: false, final_call_confirmed_at: '' });
+            }} className="px-3 py-1.5 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/50 hover:text-red-400 hover:border-red-500/30 transition-all flex items-center gap-1.5 whitespace-nowrap">
+              <PhoneOff size={12} /> Отменить
+            </button>
+          ) : (
+            <button type="button" onClick={() => {
+              const ts = new Date().toISOString();
+              set('final_call_confirmed', true);
+              set('final_call_confirmed_at', ts);
+              instantLogisticsSave({ final_call_confirmed: true, final_call_confirmed_at: ts });
+            }} className="px-3 py-1.5 text-xs rounded bg-green-500/15 border border-green-500/30 text-green-400 hover:bg-green-500/25 transition-all flex items-center gap-1.5 whitespace-nowrap">
+              <Phone size={12} /> Подтвердить прозвон
+            </button>
+          )}
+        </div>
+      )}
 
       {/* Куратор точки сбора */}
       {curator && form.logistics_status === 'confirmed' && (
