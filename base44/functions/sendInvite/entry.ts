@@ -13,7 +13,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Не указаны email или пароль' }, { status: 400 });
     }
 
-    const subject = `Доступ к системе управления — ${agencyName || 'Братоуверие-СНБ'}`;
+    const subject = `Доступ к системе управления — ${agencyName || 'БРО-СНБ'}`;
 
     const body = `
 <!DOCTYPE html>
@@ -36,9 +36,9 @@ Deno.serve(async (req) => {
           <tr>
             <td style="padding:40px 40px 30px;text-align:center;border-bottom:1px solid rgba(123,63,191,0.12);">
               <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png"
-                width="56" height="56" alt="Братоуверие-СНБ" style="display:block;margin:0 auto 16px;" />
+                width="56" height="56" alt="БРО-СНБ" style="display:block;margin:0 auto 16px;" />
               <p style="margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#C9A84C;">
-                Братоуверие-СНБ
+                БРО-СНБ
               </p>
               <h1 style="margin:0;font-size:22px;font-weight:900;color:#F8FAFC;letter-spacing:-0.03em;">
                 Добро пожаловать в систему
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
                 Здравствуйте!
               </p>
               <p style="margin:0 0 24px;font-size:15px;color:rgba(248,250,252,0.7);line-height:1.6;">
-                ${agencyName ? `Для кадрового агентства <strong style="color:#F8FAFC;">${agencyName}</strong> был создан аккаунт` : 'Для вас был создан аккаунт'} в системе управления кандидатами ООО «Братоуверие-СНБ». Вы можете войти, используя следующие данные:
+                ${agencyName ? `Для кадрового агентства <strong style="color:#F8FAFC;">${agencyName}</strong> был создан аккаунт` : 'Для вас был создан аккаунт'} в системе управления кандидатами ООО «БРО-СНБ». Вы можете войти, используя следующие данные:
               </p>
               <!-- Credentials box -->
               <table width="100%" cellpadding="0" cellspacing="0"
@@ -97,7 +97,7 @@ Deno.serve(async (req) => {
           <tr>
             <td style="padding:20px 40px;border-top:1px solid rgba(123,63,191,0.10);text-align:center;">
               <p style="margin:0;font-size:11px;color:rgba(248,250,252,0.2);">
-                ООО «Братоуверие-СНБ» · <a href="https://bratouverie-snb.ru" style="color:rgba(201,168,76,0.5);text-decoration:none;">bratouverie-snb.ru</a>
+                ООО «БРО-СНБ» · <a href="https://bratouverie-snb.ru" style="color:rgba(201,168,76,0.5);text-decoration:none;">bratouverie-snb.ru</a>
               </p>
               <p style="margin:6px 0 0;font-size:10px;color:rgba(248,250,252,0.12);">
                 ИНН 2511135442 · Приморский край, г. Уссурийск, пер. Мирный, д.1
@@ -116,7 +116,7 @@ Deno.serve(async (req) => {
       to: email,
       subject,
       body,
-      from_name: 'Братоуверие-СНБ',
+      from_name: 'БРО-СНБ',
     });
 
     return Response.json({ success: true });

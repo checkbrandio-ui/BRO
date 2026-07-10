@@ -7,7 +7,7 @@ import { createClientFromRequest } from 'npm:@base44/sdk@0.8.31';
 // =====================================================
 const KNOWLEDGE_BASE = {
   company: {
-    name: 'ООО «Братоуверие-СНБ»',
+    name: 'ООО «БРО-СНБ»',
     ogrn: '1262500006966',
     inn: '2511135442',
     program: 'Программа восстановления ЛНР и ДНР',

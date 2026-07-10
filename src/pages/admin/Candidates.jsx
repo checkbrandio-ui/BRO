@@ -317,7 +317,7 @@ export default function Candidates() {
       await base44.integrations.Core.SendEmail({
         to: c.email,
         subject: 'Заполнение анкеты кандидата — Bratouveriye SNB',
-        body: `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+        body: `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «БРО-СНБ-СНБ»`,
         from_name: 'Bratouveriye SNB',
       });
       const { dismiss } = toast({ title: '✓ Письмо отправлено', description: `На адрес ${c.email}` });

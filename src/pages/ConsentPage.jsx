@@ -9,7 +9,7 @@ export default function ConsentPage() {
             alt="logo"
           />
           <h1 className="text-xl font-black mb-1">Согласие на обработку персональных данных</h1>
-          <p className="text-white/40 text-sm">ООО «Братоуверие-СНБ»</p>
+          <p className="text-white/40 text-sm">ООО «БРО-СНБ»</p>
         </div>
 
         <div className="bg-white/3 border border-white/8 rounded-2xl p-6 md:p-8 space-y-6 text-sm text-white/75 leading-relaxed">
@@ -23,7 +23,7 @@ export default function ConsentPage() {
           <div>
             <h2 className="text-white font-bold mb-2">1. Оператор персональных данных</h2>
             <p>
-              <strong className="text-white">ООО «Братоуверие-СНБ»</strong>, ОГРН 1262500006966, ИНН 2511135442,
+              <strong className="text-white">ООО «БРО-СНБ»</strong>, ОГРН 1262500006966, ИНН 2511135442,
               юридический адрес: 692510, Приморский край, г. Уссурийск, пер. Мирный, д.1.
             </p>
             <p className="mt-2">
@@ -96,7 +96,7 @@ export default function ConsentPage() {
           <div>
             <h2 className="text-white font-bold mb-2">7. Контакты оператора</h2>
             <div className="text-white/65 space-y-1">
-              <p>ООО «Братоуверие-СНБ»</p>
+              <p>ООО «БРО-СНБ»</p>
               <p>ОГРН 1262500006966, ИНН 2511135442</p>
               <p>692510, Приморский край, г. Уссурийск, пер. Мирный, д.1</p>
               <p>Сайт: <a href="https://bratouverie-snb.ru" target="_blank" rel="noreferrer" className="text-[#7B3FBF] hover:underline">bratouverie-snb.ru</a></p>

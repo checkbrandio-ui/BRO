@@ -111,7 +111,7 @@ Deno.serve(async (req) => {
     ].filter(Boolean);
 
     const emailPromises = allEmails.map((email: string) =>
-      sr.integrations.Core.SendEmail({ to: email, subject, body: emailBody, from_name: 'Bratouveriye SNB' })
+      sr.integrations.Core.SendEmail({ to: email, subject, body: emailBody, from_name: 'БРО-СНБ' })
         .catch(() => {})
     );
     await Promise.allSettled(emailPromises);

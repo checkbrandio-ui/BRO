@@ -49,7 +49,7 @@ export default function AgencyLogin() {
             <div className="flex flex-col items-center mb-8">
               <div className="flex items-center gap-3 mb-5">
                 <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png" alt="logo" className="w-12 h-12 object-contain" />
-                <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png" alt="Bratouverie" className="h-8 object-contain" style={{ filter: 'invert(1) brightness(2)' }} />
+                <img src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png" alt="БРО-СНБ" className="h-8 object-contain" style={{ filter: 'invert(1) brightness(2)' }} />
               </div>
               <div className="flex items-center gap-2 mb-2">
                 <Building2 size={18} className="text-[#7B3FBF]" />
@@ -95,7 +95,7 @@ export default function AgencyLogin() {
             </form>
 
             <div className="mt-6 pt-5 border-t border-[rgba(123,63,191,0.12)] text-center">
-              <p className="text-xs text-[#F8FAFC]/20">ООО «Братоуверие-СНБ» · bratouverie-snb.ru</p>
+              <p className="text-xs text-[#F8FAFC]/20">ООО «БРО-СНБ» · bratouverie-snb.ru</p>
             </div>
           </div>
         </div>

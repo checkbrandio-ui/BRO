@@ -26,9 +26,9 @@ export default function FormLinkModal({ candidate, onClose, onRegenerate }) {
     try {
       await base44.integrations.Core.SendEmail({
         to: candidate.email,
-        subject: 'Заполнение анкеты кандидата — Bratouveriye SNB',
-        body: `Здравствуйте, ${candidate.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${formUrl}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`,
-        from_name: 'Bratouveriye SNB',
+        subject: 'Заполнение анкеты кандидата — БРО-СНБ',
+        body: `Здравствуйте, ${candidate.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${formUrl}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «БРО-СНБ»`,
+        from_name: 'БРО-СНБ',
       });
       setEmailSent(true);
     } catch (e) {

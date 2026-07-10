@@ -48,12 +48,12 @@ export default function Nav() {
         <Link to="/" className="flex items-center gap-3 group">
           <img
             src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png"
-            alt="Братоуверие-СНБ"
+            alt="БРО-СНБ"
             className="w-9 h-9 object-contain"
           />
           <img
             src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png"
-            alt="Bratouverie"
+            alt="БРО-СНБ"
             className="h-6 object-contain hidden sm:block"
             style={{ filter: 'invert(1) brightness(2)' }}
           />

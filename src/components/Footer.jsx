@@ -14,13 +14,13 @@ export default function Footer() {
               />
               <img
                 src="https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/aed774101_2_1.png"
-                alt="Bratouverie"
+                alt="БРО-СНБ"
                 className="h-6 object-contain"
                 style={{ filter: 'invert(1) brightness(2)' }}
               />
             </div>
             <p className="text-sm text-[#F8FAFC]/40 leading-relaxed max-w-xs">
-              ООО «Братоуверие-СНБ» — генеральный подрядчик государственного рекрутинга.
+              ООО «БРО-СНБ» — генеральный подрядчик государственного рекрутинга.
               Принцип: «Своих не бросаем».
             </p>
           </div>
@@ -74,7 +74,7 @@ export default function Footer() {
 
         <div className="border-t border-[rgba(123,63,191,0.12)] pt-6 flex flex-col sm:flex-row items-center justify-between gap-3">
           <p className="text-xs text-[#F8FAFC]/25">
-            © {year} ООО «Братоуверие-СНБ». Все права защищены.
+            © {year} ООО «БРО-СНБ». Все права защищены.
           </p>
           <p className="text-xs text-[#F8FAFC]/20">
             ОКВЭД 78.10 · 78.20 · 78.30

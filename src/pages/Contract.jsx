@@ -166,13 +166,13 @@ export default function Contract() {
                 </div>
                 <div className="p-6 md:p-8">
                   <p className="text-[#F8FAFC]/70 text-sm leading-relaxed mb-6">
-                    Общество с ограниченной ответственностью <strong className="text-[#F8FAFC]">«Братоуверие-СНБ»</strong>, именуемое в дальнейшем «Генподрядчик», в лице [должность, Ф.И.О.], действующего на основании [Устава / Доверенности], с одной стороны, и <strong className="text-[#F8FAFC]">[наименование кадрового агентства]</strong>, именуемое в дальнейшем «Подрядчик», с другой стороны, совместно именуемые «Стороны», заключили настоящий договор.
+                    Общество с ограниченной ответственностью <strong className="text-[#F8FAFC]">«БРО-СНБ-СНБ»</strong>, именуемое в дальнейшем «Генподрядчик», в лице [должность, Ф.И.О.], действующего на основании [Устава / Доверенности], с одной стороны, и <strong className="text-[#F8FAFC]">[наименование кадрового агентства]</strong>, именуемое в дальнейшем «Подрядчик», с другой стороны, совместно именуемые «Стороны», заключили настоящий договор.
                   </p>
                   <div className="grid md:grid-cols-2 gap-4">
                     <div className="glass-card rounded-xl p-5">
                       <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-wider mb-3">Генподрядчик</div>
                       <div className="space-y-1.5 text-sm">
-                        <div><span className="text-[#F8FAFC]/40">Компания: </span><span className="text-[#F8FAFC]/80">ООО «Братоуверие-СНБ» (ООО «БРО-СНБ»)</span></div>
+                        <div><span className="text-[#F8FAFC]/40">Компания: </span><span className="text-[#F8FAFC]/80">ООО «БРО-СНБ-СНБ» (ООО «БРО-СНБ»)</span></div>
                         <div><span className="text-[#F8FAFC]/40">Адрес: </span><span className="text-[#F8FAFC]/80">Приморский край, г. Уссурийск, пер. Мирный, д. 1</span></div>
                         <div><span className="text-[#F8FAFC]/40">ИНН: </span><span className="text-[#F8FAFC]/80">2511135442</span></div>
                         <div><span className="text-[#F8FAFC]/40">КПП: </span><span className="text-[#F8FAFC]/80">251101001</span></div>

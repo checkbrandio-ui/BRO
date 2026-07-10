@@ -81,7 +81,7 @@ export default function Hero() {
           transition={{ duration: 0.8, delay: 0.8 }}
           className="text-base md:text-xl text-[#F8FAFC]/60 max-w-2xl mx-auto mb-8 leading-relaxed px-2"
         >
-          ООО «Братоуверие-СНБ» — официальный партнёр Правительства РФ.
+          ООО «БРО-СНБ» — официальный партнёр Правительства РФ.
           Прямой доступ к государственным проектам. Постоянный поток вакансий.
         </motion.p>
 

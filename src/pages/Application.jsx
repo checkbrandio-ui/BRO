@@ -123,7 +123,7 @@ export default function Application() {
                     ))}
                   </div>
                   <div className="grid md:grid-cols-3 gap-4">
-                    {[['Заказчик', 'Правительство Российской Федерации'], ['Генеральный подрядчик', 'ООО «Братоуверие-СНБ»'], ['Цель', 'Оперативное формирование высокопрофессиональной команды']].map(([k,v]) => (
+                    {[['Заказчик', 'Правительство Российской Федерации'], ['Генеральный подрядчик', 'ООО «БРО-СНБ-СНБ»'], ['Цель', 'Оперативное формирование высокопрофессиональной команды']].map(([k,v]) => (
                       <div key={k} className="glass-card-gold rounded-xl p-4"><div className="text-xs text-[#C9A84C] font-bold uppercase tracking-wider mb-1">{k}</div><div className="text-sm text-[#F8FAFC]/80">{v}</div></div>
                     ))}
                   </div>

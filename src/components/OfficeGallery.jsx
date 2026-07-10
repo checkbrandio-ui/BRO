@@ -5,7 +5,7 @@ import { X, ChevronLeft, ChevronRight } from 'lucide-react';
 
 const photos = [
   { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/12000e12a_Two_professional_businessmen_standing_side_by_side-1780031760697.png', caption: 'Руководство компании' },
-  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/cf975bdbb_Professional_corporate_office_portrait_with_brande-1779981329050.png', caption: 'В офисе Братоуверие' },
+  { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/cf975bdbb_Professional_corporate_office_portrait_with_brande-1779981329050.png', caption: 'В офисе БРО-СНБ' },
   { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/30fdb7d0c_Transform_this_young_man_into_wearing_an_elegant_n-1780031660249.png', caption: 'Генеральный директор' },
   { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/d86e52ee4_Professional_corporate_office_photography_A_confi-1779981242763.png', caption: 'Рабочий день директора' },
   { src: 'https://media.base44.com/images/public/6a118622c856f058618fff8e/e993d73bf_Dynamic_corporate_office_photography_showing_a_bus-1779981296069.png', caption: 'Оперативное совещание' },
@@ -42,7 +42,7 @@ export default function OfficeGallery() {
               <span className="text-[#7B3FBF]">нашей команды</span>
             </h2>
             <p className="text-[#F8FAFC]/55 max-w-lg mx-auto">
-              Каждый день — это новые решения, переговоры и результаты. Смотрите, как работает команда Братоуверие.
+              Каждый день — это новые решения, переговоры и результаты. Смотрите, как работает команда БРО-СНБ.
             </p>
           </div>
         </SectionReveal>

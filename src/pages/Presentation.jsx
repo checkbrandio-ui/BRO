@@ -32,7 +32,7 @@ const SLIDES = [
         <div className="grid md:grid-cols-3 gap-4">
           <div className="glass-card rounded-xl p-5">
             <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-1">Генеральный подрядчик</div>
-            <div className="font-bold text-[#F8FAFC]">ООО «Братоуверие-СНБ»</div>
+            <div className="font-bold text-[#F8FAFC]">ООО «БРО-СНБ-СНБ»</div>
           </div>
           <div className="glass-card rounded-xl p-5">
             <div className="text-xs text-[#7B3FBF] font-bold uppercase tracking-widest mb-1">Проект</div>
@@ -51,7 +51,7 @@ const SLIDES = [
     ),
   },
   {
-    title: 'О компании ООО «Братоуверие-СНБ»',
+    title: 'О компании ООО «БРО-СНБ-СНБ»',
     subtitle: 'Генеральный подрядчик по проектам государственной важности',
     content: (
       <div className="grid md:grid-cols-2 gap-6">

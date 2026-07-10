@@ -55,7 +55,7 @@ export async function notifyStatusChange(newData, oldData, actor = null) {
           const subject = `Статус обновлён: ${newData.full_name}`;
           const body = `Статус кандидата «${newData.full_name}» обновлён.\n\nАгентство: ${agency.name}\nДолжность: ${newData.position || '—'}\n\nИзменения:\n${changes.join('\n')}\n\nИнициатор: ${actorName}\nДата: ${now}`;
           await Promise.allSettled(recipientEmails.map(email =>
-            base44.integrations.Core.SendEmail({ to: email, subject, body, from_name: 'Bratouveriye SNB' })
+            base44.integrations.Core.SendEmail({ to: email, subject, body, from_name: 'БРО-СНБ' })
           ));
         }
       }

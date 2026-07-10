@@ -73,7 +73,7 @@ export default function Assistant() {
 
   const sendViaLLM = async (content) => {
     const res = await base44.integrations.Core.InvokeLLM({
-      prompt: `Ты — ИИ-помощник CRM-системы "Братоуверие-СНБ" (программа восстановления ЛНР/ДНР). Отвечай кратко и по-делу на русском языке.\n\nВопрос пользователя: ${content}`,
+      prompt: `Ты — ИИ-помощник CRM-системы "БРО-СНБ-СНБ" (программа восстановления ЛНР/ДНР). Отвечай кратко и по-делу на русском языке.\n\nВопрос пользователя: ${content}`,
       add_context_from_internet: false,
     });
     if (typeof res === 'string') return res;

@@ -37,7 +37,7 @@ export const blogPosts = [
   },
   {
     slug: 'kadrovoe-agentstvo-gosproekty',
-    title: 'Как работает кадровое агентство на государственных проектах: опыт Братоуверие-СНБ',
+    title: 'Как работает кадровое агентство на государственных проектах: опыт БРО-СНБ-СНБ',
     excerpt: 'Государственный рекрутинг — особая сфера кадровых услуг, требующая специфических компетенций. Рассказываем, как устроена работа генерального подрядчика по подбору персонала для федеральных программ.',
     image: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?w=800&q=80',
     imageAlt: 'Кадровое агентство государственные проекты подбор персонала',
@@ -76,7 +76,7 @@ export default function Blog() {
             <span className="h-px flex-1 max-w-[60px] bg-[#C9A84C]/40" />
           </div>
           <h1 className="text-4xl md:text-5xl font-black tracking-[-0.03em] text-[#F8FAFC] mb-4">
-            Блог <span className="text-[#7B3FBF]">Братоуверие-СНБ</span>
+            Блог <span className="text-[#7B3FBF]">БРО-СНБ-СНБ</span>
           </h1>
           <p className="text-[#F8FAFC]/55 max-w-2xl mx-auto text-lg">
             Экспертные статьи о вахтовой работе, государственных проектах и рынке труда в новых регионах России

@@ -106,7 +106,7 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
           to: newData.email,
           subject: `Логистика: ${candidateName}`,
           body: `${message}\n\n${logisticsDetails}\n\nИнициатор: ${actorName}\nДата: ${now}\n\nДля согласования перейдите в анкету: ${window.location.origin}/form/${newData.form_token || ''}`,
-          from_name: 'Bratouveriye SNB',
+          from_name: 'БРО-СНБ',
         }).catch(() => {});
       }
       // Также уведомляем агентство
@@ -116,7 +116,7 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
         if (agency) {
           const emails = [agency.email, agency.manager_email].filter(Boolean);
           await Promise.allSettled(emails.map(email =>
-            base44.integrations.Core.SendEmail({ to: email, subject: `Логистика: ${candidateName}`, body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`, from_name: 'Bratouveriye SNB' })
+            base44.integrations.Core.SendEmail({ to: email, subject: `Логистика: ${candidateName}`, body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`, from_name: 'БРО-СНБ' })
           ));
         }
       }
@@ -134,7 +134,7 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
             to: a.email,
             subject: `Логистика: ${candidateName}`,
             body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
-            from_name: 'Bratouveriye SNB',
+            from_name: 'БРО-СНБ',
           }).catch(() => {}));
         try {
           const moderators = await base44.entities.User.filter({ role: 'moderator' });
@@ -143,7 +143,7 @@ export async function notifyLogisticsChange(newData, oldData, actor = null) {
               to: m.email,
               subject: `Логистика: ${candidateName}`,
               body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
-              from_name: 'Bratouveriye SNB',
+              from_name: 'БРО-СНБ',
             }).catch(() => {}))
           );
         } catch (_) {}

@@ -91,7 +91,7 @@ export default function StatsCounter() {
             <div className="text-xs font-bold tracking-[0.15em] uppercase text-[#7B3FBF] mb-4">Ключевой проект</div>
             <h3 className="text-2xl font-bold text-[#F8FAFC] mb-4">Восстановление ДНР и ЛНР</h3>
             <p className="text-[#F8FAFC]/60 leading-relaxed mb-6">
-              ООО «Братоуверие-СНБ» — генеральный подрядчик по подбору и размещению специалистов
+              ООО «БРО-СНБ» — генеральный подрядчик по подбору и размещению специалистов
               для восстановления более 30 населённых пунктов Луганской и Донецкой Народных Республик
               в соответствии с Постановлением Правительства РФ.
             </p>

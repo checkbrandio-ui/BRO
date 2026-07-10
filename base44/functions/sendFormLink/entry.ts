@@ -10,7 +10,7 @@ Deno.serve(async (req) => {
       return Response.json({ error: 'Missing to or form_url' }, { status: 400 });
     }
 
-    const subject = 'Заполнение анкеты кандидата — Bratouveriye SNB';
+    const subject = 'Заполнение анкеты кандидата — БРО-СНБ';
     const htmlBody = `
 <!DOCTYPE html>
 <html lang=\"ru\">
@@ -30,8 +30,8 @@ Deno.serve(async (req) => {
           <tr>
             <td style=\"padding:40px 40px 30px;text-align:center;border-bottom:1px solid rgba(123,63,191,0.12);\">
               <img src=\"https://media.base44.com/images/public/user_69f4a60c5f6a1719d380566c/86d4247bb_2_2.png\"
-                width=\"56\" height=\"56\" alt=\"Братоуверие-СНБ\" style=\"display:block;margin:0 auto 16px;border-radius:12px;\" />
-              <p style=\"margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#C9A84C;\">Братоуверие-СНБ</p>
+                width=\"56\" height=\"56\" alt=\"БРО-СНБ\" style=\"display:block;margin:0 auto 16px;border-radius:12px;\" />
+              <p style=\"margin:0 0 4px;font-size:11px;font-weight:700;letter-spacing:0.15em;text-transform:uppercase;color:#C9A84C;\">БРО-СНБ</p>
               <h1 style=\"margin:12px 0 8px;font-size:24px;font-weight:800;color:#F8FAFC;\">Заполнение анкеты кандидата</h1>
               <p style=\"margin:0;font-size:14px;color:#F8FAFC]/60;\">Ваша анкета готова к заполнению</p>
             </td>
@@ -52,7 +52,7 @@ Deno.serve(async (req) => {
           <tr>
             <td style=\"padding:20px 40px;border-top:1px solid rgba(123,63,191,0.10);text-align:center;\">
               <p style=\"margin:0;font-size:11px;color:rgba(248,250,252,0.2);\">
-                ООО «Братоуверие-СНБ» · <a href=\"https://bratouverie-snb.ru\" style=\"color:rgba(201,168,76,0.5);text-decoration:none;\">bratouverie-snb.ru</a>
+                ООО «БРО-СНБ» · <a href=\"https://bratouverie-snb.ru\" style=\"color:rgba(201,168,76,0.5);text-decoration:none;\">bratouverie-snb.ru</a>
               </p>
               <p style=\"margin:6px 0 0;font-size:10px;color:rgba(248,250,252,0.12);\">ИНН 2511135442 · Приморский край, г. Уссурийск, пер. Мирный, д.1</p>
             </td>
@@ -69,7 +69,7 @@ Deno.serve(async (req) => {
       to: to.trim(),
       subject,
       body: htmlBody,
-      from_name: 'Братоуверие-СНБ',
+      from_name: 'БРО-СНБ',
     });
 
     return Response.json({ success: true });

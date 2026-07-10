@@ -9,13 +9,13 @@ export default function Privacy() {
         <h1 className="text-3xl md:text-4xl font-black text-[#F8FAFC] tracking-tight mb-2">
           Согласие на обработку персональных данных
         </h1>
-        <p className="text-[#C9A84C] text-sm font-semibold mb-10">ООО «Братоуверие-СНБ»</p>
+        <p className="text-[#C9A84C] text-sm font-semibold mb-10">ООО «БРО-СНБ»</p>
 
         <div className="space-y-6 text-[#F8FAFC]/70 leading-relaxed text-sm">
           <p>
             Настоящим я, субъект персональных данных, в соответствии с Федеральным законом от 27.07.2006 № 152-ФЗ
             «О персональных данных», свободно, своей волей и в своём интересе даю согласие обществу с ограниченной
-            ответственностью <span className="text-[#F8FAFC]/90 font-semibold">«Братоуверие-СНБ»</span> (ОГРН 1262500006966, ИНН 2511135442, адрес: 692510,
+            ответственностью <span className="text-[#F8FAFC]/90 font-semibold">«БРО-СНБ»</span> (ОГРН 1262500006966, ИНН 2511135442, адрес: 692510,
             Приморский край, г. Уссурийск, пер. Мирный, д.1) на обработку следующих персональных данных:
           </p>
 
@@ -66,7 +66,7 @@ export default function Privacy() {
           </p>
 
           <div className="border-t border-[rgba(123,63,191,0.2)] pt-6 text-xs text-[#F8FAFC]/40">
-            <p>ООО «Братоуверие-СНБ» · ОГРН 1262500006966 · ИНН 2511135442</p>
+            <p>ООО «БРО-СНБ» · ОГРН 1262500006966 · ИНН 2511135442</p>
             <p>692510, Приморский край, г. Уссурийск, пер. Мирный, д.1</p>
             <p className="mt-1">
               <a href="mailto:anufriev@bratouverie-snb.ru" className="hover:text-[#C9A84C] transition-colors">anufriev@bratouverie-snb.ru</a>

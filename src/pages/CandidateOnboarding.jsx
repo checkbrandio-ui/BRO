@@ -12,6 +12,8 @@ import { CITIZENSHIPS, isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants'
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { formatDate } from '@/lib/formatDate';
+import MissionBlock from '@/components/candidate/MissionBlock';
+import SbStatusBanner from '@/components/candidate/SbStatusBanner';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -198,6 +200,18 @@ export default function CandidateOnboarding() {
   const isSbVerified = candidate?.sb_check === 'Согласован';
   const isFieldLocked = (value) => isSbVerified && !!value;
 
+  // Логистика доступна только после согласования СБ (или если админ уже предложил/подтвердил)
+  const logisticsUnlocked = isSbVerified
+    || candidate?.logistics_status === 'pending_candidate'
+    || candidate?.logistics_status === 'confirmed';
+
+  // Автопредзаполнение даты прибытия из «готов приступить» при согласовании СБ
+  useEffect(() => {
+    if (isSbVerified && !form.arrival_date && form.ready_to_start_date) {
+      set('arrival_date', form.ready_to_start_date);
+    }
+  }, [isSbVerified]);
+
   // Realtime-подписка на изменения кандидата — мгновенное обновление логистики
   useEffect(() => {
     if (!candidate?.id) return;
@@ -373,17 +387,17 @@ export default function CandidateOnboarding() {
       const emailPromises = [];
       if (candidate?.agency_id) {
         const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });
-        if (agencies[0]?.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].email, subject, body, from_name: 'Bratouveriye SNB' }));
-        if (agencies[0]?.manager_email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].manager_email, subject, body, from_name: 'Bratouveriye SNB' }));
+        if (agencies[0]?.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].email, subject, body, from_name: 'БРО-СНБ' }));
+        if (agencies[0]?.manager_email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].manager_email, subject, body, from_name: 'БРО-СНБ' }));
       }
       const admins = await base44.entities.User.filter({ role: 'admin' });
-      admins.forEach(admin => { if (admin.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: admin.email, subject, body, from_name: 'Bratouveriye SNB' })); });
+      admins.forEach(admin => { if (admin.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: admin.email, subject, body, from_name: 'БРО-СНБ' })); });
       try {
         const moderators = await base44.entities.User.filter({ role: 'moderator' });
-        moderators.forEach(mod => { if (mod.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: mod.email, subject, body, from_name: 'Bratouveriye SNB' })); });
+        moderators.forEach(mod => { if (mod.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: mod.email, subject, body, from_name: 'БРО-СНБ' })); });
       } catch (_) {}
       if (form.email) {
-        emailPromises.push(base44.integrations.Core.SendEmail({ to: form.email, subject: 'Анкета получена', body: `Здравствуйте, ${form.full_name}!\n\nВаша анкета получена и передана в кадровый отдел.\n\nДата: ${new Date().toLocaleString('ru-RU')}`, from_name: 'Bratouveriye SNB' }));
+        emailPromises.push(base44.integrations.Core.SendEmail({ to: form.email, subject: 'Анкета получена', body: `Здравствуйте, ${form.full_name}!\n\nВаша анкета получена и передана в кадровый отдел.\n\nДата: ${new Date().toLocaleString('ru-RU')}`, from_name: 'БРО-СНБ' }));
       }
       await Promise.allSettled(emailPromises);
       // Создаём in-app уведомление
@@ -601,7 +615,7 @@ export default function CandidateOnboarding() {
               className="w-9 h-9 object-contain" alt="logo" />
             <div>
               <h1 className="text-lg font-bold text-white leading-tight">Анкета кандидата</h1>
-              <p className="text-[#555] text-xs">ООО «Братоуверие-СНБ» · Программа восстановления ЛНР и ДНР</p>
+              <p className="text-[#555] text-xs">ООО «БРО-СНБ» · Программа восстановления ЛНР и ДНР</p>
             </div>
           </div>
           {candidate?.agency_name && (
@@ -625,20 +639,18 @@ export default function CandidateOnboarding() {
           );
         })()}
 
+        {/* Приветственный блок с миссией */}
+        <MissionBlock />
+
+        {/* Индикатор статуса проверки СБ */}
+        <SbStatusBanner sbCheck={candidate?.sb_check} candidateName={form.full_name} />
+
         <form onSubmit={handleSubmit} className="space-y-3">
 
-          {/* Баннер о блокировке полей после проверки СБ */}
-          {isSbVerified && (
-            <div className="flex items-center gap-2 px-4 py-3 rounded-lg bg-[#C9A84C]/8 border border-[#C9A84C]/25 text-xs text-[#C9A84C]">
-              <CheckCircle size={14} className="flex-shrink-0" />
-              <span>Проверка СБ пройдена. Персональные данные и паспорт заблокированы от изменений. Доступны: контакты, логистика и комментарии.</span>
-            </div>
-          )}
-
-          {/* БЛОК ЛОГИСТИКИ — наверху анкеты, доступен без сохранения формы */}
+          {/* БЛОК ЛОГИСТИКИ — только после согласования СБ */}
           <div className="bg-[#161616] border border-[#C9A84C]/30 rounded-lg p-4 space-y-3">
             <div className="flex items-center justify-between">
-              <p className="text-xs text-[#C9A84C] uppercase tracking-wide font-bold">📍 Логистика и согласование</p>
+              <p className="text-xs text-[#C9A84C] uppercase tracking-wide font-bold">📍 Логистика</p>
               {form.logistics_status && form.logistics_status !== 'none' && (
                 <span className={`text-xs px-2 py-0.5 rounded ${LOGISTICS_STATUS[form.logistics_status]?.bg || ''} ${LOGISTICS_STATUS[form.logistics_status]?.color || ''}`}>
                   {LOGISTICS_STATUS[form.logistics_status]?.icon} {LOGISTICS_STATUS[form.logistics_status]?.label}
@@ -720,8 +732,8 @@ export default function CandidateOnboarding() {
               </div>
             )}
 
-            {/* Поля ввода — если нет предложения от админа или кандидат отклонил */}
-            {form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
+            {/* Поля ввода — только после согласования СБ */}
+            {logisticsUnlocked && form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
               <>
                 <div>
                   <label className={lbl}>Пункт сбора</label>
