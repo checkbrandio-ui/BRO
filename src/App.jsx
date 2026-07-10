@@ -31,6 +31,7 @@ import AssemblyPoints from './pages/admin/AssemblyPoints';
 import Trash from './pages/admin/Trash';
 import Users from './pages/admin/Users';
 import Notifications from './pages/admin/Notifications';
+import DocumentGenerator from './pages/admin/DocumentGenerator';
 import AgencyNotifications from './pages/AgencyNotifications';
 import AssistantWidget from '@/components/admin/AssistantWidget';
 import NotificationBell from '@/components/admin/NotificationBell';
@@ -77,6 +78,7 @@ function App() {
               <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
               <Route path="/admin/notifications" element={<Notifications />} />
               <Route path="/admin/trash" element={<Trash />} />
+              <Route path="/admin/documents" element={<DocumentGenerator />} />
             </Route>
 
             {/* CRM super-admin only */}
