@@ -1,15 +1,14 @@
 /**
  * Форматирует дату из ISO/DB-формата (YYYY-MM-DD или ISO 8601) в DD.MM.YYYY.
  * Используется только для отображения — в БД хранится ISO.
- * @param {string|null|undefined} dateStr
- * @param {object} opts - { withTime: boolean }
- * @returns {string}
  */
-export function formatDate(dateStr, opts = {}) {
+export function formatDate(
+  dateStr: string | null | undefined,
+  opts: { withTime?: boolean } = {}
+): string {
   if (!dateStr) return '';
   const { withTime = false } = opts;
 
-  // Если это полная ISO-строка (с временем)
   if (dateStr.includes('T')) {
     const d = new Date(dateStr);
     if (isNaN(d.getTime())) return dateStr;
@@ -24,7 +23,6 @@ export function formatDate(dateStr, opts = {}) {
     return `${dd}.${mm}.${yyyy}`;
   }
 
-  // Простой формат YYYY-MM-DD
   const parts = dateStr.split('-');
   if (parts.length === 3) {
     return `${parts[2]}.${parts[1]}.${parts[0]}`;

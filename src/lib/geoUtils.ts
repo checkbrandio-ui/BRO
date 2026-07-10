@@ -1,14 +1,18 @@
 /**
  * Утилиты для работы с геокоординатами и расчётом расстояний.
  */
+import type { GeoCity } from './types';
 
-/**
- * Формула гаверсинуса — расстояние между двумя точками на Земле (км).
- */
-export function haversineDistance(lat1, lon1, lat2, lon2) {
+/** Формула гаверсинуса — расстояние между двумя точками на Земле (км). */
+export function haversineDistance(
+  lat1: number,
+  lon1: number,
+  lat2: number,
+  lon2: number
+): number | null {
   if (lat1 == null || lon1 == null || lat2 == null || lon2 == null) return null;
-  const R = 6371; // радиус Земли в км
-  const toRad = (deg) => (deg * Math.PI) / 180;
+  const R = 6371;
+  const toRad = (deg: number): number => (deg * Math.PI) / 180;
   const dLat = toRad(lat2 - lat1);
   const dLon = toRad(lon2 - lon1);
   const a =
@@ -18,25 +22,22 @@ export function haversineDistance(lat1, lon1, lat2, lon2) {
   return Math.round(R * c);
 }
 
-/**
- * Форматирует расстояние: "120 км" или "8 км"
- */
-export function formatDistance(km) {
+/** Форматирует расстояние: "120 км" или "8 км" */
+export function formatDistance(km: number | null): string {
   if (km == null) return '—';
   if (km < 1) return '< 1 км';
   return `${km} км`;
 }
 
-/**
- * Находит ближайший пункт сбора к городу кандидата.
- * @param {number} cityLat, cityLon — координаты города кандидата
- * @param {Array} assemblyPoints — список пунктов сбора с lat/lon
- * @returns {{ point, distance }} ближайший пункт и расстояние
- */
-export function findNearestAssemblyPoint(cityLat, cityLon, assemblyPoints) {
+/** Находит ближайший пункт сбора к городу кандидата. */
+export function findNearestAssemblyPoint(
+  cityLat: number,
+  cityLon: number,
+  assemblyPoints: GeoCity[]
+): { point: GeoCity; distance: number } | null {
   if (!cityLat || !cityLon || !assemblyPoints?.length) return null;
 
-  let nearest = null;
+  let nearest: GeoCity | null = null;
   let minDist = Infinity;
 
   for (const ap of assemblyPoints) {

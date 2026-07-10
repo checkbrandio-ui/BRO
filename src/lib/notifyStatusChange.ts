@@ -1,16 +1,18 @@
 import { base44 } from '@/api/base44Client';
+import type { Candidate, Actor } from './types';
 
 /**
  * Создаёт in-app уведомление и отправляет email при изменении статуса кандидата.
- * @param newData - новые данные кандидата
- * @param oldData - предыдущие данные
- * @param actor - { name, role } инициатор
  * Проверяет поля: sb_check, medical_check, payment_basis, payment_made.
  */
-export async function notifyStatusChange(newData, oldData, actor = null) {
+export async function notifyStatusChange(
+  newData: Candidate,
+  oldData: Candidate | null,
+  actor: Actor | null = null
+): Promise<void> {
   if (!oldData) return;
 
-  const changes = [];
+  const changes: string[] = [];
   if (oldData.sb_check !== newData.sb_check && newData.sb_check) {
     changes.push(`• Проверка СБ: ${oldData.sb_check || '—'} → ${newData.sb_check}`);
   }
@@ -32,7 +34,6 @@ export async function notifyStatusChange(newData, oldData, actor = null) {
   const message = `Статус обновлён:\n${changes.join('\n')}`;
 
   try {
-    // Создаём in-app уведомление для агентства
     if (newData.agency_id) {
       await base44.entities.Notification.create({
         agency_id: newData.agency_id,
@@ -50,17 +51,19 @@ export async function notifyStatusChange(newData, oldData, actor = null) {
       const agencies = await base44.entities.Agency.filter({ id: newData.agency_id });
       const agency = agencies[0];
       if (agency) {
-        const recipientEmails = [agency.email, agency.manager_email].filter(Boolean);
+        const recipientEmails = [agency.email, agency.manager_email].filter(Boolean) as string[];
         if (recipientEmails.length > 0) {
           const subject = `Статус обновлён: ${newData.full_name}`;
           const body = `Статус кандидата «${newData.full_name}» обновлён.\n\nАгентство: ${agency.name}\nДолжность: ${newData.position || '—'}\n\nИзменения:\n${changes.join('\n')}\n\nИнициатор: ${actorName}\nДата: ${now}`;
-          await Promise.allSettled(recipientEmails.map(email =>
-            base44.integrations.Core.SendEmail({ to: email, subject, body, from_name: 'БРО-СНБ' })
-          ));
+          await Promise.allSettled(
+            recipientEmails.map((email) =>
+              base44.integrations.Core.SendEmail({ to: email, subject, body, from_name: 'БРО-СНБ' })
+            )
+          );
         }
       }
     }
-  } catch (e) {
+  } catch {
     // Silent
   }
 }
