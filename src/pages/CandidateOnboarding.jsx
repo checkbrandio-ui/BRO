@@ -183,6 +183,11 @@ export default function CandidateOnboarding() {
   const [lightboxIndex, setLightboxIndex] = useState(null);
   const [curator, setCurator] = useState(null);
 
+  // Устанавливаем заголовок страницы для корректного отображения в превью ссылок
+  useEffect(() => {
+    document.title = 'Анкета кандидата | БРО-СНБ';
+  }, []);
+
   // Загрузка куратора точки сбора при подтверждённой логистике
   useEffect(() => {
     if (candidate?.logistics_status === 'confirmed' && candidate?.assembly_point) {
