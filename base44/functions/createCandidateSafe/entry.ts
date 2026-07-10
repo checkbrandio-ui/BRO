@@ -30,11 +30,12 @@ Deno.serve(async (req) => {
     const sr = base44.asServiceRole;
 
     // Server-side duplicate check across ALL candidates (not agency-scoped)
-    // Filter by exact birth_date first (efficient), then name-match
+    // Filter by exact birth_date first (efficient), then name-match.
+    // Лимит 2000 — safety margin для масштабирования >500 записей с одной ДР.
     const sameBirthDate = await sr.entities.Candidate.filter(
       { birth_date: candidate_data.birth_date },
       '-created_date',
-      500
+      2000
     );
 
     const duplicates = sameBirthDate.filter(
