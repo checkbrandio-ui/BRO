@@ -57,10 +57,23 @@ export default function DatePicker({ value, onChange, className, placeholder = '
     setOpen(false);
   };
 
+  // Оставляем только цифры и форматируем в маску "дд.мм.гггг" по мере ввода
+  const autoFormat = (input) => {
+    const digits = input.replace(/\D/g, '').slice(0, 8);
+    let result = '';
+    if (digits.length >= 1) result += digits.slice(0, 2);
+    if (digits.length >= 3) result += '.' + digits.slice(2, 4);
+    else if (digits.length === 2) result += '.';
+    if (digits.length >= 5) result += '.' + digits.slice(4, 8);
+    else if (digits.length === 4) result += '.';
+    return result;
+  };
+
   const handleInputChange = (e) => {
     const raw = e.target.value;
-    setText(raw);
-    const parsed = parseManual(raw);
+    const formatted = autoFormat(raw);
+    setText(formatted);
+    const parsed = parseManual(formatted);
     if (parsed) onChange(parsed);
   };
 
