@@ -198,7 +198,7 @@ export default function AgencyWorkspace() {
 
   const copyFormLink = (c) => {
     if (!c.form_token) return;
-    const url = `${window.location.origin}/anketa/${c.form_token}`;
+    const url = `${window.location.origin}/anketa-kandidata/${c.form_token}`;
     navigator.clipboard.writeText(url);
     setCopiedId(c.id);
     setTimeout(() => setCopiedId(null), 2000);
@@ -206,7 +206,7 @@ export default function AgencyWorkspace() {
 
   const getFormStatusBadge = (c) => {
     if (c.form_status === 'completed') return (
-      <a href={`/anketa/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
+      <a href={`/anketa-kandidata/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
         className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all">✓ Заполнена</a>
     );
     if (c.form_status === 'pending' || c.form_token) return <span className="text-xs px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/80 border border-[#C9A84C]/20 whitespace-nowrap">Ожидает</span>;
@@ -276,7 +276,7 @@ export default function AgencyWorkspace() {
       return;
     }
     const lines = withToken.map((c, i) =>
-      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/anketa/${c.form_token}`
+      `${i + 1}. ${c.full_name} | ${c.city || '—'} | ${c.position || '—'}\n   Анкета: ${window.location.origin}/anketa-kandidata/${c.form_token}`
     );
     const text = `📋 Подборка кандидатов (${withToken.length} чел.):\n\n${lines.join('\n\n')}`;
     navigator.clipboard.writeText(text);
