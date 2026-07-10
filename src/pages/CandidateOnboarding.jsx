@@ -507,14 +507,14 @@ export default function CandidateOnboarding() {
   const lbl = "block text-xs font-semibold text-[#888] mb-1.5 uppercase tracking-wide";
 
   if (loading) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center relative">
+    <div className="min-h-screen bg-transparent flex items-center justify-center relative">
       <OnboardingBackground />
       <Loader2 size={28} className="animate-spin text-[#666]" />
     </div>
   );
 
   if (notFound) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4 relative">
+    <div className="min-h-screen bg-transparent flex items-center justify-center px-4 relative">
       <OnboardingBackground />
       <div className="text-center">
         <AlertCircle size={40} className="text-red-500 mx-auto mb-4" />
@@ -525,7 +525,7 @@ export default function CandidateOnboarding() {
   );
 
   if (submitted && !isEditing) return (
-    <div className="min-h-screen bg-[#0e0e0e] flex items-center justify-center px-4 relative">
+    <div className="min-h-screen bg-transparent flex items-center justify-center px-4 relative">
       <OnboardingBackground />
       <div className="text-center max-w-sm">
         <div className="w-16 h-16 rounded-full bg-green-900/40 border border-green-700/50 flex items-center justify-center mx-auto mb-5">
@@ -611,7 +611,7 @@ export default function CandidateOnboarding() {
   );
 
   return (
-    <div className="min-h-screen bg-[#0e0e0e] text-[#e0e0e0] py-8 px-4 relative">
+    <div className="min-h-screen bg-transparent text-[#e0e0e0] py-8 px-4 relative">
       <OnboardingBackground />
       <div className="max-w-2xl mx-auto">
         {/* Шапка */}

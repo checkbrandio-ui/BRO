@@ -36,12 +36,11 @@ export default function OnboardingBackground() {
     <div
       className="fixed inset-0 z-[-1] pointer-events-none"
       style={{
-        backgroundImage: `linear-gradient(135deg, rgba(5,7,10,0.82), rgba(13,27,62,0.78), rgba(5,7,10,0.88)), url(${scene.url})`,
+        backgroundImage: `linear-gradient(135deg, rgba(5,7,10,0.82), rgba(13,27,62,0.68), rgba(5,7,10,0.9)), url(${scene.url})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: 'blur(3px) grayscale(15%)',
-        opacity: 0.55,
+        filter: 'blur(2px)',
       }}
       aria-hidden="true"
     />
