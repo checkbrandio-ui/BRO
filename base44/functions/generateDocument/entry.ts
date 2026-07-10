@@ -108,6 +108,10 @@ function formatDate(dateStr) {
   } catch { return escapeHtml(dateStr); }
 }
 
+function todayRu() {
+  return new Date().toLocaleDateString('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' });
+}
+
 // ============================================================
 // HTML-ОБЁРТКА ДЛЯ ПЕЧАТИ
 // ============================================================
@@ -133,6 +137,7 @@ function wrapHTML(title, body) {
   .company-info { font-size: 10pt; margin-top: 0.2cm; }
   ul { padding-left: 1.25cm; margin: 0.3cm 0; }
   li { text-align: justify; margin: 0.15cm 0; }
+  ol { padding-left: 1.25cm; margin: 0.3cm 0; }
   table { width: 100%; border-collapse: collapse; }
   table.bordered td { padding: 0.2cm; vertical-align: top; border: 1px solid #000; }
   table.signatures { width: 100%; border: none; margin-top: 1.5cm; }
@@ -141,6 +146,12 @@ function wrapHTML(title, body) {
   .doc-number { text-align: right; text-indent: 0; font-size: 11pt; }
   .section-title { font-weight: bold; text-transform: uppercase; text-indent: 0; margin-top: 0.6cm; }
   .muted { font-size: 10pt; color: #333; }
+  .cover-page { text-align: center; padding-top: 4cm; }
+  .cover-title { font-size: 18pt; font-weight: bold; margin-bottom: 1cm; }
+  .cover-subtitle { font-size: 14pt; margin-bottom: 2cm; }
+  .cover-box { border: 2px solid #000; padding: 1cm; margin: 1cm 2cm; text-align: left; }
+  .stamp-box { margin-top: 2cm; border: 1px solid #000; padding: 0.5cm; display: inline-block; }
+  .checkbox { display: inline-block; width: 0.4cm; height: 0.4cm; border: 1px solid #000; margin-right: 0.2cm; vertical-align: middle; }
 </style>
 </head>
 <body>
@@ -150,7 +161,53 @@ ${body}
 }
 
 // ============================================================
-// ШАБЛОН: ТРУДОВОЙ ДОГОВОР
+// РАЗДЕЛ 0: ПРОТОКОЛ ПРИОРИТЕТА (обложка пакета)
+// ============================================================
+function buildRazdel0(ctx) {
+  return wrapHTML('Раздел 0. Протокол приоритета', `
+  <div class="cover-page">
+    <div class="cover-title">РАЗДЕЛ 0</div>
+    <div class="cover-subtitle">ПРОТОКОЛ ПРИОРИТЕТА ДОКУМЕНТОВ</div>
+    <p class="no-indent">Настоящий документ является неотъемлемой частью пакета документов, оформляемых в отношении Работника:</p>
+    <p class="center"><strong>${escapeHtml(ctx.full_name)}</strong></p>
+    <p class="center">паспорт: ${escapeHtml(ctx.passport_series)} ${escapeHtml(ctx.passport_number)}</p>
+    <p class="center">дата рождения: ${formatDate(ctx.birth_date)}</p>
+
+    <div class="cover-box">
+      <p class="no-indent"><strong>1. Иерархия документов</strong></p>
+      <p>В случае расхождений между положениями различных документов пакета, приоритет имеет следующий порядок:</p>
+      <p class="no-indent">• <strong>PRIMARY (первичный):</strong> Трудовой договор — обладает высшей юридической силой в части трудовых отношений.</p>
+      <p class="no-indent">• <strong>SECONDARY (вторичные):</strong> Все иные документы пакета (согласия, расписки, инструкции, акты) применяются в части, не противоречащей Трудовому договору и действующему законодательству РФ.</p>
+
+      <p class="no-indent" style="margin-top:0.5cm"><strong>2. Состав пакета</strong></p>
+      <p class="no-indent">Пакет А (Штат): Трудовой договор, Заявление о приёме на работу, Должностная инструкция, Согласие на обработку ПД, Согласие на вахтовый метод.</p>
+      <p class="no-indent">Пакет Б (Объект): Расписка-обязательство, Соглашение о неразглашении, Договор о материальной ответственности, Лист инструктажа по ТБ, Согласие на режимные ограничения, Акт приёма-передачи документов.</p>
+
+      <p class="no-indent" style="margin-top:0.5cm"><strong>3. Подтверждение Работника</strong></p>
+      <p>Работник подтверждает, что ознакомлен с настоящим Протоколом, понимает иерархию документов и согласен с тем, что все документы пакета применяются в указанном порядке приоритета.</p>
+    </div>
+
+    <table class="signatures">
+      <tr>
+        <td style="width:50%">
+          <p class="no-indent"><strong>Работодатель:</strong></p>
+          <p class="no-indent">${COMPANY.name}</p>
+          <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        </td>
+        <td style="width:50%">
+          <p class="no-indent"><strong>Работник:</strong></p>
+          <p class="no-indent">${escapeHtml(ctx.full_name)}</p>
+          <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+        </td>
+      </tr>
+    </table>
+    <p class="center muted">Дата: ${todayRu()}</p>
+  </div>
+  `);
+}
+
+// ============================================================
+// ШАБЛОН: ТРУДОВОЙ ДОГОВОР (PRIMARY)
 // ============================================================
 function buildTrudovoyDogovor(ctx) {
   const posKey = getPositionKey(ctx.position);
@@ -235,6 +292,108 @@ function buildTrudovoyDogovor(ctx) {
 }
 
 // ============================================================
+// ШАБЛОН: ЗАЯВЛЕНИЕ О ПРИЁМЕ НА РАБОТУ
+// ============================================================
+function buildZayavlenie(ctx) {
+  return wrapHTML('Заявление о приёме на работу', `
+  <p class="right">${COMPANY.name}</p>
+  <p class="right">${escapeHtml(COMPANY.director)}</p>
+  <p class="right">от ${escapeHtml(ctx.full_name)}</p>
+  <p class="right">${escapeHtml(ctx.registration_address)}</p>
+  <p class="right">тел.: ${escapeHtml(ctx.phone || '—')}</p>
+
+  <h1>Заявление о приёме на работу</h1>
+
+  <p>Прошу принять меня на работу в ${COMPANY.name} на должность <strong>${escapeHtml(ctx.position || 'разнорабочего')}</strong> с «___» _________ 20___ г.</p>
+
+  <p>С условиями труда, правилами внутреннего трудового распорядка, должностной инструкцией, нормами по охране труда и технике безопасности ознакомлен(а).</p>
+
+  <p>С условиями обработки моих персональных данных согласен(на).</p>
+
+  <p>Предупреждаю о наличии (отметить при наличии):</p>
+  <p class="no-indent"><span class="checkbox"></span> хронических заболеваний</p>
+  <p class="no-indent"><span class="checkbox"></span> инвалидности / ограничений по здоровью</p>
+  <p class="no-indent"><span class="checkbox"></span> судимости</p>
+
+  <p>Подтверждаю, что все представленные мной документы и сведения являются достоверными.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:100%">
+        <p class="no-indent">«___» _________ 20___ г.</p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
+// ШАБЛОН: ДОЛЖНОСТНАЯ ИНСТРУКЦИЯ (по должности)
+// ============================================================
+function buildDolzhnostnayaInstrukciya(ctx) {
+  const posKey = getPositionKey(ctx.position);
+  const dutiesHtml = dutiesList(ctx.position);
+
+  return wrapHTML('Должностная инструкция', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-info">ИНН: ${escapeHtml(COMPANY.inn)}</div>
+  </div>
+
+  <p class="doc-number">УТВЕРЖДАЮ</p>
+  <p class="right">${escapeHtml(COMPANY.director)}</p>
+  <p class="right">${COMPANY.name}</p>
+  <p class="right">«___» _________ 20___ г.</p>
+
+  <h1>Должностная инструкция</h1>
+  <p class="center"><strong>${escapeHtml(ctx.position || posKey)}</strong></p>
+
+  <p class="section-title">1. Общие положения</p>
+  <p>Настоящая должностная инструкция определяет функциональные обязанности, права и ответственность работника, занимающего должность ${escapeHtml(ctx.position || posKey)} в ${COMPANY.name}.</p>
+  <p>Работник назначается на должность и освобождается от неё приказом руководителя организации. Работник подчиняется непосредственно руководителю объекта или иному уполномоченному лицу.</p>
+
+  <p class="section-title">2. Квалификационные требования</p>
+  <p>На должность ${escapeHtml(ctx.position || posKey)} назначается лицо, имеющее соответствующее образование и (или) опыт работы. Работник должен знать: правила и нормы охраны труда, техники безопасности и противопожарной защиты; устройство и правила эксплуатации применяемых инструментов, оборудования и механизмов; технологические процессы, относящиеся к выполняемым работам.</p>
+
+  <p class="section-title">3. Должностные обязанности</p>
+  <p class="no-indent">Работник обязан:</p>
+  <ul>${dutiesHtml}</ul>
+
+  <p class="section-title">4. Права работника</p>
+  <p class="no-indent">Работник имеет право на:</p>
+  <ul>
+    <li>предоставление работы, обусловленной трудовым договором</li>
+    <li>рабочее место, соответствующее требованиям охраны труда</li>
+    <li>своевременную и в полном объёме выплату заработной платы</li>
+    <li>отдых, обеспечиваемый установлением нормальной продолжительности рабочего времени</li>
+    <li>полную достоверную информацию об условиях труда и требованиях охраны труда</li>
+    <li>обязательное социальное страхование</li>
+  </ul>
+
+  <p class="section-title">5. Ответственность</p>
+  <p>Работник несёт ответственность за неисполнение или ненадлежащее исполнение своих обязанностей, за правонарушения, совершённые в процессе осуществления своей деятельности, а также за причинение материального ущерба организации — в пределах, установленных действующим трудовым и гражданским законодательством РФ.</p>
+
+  <p class="section-title">6. Условия работы</p>
+  <p>Работа осуществляется вахтовым методом на объектах восстановления инфраструктуры. Режим работы определяется графиком, утверждаемым работодателем. Условия труда могут отклоняться от нормальных (работа на открытом воздухе, вдали от постоянного места жительства).</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:50%">
+        <p class="no-indent"><strong>С инструкцией ознакомлен(а):</strong></p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+        <p class="no-indent">«___» _________ 20___ г.</p>
+      </td>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Разработал:</strong></p>
+        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
 // ШАБЛОН: СОГЛАСИЕ НА ОБРАБОТКУ ПЕРСОНАЛЬНЫХ ДАННЫХ
 // ============================================================
 function buildConsentPD(ctx) {
@@ -285,6 +444,44 @@ function buildConsentPD(ctx) {
 }
 
 // ============================================================
+// ШАБЛОН: СОГЛАСИЕ НА ВАХТОВЫЙ МЕТОД
+// ============================================================
+function buildSoglasieVahta(ctx) {
+  return wrapHTML('Согласие на вахтовый метод работы', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+  </div>
+
+  <h1>Согласие на работу вахтовым методом</h1>
+
+  <p class="no-indent">Я, <strong>${escapeHtml(ctx.full_name)}</strong>, паспорт: серия ${escapeHtml(ctx.passport_series)} № ${escapeHtml(ctx.passport_number)}, зарегистрированный по адресу: ${escapeHtml(ctx.registration_address)},</p>
+
+  <p>даю согласие на привлечение меня к работе вахтовым методом в ${COMPANY.name} на объектах восстановления инфраструктуры.</p>
+
+  <p>Я уведомлён и согласен со следующим:</p>
+  <ol>
+    <li>Вахтовый метод — особая форма осуществления трудового процесса вне места постоянного проживания работников.</li>
+    <li>Продолжительность вахты — не более одного календарного месяца. В исключительных случаях — не более трёх месяцев.</li>
+    <li>Работа выполняется в условиях, отклоняющихся от нормальных (удалённость от места постоянного проживания).</li>
+    <li>Работнику предоставляется жильё и питание (или их компенсация) в период нахождения на вахте.</li>
+    <li>Дни отдыха в связи с работой вахтовым методом предоставляются в межвахтовый период.</li>
+    <li>К работе вахтовым методом не привлекаются: беременные женщины, работники в возрасте до 18 лет, лица, имеющие медицинские противопоказания.</li>
+  </ol>
+
+  <p>Я подтверждаю, что не имею медицинских противопоказаний к работе вахтовым методом.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:100%">
+        <p class="no-indent">«___» _________ 20___ г.</p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
 // ШАБЛОН: РАСПИСКА-ОБЯЗАТЕЛЬСТВО (LEGAL SHIELD)
 // ============================================================
 function buildRaspiska(ctx) {
@@ -311,7 +508,7 @@ function buildRaspiska(ctx) {
 
   <p class="no-indent">6. Я уведомлён о порядке и сроках выплаты заработной платы. Я подтверждаю, что мне разъяснены все существенные условия трудового договора и я не имею дополнительных вопросов.</p>
 
-  <p class="section-title">Я подтвердила/подтвердил, что прочитал и понял каждый пункт.</p>
+  <p class="section-title">Я подтверждаю, что прочитал и понял каждый пункт.</p>
 
   <table class="signatures">
     <tr>
@@ -384,14 +581,238 @@ function buildNDA(ctx) {
 }
 
 // ============================================================
+// ШАБЛОН: ДОГОВОР О МАТЕРИАЛЬНОЙ ОТВЕТСТВЕННОСТИ
+// ============================================================
+function buildMaterialnayaOtvetstvennost(ctx) {
+  return wrapHTML('Договор о материальной ответственности', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-info">ИНН: ${escapeHtml(COMPANY.inn)} · ОГРН: ${escapeHtml(COMPANY.ogrn)}</div>
+  </div>
+
+  <h1>Договор о полной индивидуальной материальной ответственности</h1>
+
+  <p class="doc-number">г. ${escapeHtml(ctx.city || '—')} · «___» _________ 20___ г.</p>
+
+  <p class="no-indent">${COMPANY.name}, в лице ${escapeHtml(COMPANY.director)}, действующего на основании Устава, именуемое «Работодатель», с одной стороны, и</p>
+
+  <p class="no-indent">гражданин <strong>${escapeHtml(ctx.full_name)}</strong>, занимающий должность ${escapeHtml(ctx.position || '—')}, именуемый «Работник», с другой стороны, заключили настоящий договор о нижеследующем.</p>
+
+  <p class="section-title">1. Предмет договора</p>
+  <p>Работник принимает на себя полную материальную ответственность за недостачу вверенного ему Работодателем имущества, а также за ущерб, возникший у Работодателя в результате возмещения им ущерба иным лицам.</p>
+
+  <p class="section-title">2. Обязанности Работника</p>
+  <ul>
+    <li>бережно относиться к переданному ему для осуществления трудовых функций имуществу</li>
+    <li>принимать меры к предотвращению ущерба</li>
+    <li>незамедлительно сообщать Работодателю или непосредственному руководителю о любой ситуации, угрожающей сохранности вверенного имущества</li>
+    <li>вести учёт, составлять и представлять отчёты о движении и остатках вверенного имущества</li>
+    <li>участвовать в инвентаризации, ревизии и иных проверках сохранности и состояния вверенного имущества</li>
+  </ul>
+
+  <p class="section-title">3. Обязанности Работодателя</p>
+  <ul>
+    <li>создавать Работнику условия, необходимые для нормальной работы и обеспечения сохранности вверенного имущества</li>
+    <li>знакомить Работника с законодательством о материальной ответственности</li>
+    <li>проводить инвентаризацию вверенного имущества</li>
+  </ul>
+
+  <p class="section-title">4. Ответственность</p>
+  <p>Работник несёт полную материальную ответственность за прямой действительный ущерб, причинённый Работодателю. Размер ущерба определяется по фактическим потерям на основании данных бухгалтерского учёта.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Работодатель:</strong></p>
+        <p class="no-indent">${COMPANY.name}</p>
+        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent muted">М.П.</p>
+      </td>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Работник:</strong></p>
+        <p class="no-indent">${escapeHtml(ctx.full_name)}</p>
+        <p class="no-indent">Паспорт: ${escapeHtml(ctx.passport_series)} ${escapeHtml(ctx.passport_number)}</p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
+// ШАБЛОН: ЛИСТ ИНСТРУКТАЖА ПО ТБ
+// ============================================================
+function buildInstruktazhTB(ctx) {
+  return wrapHTML('Лист инструктажа по ТБ', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+  </div>
+
+  <h1>Лист инструктажа по охране труда и технике безопасности</h1>
+
+  <p class="doc-number">г. ${escapeHtml(ctx.city || '—')} · «___» _________ 20___ г.</p>
+
+  <p class="no-indent">Проведён инструктаж по охране труда и технике безопасности с работником:</p>
+  <p class="no-indent"><strong>${escapeHtml(ctx.full_name)}</strong>, должность: ${escapeHtml(ctx.position || '—')}</p>
+  <p class="no-indent">Паспорт: ${escapeHtml(ctx.passport_series)} ${escapeHtml(ctx.passport_number)}</p>
+
+  <p class="section-title">Программа инструктажа:</p>
+  <ol>
+    <li>Общие требования охраны труда. Опасные и вредные производственные факторы.</li>
+    <li>Требования безопасности перед началом работы. Осмотр рабочего места, проверка исправности инструментов и оборудования.</li>
+    <li>Требования безопасности во время работы. Соблюдение технологических карт, применение средств индивидуальной защиты (СИЗ).</li>
+    <li>Требования безопасности в аварийных ситуациях. Порядок действий при пожаре, травме, нештатной ситуации.</li>
+    <li>Требования безопасности по окончании работы. Отключение оборудования, уборка рабочего места, сдача инструментов.</li>
+    <li>Специфические требования для должности ${escapeHtml(ctx.position || '—')}: особенности работы, специфические риски и меры предосторожности.</li>
+    <li>Пожарная безопасность. Правила использования огнетушителей, порядок эвакуации.</li>
+    <li>Режимные требования. Правила поведения на режимном объекте, ограничения на фото- и видеосъёмку.</li>
+  </ol>
+
+  <p class="section-title">Работник подтверждает:</p>
+  <p>Я, ${escapeHtml(ctx.full_name)}, подтверждаю, что прошёл инструктаж по охране труда и технике безопасности. Я понял содержание инструктажа, осведомлён об опасных и вредных производственных факторах, знаю правила безопасного выполнения работ и обязуюсь их соблюдать.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Инструктаж провёл:</strong></p>
+        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent">«___» _________ 20___ г.</p>
+      </td>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Инструктаж прошёл:</strong></p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+        <p class="no-indent">«___» _________ 20___ г.</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
+// ШАБЛОН: СОГЛАСИЕ НА РЕЖИМНЫЕ ОГРАНИЧЕНИЯ
+// ============================================================
+function buildSoglasieRegim(ctx) {
+  return wrapHTML('Согласие на режимные ограничения', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+  </div>
+
+  <h1>Согласие на режимные ограничения</h1>
+
+  <p class="no-indent">Я, <strong>${escapeHtml(ctx.full_name)}</strong>, паспорт: серия ${escapeHtml(ctx.passport_series)} № ${escapeHtml(ctx.passport_number)}, зарегистрированный по адресу: ${escapeHtml(ctx.registration_address)},</p>
+
+  <p>даю согласие на соблюдение режимных ограничений при работе на режимных объектах, определённых Работодателем.</p>
+
+  <p class="section-title">Я обязуюсь соблюдать следующие ограничения:</p>
+  <ol>
+    <li>Не осуществлять фото- и видеосъёмку на территории объекта и прилегающей территории без письменного разрешения руководителя объекта.</li>
+    <li>Не использовать средства мобильной связи и интернета в зонах, где это запрещено режимом объекта.</li>
+    <li>Не передавать информацию о местоположении объекта, его структуре, охраняемых периметрах и системе безопасности третьим лицам.</li>
+    <li>Не вывозить и не выносить за пределы территории объекта имущество, оборудование, материалы и документацию без соответствующего разрешения.</li>
+    <li>Не допускать на территорию объекта посторонних лиц без оформления соответствующего пропуска.</li>
+    <li>Соблюдать установленный распорядок дня, график дежурств и маршруты передвижения по территории объекта.</li>
+    <li>Не покидать территорию объекта без разрешения руководителя в период нахождения на вахте.</li>
+  </ol>
+
+  <p class="section-title">Ответственность</p>
+  <p>Я уведомлён, что нарушение режимных ограничений является основанием для немедленного расторжения трудового договора и привлечения к ответственности в соответствии с действующим законодательством Российской Федерации.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:100%">
+        <p class="no-indent">«___» _________ 20___ г.</p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
+// ШАБЛОН: АКТ ПРИЁМА-ПЕРЕДАЧИ ДОКУМЕНТОВ
+// ============================================================
+function buildAktPeredachi(ctx) {
+  return wrapHTML('Акт приёма-передачи документов', `
+  <div class="header">
+    <div class="company-name">${COMPANY.name}</div>
+  </div>
+
+  <h1>Акт приёма-передачи документов</h1>
+
+  <p class="doc-number">г. ${escapeHtml(ctx.city || '—')} · «___» _________ 20___ г.</p>
+
+  <p class="no-indent">Настоящий акт составлен в том, что ${COMPANY.name} (Работодатель) передал, а гражданин <strong>${escapeHtml(ctx.full_name)}</strong> (Работник), паспорт: серия ${escapeHtml(ctx.passport_series)} № ${escapeHtml(ctx.passport_number)}, получил следующие документы:</p>
+
+  <table class="bordered">
+    <tr>
+      <td style="width:5%; text-align:center"><strong>№</strong></td>
+      <td style="width:75%"><strong>Наименование документа</strong></td>
+      <td style="width:20%; text-align:center"><strong>Отметка о получении</strong></td>
+    </tr>
+    <tr><td style="text-align:center">1</td><td>Раздел 0. Протокол приоритета документов</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">2</td><td>Трудовой договор</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">3</td><td>Заявление о приёме на работу</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">4</td><td>Должностная инструкция</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">5</td><td>Согласие на обработку персональных данных</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">6</td><td>Согласие на вахтовый метод работы</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">7</td><td>Расписка-обязательство</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">8</td><td>Соглашение о неразглашении (NDA)</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">9</td><td>Договор о материальной ответственности</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">10</td><td>Лист инструктажа по охране труда и ТБ</td><td style="text-align:center">____</td></tr>
+    <tr><td style="text-align:center">11</td><td>Согласие на режимные ограничения</td><td style="text-align:center">____</td></tr>
+  </table>
+
+  <p>Работник подтверждает, что получил указанные документы, ознакомился с их содержанием и не имеет претензий к их оформлению.</p>
+
+  <table class="signatures">
+    <tr>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Передал:</strong></p>
+        <p class="no-indent">${COMPANY.name}</p>
+        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+      </td>
+      <td style="width:50%">
+        <p class="no-indent"><strong>Получил:</strong></p>
+        <p class="no-indent">${escapeHtml(ctx.full_name)}</p>
+        <p class="no-indent">________________ / ${escapeHtml(ctx.full_name)} /</p>
+      </td>
+    </tr>
+  </table>
+  `);
+}
+
+// ============================================================
 // МАРШРУТИЗАЦИЯ ШАБЛОНОВ
 // ============================================================
 const TEMPLATES = {
-  trudovoy_dogovor: buildTrudovoyDogovor,
-  consent_pd: buildConsentPD,
-  raspiska: buildRaspiska,
-  nda: buildNDA,
+  razdel0: { title: 'Раздел 0. Протокол приоритета', builder: buildRazdel0, package: 'cover' },
+  trudovoy_dogovor: { title: 'Трудовой договор', builder: buildTrudovoyDogovor, package: 'a' },
+  zayavlenie: { title: 'Заявление о приёме на работу', builder: buildZayavlenie, package: 'a' },
+  dolzhnostnaya_instrukciya: { title: 'Должностная инструкция', builder: buildDolzhnostnayaInstrukciya, package: 'a' },
+  consent_pd: { title: 'Согласие на обработку ПД', builder: buildConsentPD, package: 'a' },
+  soglasie_vahta: { title: 'Согласие на вахтовый метод', builder: buildSoglasieVahta, package: 'a' },
+  raspiska: { title: 'Расписка-обязательство', builder: buildRaspiska, package: 'b' },
+  nda: { title: 'Соглашение о неразглашении', builder: buildNDA, package: 'b' },
+  materialnaya_otvetstvennost: { title: 'Договор о мат. ответственности', builder: buildMaterialnayaOtvetstvennost, package: 'b' },
+  instruktazh_tb: { title: 'Лист инструктажа по ТБ', builder: buildInstruktazhTB, package: 'b' },
+  soglasie_regim: { title: 'Согласие на режимные ограничения', builder: buildSoglasieRegim, package: 'b' },
+  akt_peredachi: { title: 'Акт приёма-передачи документов', builder: buildAktPeredachi, package: 'b' },
 };
+
+const PACKAGE_ORDER = [
+  'razdel0',
+  'trudovoy_dogovor',
+  'zayavlenie',
+  'dolzhnostnaya_instrukciya',
+  'consent_pd',
+  'soglasie_vahta',
+  'raspiska',
+  'nda',
+  'materialnaya_otvetstvennost',
+  'instruktazh_tb',
+  'soglasie_regim',
+  'akt_peredachi',
+];
 
 // ============================================================
 // ОСНОВНОЙ ОБРАБОТЧИК
@@ -403,10 +824,9 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Не авторизован' }, { status: 401 });
 
     const body = await req.json();
-    const { candidate_id, document_type } = body;
+    const { candidate_id, document_type, package: pkg } = body;
 
     if (!candidate_id) return Response.json({ error: 'Не указан candidate_id' }, { status: 400 });
-    if (!TEMPLATES[document_type]) return Response.json({ error: 'Неизвестный тип документа: ' + document_type }, { status: 400 });
 
     // Загружаем кандидата
     const candidate = await base44.asServiceRole.entities.Candidate.get(candidate_id);
@@ -443,10 +863,31 @@ Deno.serve(async (req) => {
       arrival_date: candidate.arrival_date || formData.arrival_date || '',
       arrival_time: candidate.arrival_time || formData.arrival_time || '',
       agency_name: candidate.agency_name || '',
-      today: new Date().toLocaleDateString('ru-RU'),
+      today: todayRu(),
     };
 
-    const html = TEMPLATES[document_type](ctx);
+    // Режим генерации пакета
+    if (pkg === 'all' || pkg === 'a' || pkg === 'b') {
+      const types = PACKAGE_ORDER.filter(t => {
+        if (pkg === 'all') return true;
+        if (pkg === 'a') return TEMPLATES[t].package === 'a' || TEMPLATES[t].package === 'cover';
+        if (pkg === 'b') return TEMPLATES[t].package === 'b' || TEMPLATES[t].package === 'cover';
+        return true;
+      });
+      const documents = types.map(t => ({
+        type: t,
+        title: TEMPLATES[t].title,
+        html: TEMPLATES[t].builder(ctx),
+      }));
+      return Response.json({ documents, ctx });
+    }
+
+    // Одиночный документ
+    if (!TEMPLATES[document_type]) {
+      return Response.json({ error: 'Неизвестный тип документа: ' + document_type }, { status: 400 });
+    }
+
+    const html = TEMPLATES[document_type].builder(ctx);
     const filename = `${document_type}_${ctx.full_name || 'document'}.html`;
 
     return Response.json({ html, filename, ctx });
