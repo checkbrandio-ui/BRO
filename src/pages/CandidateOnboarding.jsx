@@ -134,14 +134,17 @@ function prefillFromRecord(rec, cand) {
   };
 }
 
-function Section({ title, children, defaultOpen = true }) {
+function Section({ title, children, defaultOpen = true, highlight = false, badge }) {
   const [open, setOpen] = useState(defaultOpen);
   return (
-    <div className="bg-[#111] border border-[#2a2a2a] rounded-lg overflow-hidden">
+    <div className={`bg-[#111] border rounded-lg overflow-hidden ${highlight ? 'border-red-800/60' : 'border-[#2a2a2a]'}`}>
       <button type="button" onClick={() => setOpen(v => !v)}
-        className="w-full flex items-center justify-between px-5 py-3.5 text-left bg-[#181818] border-b border-[#2a2a2a]">
-        <span className="text-sm font-bold text-[#ccc] uppercase tracking-widest">{title}</span>
-        {open ? <ChevronUp size={15} className="text-[#666]" /> : <ChevronDown size={15} className="text-[#666]" />}
+        className={`w-full flex items-center justify-between px-5 py-3.5 text-left border-b ${highlight ? 'bg-red-900/20 border-red-800/40' : 'bg-[#181818] border-[#2a2a2a]'}`}>
+        <span className={`text-sm font-bold uppercase tracking-widest ${highlight ? 'text-red-400' : 'text-[#ccc]'}`}>{title}</span>
+        <span className="flex items-center gap-2">
+          {badge}
+          {open ? <ChevronUp size={15} className={highlight ? 'text-red-500' : 'text-[#666]'} /> : <ChevronDown size={15} className={highlight ? 'text-red-500' : 'text-[#666]'} />}
+        </span>
       </button>
       {open && <div className="px-5 pb-5 pt-4 space-y-4">{children}</div>}
     </div>
@@ -270,6 +273,13 @@ export default function CandidateOnboarding() {
         : await base44.entities.Candidate.filter({ form_token: token });
       const cand = cands[0] || null;
       setCandidate(cand);
+      // Инициализируем снимок логистики из данных кандидата
+      setLogisticsSnapshot({
+        assembly_point: cand?.assembly_point || '',
+        arrival_date: cand?.arrival_date || '',
+        arrival_time: cand?.arrival_time || '',
+        ticket_photo_url: cand?.ticket_photo_url || '',
+      });
       if (rec.status === 'completed') {
         const filled = prefillFromRecord(rec, cand);
         setForm({ ...EMPTY_FORM, ...filled });
@@ -449,6 +459,17 @@ export default function CandidateOnboarding() {
   const [logisticsAction, setLogisticsAction] = useState(null); // 'confirm' | 'reject' | null
   const [logisticsSaving, setLogisticsSaving] = useState(false);
   const [logisticsSaveNotice, setLogisticsSaveNotice] = useState(false);
+  const [logisticsSnapshot, setLogisticsSnapshot] = useState(null); // снимок сохранённых значений логистики
+
+  // Поля логистики, которые отслеживаем на «грязность»
+  const logisticsFields = () => ({
+    assembly_point: form.assembly_point || '',
+    arrival_date: form.arrival_date || '',
+    arrival_time: form.arrival_time || '',
+    ticket_photo_url: form.ticket_photo_url || '',
+  });
+  const logisticsDirty = !logisticsSnapshot ||
+    JSON.stringify(logisticsFields()) !== JSON.stringify(logisticsSnapshot);
 
   const handleLogisticsSave = async () => {
     if (!formRecord?.candidate_id) return;
@@ -468,6 +489,7 @@ export default function CandidateOnboarding() {
       await base44.entities.Candidate.update(formRecord.candidate_id, update);
       setCandidate(prev => ({ ...prev, ...update }));
       set('logistics_status', newStatus);
+      setLogisticsSnapshot(logisticsFields());
       if (newStatus === 'pending_admin' && oldLogistics !== 'pending_admin') {
         await notifyLogisticsChange(
           { ...candidate, id: formRecord.candidate_id, ...update },
@@ -843,10 +865,12 @@ export default function CandidateOnboarding() {
 
             {/* Кнопка сохранения логистики */}
             {logisticsUnlocked && form.logistics_status !== 'pending_candidate' && form.logistics_status !== 'confirmed' && (
-              <button type="button" onClick={handleLogisticsSave} disabled={logisticsSaving}
-                className="w-full py-2.5 rounded bg-[#C9A84C]/20 border border-[#C9A84C]/40 text-sm text-[#C9A84C] hover:bg-[#C9A84C]/30 transition-all disabled:opacity-50 flex items-center justify-center gap-2 font-bold">
-                {logisticsSaving ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-                {logisticsSaving ? 'Сохранение...' : 'Отправить данные на согласование'}
+              <button type="button" onClick={handleLogisticsSave} disabled={logisticsSaving || !logisticsDirty}
+                className={`w-full py-2.5 rounded border text-sm transition-all flex items-center justify-center gap-2 font-bold ${logisticsDirty && !logisticsSaving ? 'bg-[#C9A84C]/20 border-[#C9A84C]/40 text-[#C9A84C] hover:bg-[#C9A84C]/30' : 'bg-[#C9A84C]/5 border-[#C9A84C]/15 text-[#C9A84C]/30 cursor-not-allowed'}`}>
+                {logisticsSaving
+                  ? <><Loader2 size={14} className="animate-spin flex-shrink-0" /><span>Сохранение...</span></>
+                  : <><Send size={14} className="flex-shrink-0" /><span>{logisticsDirty ? 'Отправить данные на согласование' : 'Данные отправлены'}</span></>
+                }
               </button>
             )}
             {logisticsSaveNotice && (
@@ -1169,7 +1193,14 @@ export default function CandidateOnboarding() {
           </Section>
 
           {/* РАЗДЕЛ 10: Загрузка документов */}
-          <Section title="Раздел 10. Загрузка документов" defaultOpen={false}>
+          <Section
+            title="Раздел 10. Загрузка документов"
+            defaultOpen={formRecord?.status === 'completed' && getMissingRequiredDocs(uploadedDocs, form.citizenship).length > 0 ? true : false}
+            highlight={formRecord?.status === 'completed' && getMissingRequiredDocs(uploadedDocs, form.citizenship).length > 0}
+            badge={formRecord?.status === 'completed' && getMissingRequiredDocs(uploadedDocs, form.citizenship).length > 0 ? (
+              <span className="text-xs text-red-400 font-bold normal-case">Не хватает {getMissingRequiredDocs(uploadedDocs, form.citizenship).length}!</span>
+            ) : null}
+          >
             <p className="text-xs text-[#666] leading-relaxed mb-3">
               Загрузите сканы или фотографии документов. Можно перетащить файл в нужное поле или нажать для выбора.
               Большие фото сжимаются автоматически. Форматы: JPG, PNG, PDF, HEIC.
@@ -1210,6 +1241,13 @@ export default function CandidateOnboarding() {
               </span>
             </label>
           </div>
+
+          {formRecord?.status === 'completed' && getMissingRequiredDocs(uploadedDocs, form.citizenship).length > 0 && (
+            <div className="flex items-start gap-2 px-3 py-2.5 rounded-lg bg-red-900/20 border border-red-800/40 text-xs text-red-400">
+              <AlertTriangle size={14} className="flex-shrink-0 mt-0.5" />
+              <span>Загружены не все обязательные документы ({getMissingRequiredDocs(uploadedDocs, form.citizenship).length} из 3). Анкета сохранена, но не будет передана на проверку СБ до полной загрузки. Откройте <strong>Раздел 10</strong> выше.</span>
+            </div>
+          )}
 
           <button type="submit" disabled={submitting || !form.consent_given}
             className="w-full py-3.5 rounded bg-[#333] text-white font-bold text-sm hover:bg-[#444] transition-colors disabled:opacity-30 disabled:cursor-not-allowed flex items-center justify-center gap-2 border border-[#444]">
