@@ -149,7 +149,7 @@ export default function AssistantWidget() {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
-          className="fixed bottom-6 right-6 z-50 w-14 h-14 rounded-full bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white shadow-2xl glow-purple flex items-center justify-center transition-all hover:scale-105"
+          className="fixed bottom-6 left-20 z-50 w-14 h-14 rounded-full bg-[#7B3FBF] hover:bg-[#8B4FCF] text-white shadow-2xl glow-purple flex items-center justify-center transition-all hover:scale-105"
           title="ИИ-помощник"
         >
           <Sparkles size={22} />
@@ -157,7 +157,7 @@ export default function AssistantWidget() {
       )}
 
       {isOpen && (
-        <div className="fixed bottom-6 right-6 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[540px] max-h-[calc(100vh-3rem)] bg-[#0D1B3E] border border-[rgba(123,63,191,0.3)] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
+        <div className="fixed bottom-6 left-20 z-50 w-[380px] max-w-[calc(100vw-2rem)] h-[540px] max-h-[calc(100vh-3rem)] bg-[#0D1B3E] border border-[rgba(123,63,191,0.3)] rounded-2xl shadow-2xl flex flex-col overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(123,63,191,0.2)] bg-[#05070A]/50">
             <div className="flex items-center gap-2">
               <div className="w-7 h-7 rounded-lg bg-[#7B3FBF]/20 border border-[#7B3FBF]/40 flex items-center justify-center">

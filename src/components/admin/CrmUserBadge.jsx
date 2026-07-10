@@ -23,11 +23,11 @@ export default function CrmUserBadge() {
   const isSuper = admin.role === 'super_admin';
 
   return (
-    <div className="fixed bottom-4 right-4 z-50">
+    <div className="fixed top-4 right-4 z-50">
       {open && (
         <>
           <div className="fixed inset-0 z-40" onClick={() => setOpen(false)} />
-          <div className="absolute bottom-full right-0 mb-2 w-60 bg-[#0D1B3E] border border-[rgba(123,63,191,0.3)] rounded-xl shadow-2xl overflow-hidden z-50">
+          <div className="absolute top-full right-0 mt-2 w-60 bg-[#0D1B3E] border border-[rgba(123,63,191,0.3)] rounded-xl shadow-2xl overflow-hidden z-50">
             <div className="p-3 border-b border-[rgba(123,63,191,0.15)]">
               <div className="text-sm font-bold text-[#F8FAFC] truncate">{admin.full_name}</div>
               <div className="text-xs flex items-center gap-1 mt-0.5">
