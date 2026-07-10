@@ -272,6 +272,10 @@ export default function CandidateOnboarding() {
         ? await base44.entities.Candidate.filter({ id: rec.candidate_id })
         : await base44.entities.Candidate.filter({ form_token: token });
       const cand = cands[0] || null;
+      // Блокируем доступ к анкете, если кандидат удалён (мягкое удаление в корзину)
+      if (cand?.deleted_at) {
+        setNotFound(true); setLoading(false); return;
+      }
       setCandidate(cand);
       // Инициализируем снимок логистики из данных кандидата
       setLogisticsSnapshot({
