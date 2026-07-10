@@ -10,15 +10,17 @@ const DOCUMENT_TYPES = [
   { id: 'consent_pd', label: 'Согласие на ПД', icon: Shield, desc: 'Обработка персональных данных (152-ФЗ)', pkg: 'a' },
   { id: 'soglasie_vahta', label: 'Согласие на вахту', icon: FileCheck, desc: 'Вахтовый метод работы', pkg: 'a' },
   { id: 'raspiska', label: 'Расписка-обязательство', icon: FileSignature, desc: 'Legal Shield: подтверждение и согласие', pkg: 'b' },
-  { id: 'nda', label: 'Соглашение о неразглашении', icon: Lock, desc: 'NDA для режимных объектов', pkg: 'b' },
+  { id: 'nda', label: 'Безопасность и проф. этика', icon: Lock, desc: 'NDA в заботливом тоне: защита работника и коллег', pkg: 'b' },
   { id: 'materialnaya_otvetstvennost', label: 'Мат. ответственность', icon: Shield, desc: 'Полная индивидуальная', pkg: 'b' },
   { id: 'instruktazh_tb', label: 'Инструктаж по ТБ', icon: AlertCircle, desc: 'Охрана труда и техника безопасности', pkg: 'b' },
   { id: 'soglasie_regim', label: 'Согласие на режим', icon: Lock, desc: 'Режимные ограничения объекта', pkg: 'b' },
-  { id: 'akt_peredachi', label: 'Акт приёма-передачи', icon: FileText, desc: 'Подтверждение получения пакета', pkg: 'b' },
+  { id: 'protokol_dopuska', label: 'Протокол допуска', icon: Layers, desc: 'Плавный подвод к МО: «ключ» от объекта', pkg: 'b' },
+  { id: 'soglasie_soprovozhdenie', label: 'Согласие на сопровождение', icon: FileSignature, desc: 'Доверенность на оформление допусков от имени работника', pkg: 'b' },
+  { id: 'akt_peredachi', label: 'Акт приёма-передачи', icon: FileText, desc: 'Подтверждение получения пакета (14 документов)', pkg: 'b' },
 ];
 
 const PACKAGES = [
-  { id: 'all', label: 'Полный пакет', desc: 'Все 12 документов + Раздел 0' },
+  { id: 'all', label: 'Полный пакет', desc: 'Все 14 документов + Раздел 0' },
   { id: 'a', label: 'Пакет А (Штат)', desc: 'Трудовой + Заявление + Инструкция + ПД + Вахта' },
   { id: 'b', label: 'Пакет Б (Объект)', desc: 'Расписка + NDA + Мат.отв. + ТБ + Режим + Акт' },
 ];
