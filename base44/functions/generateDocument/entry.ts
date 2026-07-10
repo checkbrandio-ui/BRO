@@ -26,6 +26,13 @@ const COMPANY = {
 };
 
 // ============================================================
+// БРЕНДОВЫЕ ИЗОБРАЖЕНИЯ (печать, подпись, логотип)
+// ============================================================
+const STAMP_URL = 'https://media.base44.com/images/public/6a118622c856f058618fff8e/2abdfb1f0_3a1aecafa9715ea1d05a9fb44d265c11.png';
+const SIGNATURE_URL = 'https://media.base44.com/images/public/6a118622c856f058618fff8e/bfaa87418_3.png';
+const LOGO_URL = 'https://media.base44.com/images/public/6a118622c856f058618fff8e/8f8b62b13_2_2.png';
+
+// ============================================================
 // ОБЯЗАННОСТИ ПО ДОЛЖНОСТЯМ (6 позиций)
 // ============================================================
 const POSITION_DUTIES = {
@@ -118,6 +125,26 @@ function todayRu() {
 }
 
 // ============================================================
+// ПЕЧАТЬ И ПОДПИСЬ (рандомизированные для каждого документа)
+// ============================================================
+function stampHtml() {
+  const angle = (Math.random() * 16 - 8).toFixed(1);
+  const opacity = (0.78 + Math.random() * 0.17).toFixed(2);
+  const ox = Math.round(Math.random() * 10 - 5);
+  const oy = Math.round(Math.random() * 8 - 4);
+  const scale = (0.88 + Math.random() * 0.18).toFixed(2);
+  return `<span class="mp-stamp" style="transform: translate(${ox}px,${oy}px) rotate(${angle}deg) scale(${scale}); opacity:${opacity};"><img src="${STAMP_URL}" class="stamp-img" alt="М.П." /></span>`;
+}
+
+function signatureHtml() {
+  const angle = (Math.random() * 8 - 4).toFixed(1);
+  const ox = Math.round(Math.random() * 6 - 3);
+  const oy = Math.round(Math.random() * 5 - 2);
+  const scale = (0.88 + Math.random() * 0.18).toFixed(2);
+  return `<img src="${SIGNATURE_URL}" class="signature-img" style="transform: translate(${ox}px,${oy}px) rotate(${angle}deg) scale(${scale});" alt="Подпись" />`;
+}
+
+// ============================================================
 // HTML-ОБЁРТКА ДЛЯ ПЕЧАТИ
 // ============================================================
 function wrapHTML(title, body) {
@@ -128,18 +155,23 @@ function wrapHTML(title, body) {
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>${escapeHtml(title)}</title>
 <style>
-  @page { size: A4; margin: 2cm; }
+  @page { size: A4; margin: 2.2cm 2cm 2cm 2cm; }
   * { box-sizing: border-box; }
-  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; margin: 0; padding: 0; }
+  body { font-family: 'Times New Roman', Times, serif; font-size: 12pt; line-height: 1.5; color: #000; margin: 0; padding: 0; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
   h1 { font-size: 14pt; text-align: center; text-transform: uppercase; margin: 0 0 0.5cm 0; }
   h2 { font-size: 12pt; margin: 0.8cm 0 0.3cm 0; }
   p { text-indent: 1.25cm; text-align: justify; margin: 0.3cm 0; }
   p.no-indent { text-indent: 0; }
   p.right { text-align: right; text-indent: 0; }
   p.center { text-align: center; text-indent: 0; }
-  .header { text-align: center; margin-bottom: 0.8cm; }
-  .company-name { font-weight: bold; font-size: 13pt; }
-  .company-info { font-size: 10pt; margin-top: 0.2cm; }
+  .header { text-align: center; margin-bottom: 0.8cm; padding-bottom: 0.3cm; border-bottom: 1.5px solid #662d91; }
+  .header::after { content: "Генподрядчик"; display: block; font-size: 8pt; font-weight: bold; color: #662d91; text-transform: uppercase; letter-spacing: 0.15em; margin-top: 0.2cm; }
+  .company-name { font-weight: bold; font-size: 13pt; color: #1a1a1a; }
+  .company-info { font-size: 9.5pt; margin-top: 0.15cm; color: #444; }
+  .page-brand { position: fixed; top: 0.3cm; right: 0.6cm; display: flex; align-items: center; gap: 0.25cm; z-index: 10; }
+  .page-logo { width: 0.9cm; height: 0.9cm; }
+  .brand-text { font-size: 7.5pt; font-weight: bold; color: #662d91; letter-spacing: 0.06em; }
+  .brand-status { font-size: 6.5pt; color: #888; text-transform: uppercase; letter-spacing: 0.12em; border-left: 1px solid #bbb; padding-left: 0.25cm; }
   ul { padding-left: 1.25cm; margin: 0.3cm 0; }
   li { text-align: justify; margin: 0.15cm 0; }
   ol { padding-left: 1.25cm; margin: 0.3cm 0; }
@@ -149,7 +181,7 @@ function wrapHTML(title, body) {
   table.signatures td { border: none; padding: 0.3cm; vertical-align: top; }
   .sign-line { border-bottom: 1px solid #000; display: inline-block; min-width: 5cm; }
   .doc-number { text-align: right; text-indent: 0; font-size: 11pt; }
-  .section-title { font-weight: bold; text-transform: uppercase; text-indent: 0; margin-top: 0.6cm; }
+  .section-title { font-weight: bold; text-transform: uppercase; text-indent: 0; margin-top: 0.6cm; font-size: 11pt; }
   .muted { font-size: 10pt; color: #333; }
   .cover-page { text-align: center; padding-top: 4cm; }
   .cover-title { font-size: 18pt; font-weight: bold; margin-bottom: 1cm; }
@@ -157,9 +189,13 @@ function wrapHTML(title, body) {
   .cover-box { border: 2px solid #000; padding: 1cm; margin: 1cm 2cm; text-align: left; }
   .stamp-box { margin-top: 2cm; border: 1px solid #000; padding: 0.5cm; display: inline-block; }
   .checkbox { display: inline-block; width: 0.4cm; height: 0.4cm; border: 1px solid #000; margin-right: 0.2cm; vertical-align: middle; }
+  .mp-stamp { display: inline-block; vertical-align: middle; }
+  .stamp-img { width: 3.5cm; height: 3.5cm; object-fit: contain; filter: invert(1) hue-rotate(180deg); mix-blend-mode: multiply; }
+  .signature-img { height: 1.1cm; width: auto; max-width: 5cm; object-fit: contain; filter: invert(1) hue-rotate(180deg); mix-blend-mode: multiply; vertical-align: middle; }
 </style>
 </head>
 <body>
+<div class="page-brand"><img src="${LOGO_URL}" class="page-logo" alt="" /><span class="brand-text">${COMPANY.short_name}</span><span class="brand-status">Генподрядчик</span></div>
 ${body}
 </body>
 </html>`;
@@ -197,7 +233,7 @@ function buildRazdel0(ctx) {
         <td style="width:50%">
           <p class="no-indent"><strong>Работодатель:</strong></p>
           <p class="no-indent">${COMPANY.name}</p>
-          <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+          <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
         </td>
         <td style="width:50%">
           <p class="no-indent"><strong>Работник:</strong></p>
@@ -375,8 +411,8 @@ function buildTrudovoyDogovor(ctx) {
         <p class="no-indent">Р/с: ${COMPANY.account}</p>
         <p class="no-indent">Банк: ${COMPANY.bank}</p>
         <p class="no-indent">БИК: ${COMPANY.bik} / К/с: ${COMPANY.corr_account}</p>
-        <p class="no-indent" style="margin-top:0.5cm">________________ / ${COMPANY.director_short} /</p>
-        <p class="no-indent muted">М.П.</p>
+        <p class="no-indent" style="margin-top:0.5cm">${signatureHtml()} / ${COMPANY.director_short} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
+        
       </td>
       <td style="width:50%; vertical-align:top">
         <p class="no-indent"><strong>Работник:</strong></p>
@@ -441,8 +477,9 @@ function buildDolzhnostnayaInstrukciya(ctx) {
 
   return wrapHTML('Должностная инструкция', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
-    <div class="company-info">ИНН: ${escapeHtml(COMPANY.inn)}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <p class="doc-number">УТВЕРЖДАЮ</p>
@@ -490,7 +527,7 @@ function buildDolzhnostnayaInstrukciya(ctx) {
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Разработал:</strong></p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
       </td>
     </tr>
   </table>
@@ -504,7 +541,8 @@ function buildConsentPD(ctx) {
   return wrapHTML('Согласие на обработку персональных данных', `
   <div class="header">
     <div class="company-name">${COMPANY.full_name}</div>
-    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · ${escapeHtml(COMPANY.address)}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp} · ОКПО: ${COMPANY.okpo}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone} · ${COMPANY.site}</div>
   </div>
 
   <h1>Согласие на обработку персональных данных</h1>
@@ -554,7 +592,9 @@ function buildConsentPD(ctx) {
 function buildSoglasieVahta(ctx) {
   return wrapHTML('Согласие на вахтовый метод работы', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Согласие на работу вахтовым методом</h1>
@@ -592,7 +632,9 @@ function buildSoglasieVahta(ctx) {
 function buildRaspiska(ctx) {
   return wrapHTML('Расписка-обязательство', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Расписка-обязательство<br><span style="font-size:11pt; font-weight:normal">Соглашение о взаимной поддержке и принятии специфики условий труда</span></h1>
@@ -646,7 +688,8 @@ function buildNDA(ctx) {
   return wrapHTML('Соглашение о безопасности и профессиональной этике', `
   <div class="header">
     <div class="company-name">${COMPANY.full_name}</div>
-    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · ${escapeHtml(COMPANY.address)}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp} · ОКПО: ${COMPANY.okpo}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone} · ${COMPANY.site}</div>
   </div>
 
   <h1>Соглашение о безопасности и профессиональной этике</h1>
@@ -686,8 +729,8 @@ function buildNDA(ctx) {
       <td style="width:50%">
         <p class="no-indent"><strong>Работодатель:</strong></p>
         <p class="no-indent">${COMPANY.name}</p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
-        <p class="no-indent muted">М.П.</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
+        
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Работник:</strong></p>
@@ -706,7 +749,8 @@ function buildMaterialnayaOtvetstvennost(ctx) {
   return wrapHTML('Договор о материальной ответственности', `
   <div class="header">
     <div class="company-name">${COMPANY.full_name}</div>
-    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · ${escapeHtml(COMPANY.address)}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp} · ОКПО: ${COMPANY.okpo}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone} · ${COMPANY.site}</div>
   </div>
 
   <h1>Договор о полной индивидуальной материальной ответственности</h1>
@@ -744,8 +788,8 @@ function buildMaterialnayaOtvetstvennost(ctx) {
       <td style="width:50%">
         <p class="no-indent"><strong>Работодатель:</strong></p>
         <p class="no-indent">${COMPANY.name}</p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
-        <p class="no-indent muted">М.П.</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
+        
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Работник:</strong></p>
@@ -764,7 +808,9 @@ function buildMaterialnayaOtvetstvennost(ctx) {
 function buildInstruktazhTB(ctx) {
   return wrapHTML('Лист инструктажа по ТБ', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Лист инструктажа по охране труда и технике безопасности</h1>
@@ -794,7 +840,7 @@ function buildInstruktazhTB(ctx) {
     <tr>
       <td style="width:50%">
         <p class="no-indent"><strong>Инструктаж провёл:</strong></p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
         <p class="no-indent">«___» _________ 20___ г.</p>
       </td>
       <td style="width:50%">
@@ -813,7 +859,9 @@ function buildInstruktazhTB(ctx) {
 function buildSoglasieRegim(ctx) {
   return wrapHTML('Согласие на режимные ограничения', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Согласие на режимные ограничения</h1>
@@ -853,7 +901,9 @@ function buildSoglasieRegim(ctx) {
 function buildAktPeredachi(ctx) {
   return wrapHTML('Акт приёма-передачи документов', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Акт приёма-передачи документов</h1>
@@ -890,7 +940,7 @@ function buildAktPeredachi(ctx) {
       <td style="width:50%">
         <p class="no-indent"><strong>Передал:</strong></p>
         <p class="no-indent">${COMPANY.name}</p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Получил:</strong></p>
@@ -908,7 +958,9 @@ function buildAktPeredachi(ctx) {
 function buildProtokolDopuska(ctx) {
   return wrapHTML('Протокол допуска к объектам восстановления', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Протокол допуска к объектам восстановления «БРО-СНБ»</h1>
@@ -946,7 +998,7 @@ function buildProtokolDopuska(ctx) {
       <td style="width:50%">
         <p class="no-indent"><strong>Работодатель:</strong></p>
         <p class="no-indent">${COMPANY.name}</p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Работник:</strong></p>
@@ -965,8 +1017,9 @@ function buildProtokolDopuska(ctx) {
 function buildSoglasieSoprovozhdenie(ctx) {
   return wrapHTML('Согласие на организационное сопровождение', `
   <div class="header">
-    <div class="company-name">${COMPANY.name}</div>
-    <div class="company-info">ИНН: ${escapeHtml(COMPANY.inn)} · ОГРН: ${escapeHtml(COMPANY.ogrn)}</div>
+    <div class="company-name">${COMPANY.full_name}</div>
+    <div class="company-info">ИНН: ${COMPANY.inn} · ОГРН: ${COMPANY.ogrn} · КПП: ${COMPANY.kpp}</div>
+    <div class="company-info">${escapeHtml(COMPANY.address)} · Тел.: ${COMPANY.phone}</div>
   </div>
 
   <h1>Согласие на организационное сопровождение и взаимодействие с государственными органами</h1>
@@ -1008,8 +1061,8 @@ function buildSoglasieSoprovozhdenie(ctx) {
       <td style="width:50%">
         <p class="no-indent"><strong>Работодатель:</strong></p>
         <p class="no-indent">${COMPANY.name}</p>
-        <p class="no-indent">________________ / ${escapeHtml(COMPANY.director_short)} /</p>
-        <p class="no-indent muted">М.П.</p>
+        <p class="no-indent">${signatureHtml()} / ${escapeHtml(COMPANY.director_short)} /<br><span style="font-size:9pt;color:#555;">М.П.</span> ${stampHtml()}</p>
+        
       </td>
       <td style="width:50%">
         <p class="no-indent"><strong>Работник:</strong></p>
