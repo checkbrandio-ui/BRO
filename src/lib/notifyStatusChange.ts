@@ -48,8 +48,7 @@ export async function notifyStatusChange(
         actor_role: actorRole,
       });
 
-      const agencies = await base44.entities.Agency.filter({ id: newData.agency_id });
-      const agency = agencies[0];
+      const agency = await base44.entities.Agency.get(newData.agency_id);
       if (agency) {
         const recipientEmails = [agency.email, agency.manager_email].filter(Boolean) as string[];
         if (recipientEmails.length > 0) {

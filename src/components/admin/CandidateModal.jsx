@@ -205,11 +205,15 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
       const oldData = { ...candidate };
       const newData = { ...candidate, ...updates };
       await base44.entities.Candidate.update(candidate.id, updates);
-      await notifyLogisticsChange(newData, oldData, getCurrentActor());
+      const actor = getCurrentActor();
+      const tasks = [
+        notifyLogisticsChange(newData, oldData, actor),
+        logCandidateAction({ action: 'update', candidate: newData, oldData, actor }),
+      ];
       if (updates.final_call_confirmed === true) {
-        await notifyFinalCallConfirmed(newData, getCurrentActor());
+        tasks.push(notifyFinalCallConfirmed(newData, actor));
       }
-      await logCandidateAction({ action: 'update', candidate: newData, oldData, actor: getCurrentActor() });
+      await Promise.all(tasks);
     } catch (e) {
       alert('Ошибка сохранения: ' + e.message);
     }

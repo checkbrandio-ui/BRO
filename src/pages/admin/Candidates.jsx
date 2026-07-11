@@ -10,6 +10,7 @@ import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
+import { notifyFinalCallConfirmed } from '@/lib/notifyFinalCallConfirmed';
 import { findNearestAssemblyPoint, haversineDistance } from '@/lib/geoUtils';
 import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
@@ -163,9 +164,12 @@ export default function Candidates() {
       const old = candidates.find(c => c.id === id);
       const actor = getActor();
       await base44.entities.Candidate.update(id, data);
-      await logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor });
-      await notifyLogisticsChange({ ...data, id }, old, actor);
-      await notifyStatusChange({ ...data, id }, old, actor);
+      // Логирование и уведомления параллельно — независимы друг от друга
+      await Promise.all([
+        logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor }),
+        notifyLogisticsChange({ ...data, id }, old, actor),
+        notifyStatusChange({ ...data, id }, old, actor),
+      ]);
       // Обновляем только изменённую запись в локальном состоянии — без полной перезагрузки
       setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...data } : c));
       setModalOpen(false);
@@ -410,9 +414,14 @@ export default function Candidates() {
     try {
       const updates = ids.map(id => ({ id, [field]: value }));
       await base44.entities.Candidate.bulkUpdate(updates);
+      const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
-        return logCandidateAction({ action: 'update', candidate: { ...old, [field]: value }, oldData: old, actor: getActor() });
+        const newData = { ...old, [field]: value };
+        return Promise.all([
+          logCandidateAction({ action: 'update', candidate: newData, oldData: old, actor }),
+          notifyStatusChange(newData, old, actor),
+        ]);
       }));
       setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, [field]: value } : c));
       const labels = { sb_check: 'СБ', medical_check: 'Медкомиссия', payment_basis: 'Выплата', payment_made: 'Выплачено' };
@@ -435,9 +444,14 @@ export default function Candidates() {
       const ts = new Date().toISOString();
       const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
       await base44.entities.Candidate.bulkUpdate(updates);
+      const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
-        return logCandidateAction({ action: 'update', candidate: { ...old, final_call_confirmed: true, final_call_confirmed_at: ts }, oldData: old, actor: getActor() });
+        const newData = { ...old, final_call_confirmed: true, final_call_confirmed_at: ts };
+        return Promise.all([
+          logCandidateAction({ action: 'update', candidate: newData, oldData: old, actor }),
+          notifyFinalCallConfirmed(newData, actor),
+        ]);
       }));
       setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
       const { dismiss } = toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });

@@ -102,8 +102,7 @@ export async function notifyLogisticsChange(
         }).catch(() => {});
       }
       if (newData.agency_id) {
-        const agencies = await base44.entities.Agency.filter({ id: newData.agency_id });
-        const agency = agencies[0];
+        const agency = await base44.entities.Agency.get(newData.agency_id);
         if (agency) {
           const emails = [agency.email, agency.manager_email].filter(Boolean) as string[];
           await Promise.allSettled(
@@ -123,33 +122,24 @@ export async function notifyLogisticsChange(
     if (notifyAdmin) {
       await base44.entities.Notification.create(notifBase);
       try {
-        const admins = await base44.entities.User.filter({ role: 'admin' });
-        const emailPromises = admins
-          .filter((a: { email?: string }) => a.email)
-          .map((a: { email: string }) =>
+        const [admins, moderators] = await Promise.all([
+          base44.entities.User.filter({ role: 'admin' }),
+          base44.entities.User.filter({ role: 'moderator' }).catch(() => []),
+        ]);
+        const emailBody = `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`;
+        const emailRecipients = [...admins, ...moderators]
+          .filter((u: { email?: string }) => u.email)
+          .map((u: { email: string }) => u.email);
+        await Promise.allSettled(
+          emailRecipients.map((email: string) =>
             base44.integrations.Core.SendEmail({
-              to: a.email,
+              to: email,
               subject: `Логистика: ${candidateName}`,
-              body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
+              body: emailBody,
               from_name: 'БРО-СНБ',
             }).catch(() => {})
-          );
-        try {
-          const moderators = await base44.entities.User.filter({ role: 'moderator' });
-          moderators
-            .filter((m: { email?: string }) => m.email)
-            .forEach((m: { email: string }) =>
-              emailPromises.push(
-                base44.integrations.Core.SendEmail({
-                  to: m.email,
-                  subject: `Логистика: ${candidateName}`,
-                  body: `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`,
-                  from_name: 'БРО-СНБ',
-                }).catch(() => {})
-              )
-            );
-        } catch {}
-        await Promise.allSettled(emailPromises);
+          )
+        );
       } catch {}
     }
   } catch {

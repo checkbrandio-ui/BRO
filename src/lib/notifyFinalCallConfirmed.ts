@@ -38,8 +38,7 @@ export async function notifyFinalCallConfirmed(
     const emailPromises: Promise<unknown>[] = [];
 
     if (candidate.agency_id) {
-      const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });
-      const agency = agencies[0];
+      const agency = await base44.entities.Agency.get(candidate.agency_id);
       if (agency) {
         const emails = [agency.email, agency.manager_email].filter(Boolean) as string[];
         emails.forEach((email) =>
@@ -56,34 +55,23 @@ export async function notifyFinalCallConfirmed(
     }
 
     try {
-      const admins = await base44.entities.User.filter({ role: 'admin' });
-      admins
-        .filter((a: { email?: string }) => a.email)
-        .forEach((a: { email: string }) =>
+      const [admins, moderators] = await Promise.all([
+        base44.entities.User.filter({ role: 'admin' }),
+        base44.entities.User.filter({ role: 'moderator' }).catch(() => []),
+      ]);
+      const emailBody = `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`;
+      [...admins, ...moderators]
+        .filter((u: { email?: string }) => u.email)
+        .forEach((u: { email: string }) =>
           emailPromises.push(
             base44.integrations.Core.SendEmail({
-              to: a.email,
+              to: u.email,
               subject: `Финальное согласование: ${candidateName}`,
-              body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`,
+              body: emailBody,
               from_name: 'БРО-СНБ',
             }).catch(() => {})
           )
         );
-      try {
-        const moderators = await base44.entities.User.filter({ role: 'moderator' });
-        moderators
-          .filter((m: { email?: string }) => m.email)
-          .forEach((m: { email: string }) =>
-            emailPromises.push(
-              base44.integrations.Core.SendEmail({
-                to: m.email,
-                subject: `Финальное согласование: ${candidateName}`,
-                body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`,
-                from_name: 'БРО-СНБ',
-              }).catch(() => {})
-            )
-          );
-      } catch {}
     } catch {}
 
     if (candidate.email) {

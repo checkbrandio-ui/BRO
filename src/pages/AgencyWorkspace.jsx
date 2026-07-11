@@ -10,6 +10,7 @@ import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/h
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { notifyStatusChange } from '@/lib/notifyStatusChange';
 import { notifyLogisticsChange } from '@/lib/notifyLogisticsChange';
+import { notifyFinalCallConfirmed } from '@/lib/notifyFinalCallConfirmed';
 import { hasMissingRequiredDocs, getMissingRequiredDocs } from '@/lib/docUtils';
 import { isCIS, LOGISTICS_STATUS } from '@/lib/candidateConstants';
 import FormLinkModal from '@/components/admin/FormLinkModal';
@@ -63,8 +64,19 @@ export default function AgencyWorkspace() {
     if (!session?.id) return;
     const unsubscribe = base44.entities.Candidate.subscribe((event) => {
       if (!event.data) return;
+      if (event.type === 'delete' || event.data.deleted_at) {
+        setCandidates(prev => prev.filter(c => c.id !== event.data.id));
+        return;
+      }
       if (event.type === 'update') {
-        setCandidates(prev => prev.map(c => c.id === event.data.id ? { ...c, ...event.data } : c));
+        setCandidates(prev => prev.map(c => {
+          if (c.id !== event.data.id) return c;
+          // Сохраняем мёрдж документов: не-сгенерированные (из анкет) + сгенерированные с сервера
+          const serverDocs = event.data.documents || [];
+          const existingNonGenerated = (c.documents || []).filter(d => d.type !== 'generated');
+          const serverGenerated = serverDocs.filter(d => d.type === 'generated');
+          return { ...c, ...event.data, documents: [...existingNonGenerated, ...serverGenerated] };
+        }));
       } else if (event.type === 'create' && event.data.agency_id === session.id) {
         setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
       }
@@ -75,16 +87,12 @@ export default function AgencyWorkspace() {
   const load = async () => {
     if (!session?.id) return;
     setLoading(true);
-    const [agencyList, cands] = await Promise.all([
-      base44.entities.Agency.filter({ id: session.id }),
+    const [agencyData, cands, cities, forms] = await Promise.all([
+      base44.entities.Agency.get(session.id),
       base44.entities.Candidate.filter({ agency_id: session.id }, '-created_date', 500),
-    ]);
-    // Загружаем пункты сбора, справочник городов и анкеты
-    const [cities, forms] = await Promise.all([
       base44.entities.City.list('-created_date', 500),
       base44.entities.CandidateForm.filter({ status: 'completed' }, '-created_date', 500),
     ]);
-    // Мёрджим документы из завершённых анкет в карточки кандидатов
     const formDocsByCandidate = {};
     forms.forEach(f => {
       if (f.candidate_id && f.uploaded_docs?.length) {
@@ -103,7 +111,7 @@ export default function AgencyWorkspace() {
     });
     const cityMap = {};
     cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
-    setAgency(agencyList[0] || null);
+    setAgency(agencyData || null);
     setCandidates(mergedCands);
     setCityCache(cityMap);
     setLoading(false);
@@ -126,9 +134,12 @@ export default function AgencyWorkspace() {
     if (id) {
       const old = candidates.find(c => c.id === id);
       await base44.entities.Candidate.update(id, dataWithAgency);
-      await logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor: getActor() });
-      await notifyStatusChange({ ...dataWithAgency, id }, old);
-      await notifyLogisticsChange({ ...dataWithAgency, id }, old);
+      const actor = getActor();
+      await Promise.all([
+        logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor }),
+        notifyStatusChange({ ...dataWithAgency, id }, old, actor),
+        notifyLogisticsChange({ ...dataWithAgency, id }, old, actor),
+      ]);
       setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...dataWithAgency } : c));
     } else {
       const response = await base44.functions.invoke('createCandidateSafe', {
@@ -318,9 +329,14 @@ export default function AgencyWorkspace() {
       const ts = new Date().toISOString();
       const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
       await base44.entities.Candidate.bulkUpdate(updates);
+      const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
-        return logCandidateAction({ action: 'update', candidate: { ...old, final_call_confirmed: true, final_call_confirmed_at: ts }, oldData: old, actor: getActor() });
+        const newData = { ...old, final_call_confirmed: true, final_call_confirmed_at: ts };
+        return Promise.all([
+          logCandidateAction({ action: 'update', candidate: newData, oldData: old, actor }),
+          notifyFinalCallConfirmed(newData, actor),
+        ]);
       }));
       setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
       const { dismiss } = toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });
