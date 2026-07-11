@@ -1,7 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useParams, useSearchParams } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
-import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info, Send, Download, Printer, FileText, Maximize2 } from 'lucide-react';
+import { CheckCircle, AlertCircle, AlertTriangle, Loader2, ExternalLink, ChevronDown, ChevronUp, Upload, X, MapPin, Calendar, Clock, RefreshCw, Info, Send, Download, Printer, FileText } from 'lucide-react';
 import { uploadWithRetry, validateFile } from '@/lib/uploadWithRetry';
 import { compressImage } from '@/lib/imageCompress';
 import CitySelect from '@/components/CitySelect';
@@ -16,6 +16,7 @@ import MissionBlock from '@/components/candidate/MissionBlock';
 import SbStatusBanner from '@/components/candidate/SbStatusBanner';
 import OnboardingBackground from '@/components/candidate/OnboardingBackground';
 import CandidateDocumentViewer from '@/components/candidate/CandidateDocumentViewer';
+import CandidateDocumentsSection from '@/components/candidate/CandidateDocumentsSection';
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const EDUCATION_LEVELS = ['Среднее','Среднее специальное','Неполное высшее','Высшее','Несколько высших'];
@@ -747,60 +748,12 @@ export default function CandidateOnboarding() {
         <MissionBlock />
 
         {/* Сгенерированные документы */}
-        {candidate?.documents?.filter(d => d.type === 'generated').length > 0 && (
-          <div className="bg-gradient-to-br from-[#1a1a1a] to-[#0f0f0f] border border-[#C9A84C]/30 rounded-xl p-5 space-y-4">
-            <div className="flex items-center justify-between flex-wrap gap-2">
-              <div className="flex items-center gap-2.5">
-                <div className="w-9 h-9 rounded-lg bg-[#C9A84C]/15 border border-[#C9A84C]/30 flex items-center justify-center">
-                  <FileText size={18} className="text-[#C9A84C]" />
-                </div>
-                <div>
-                  <p className="text-sm font-bold text-[#C9A84C]">Ваш пакет документов готов</p>
-                  <p className="text-xs text-[#666]">{candidate.documents.filter(d => d.type === 'generated').length} документ(ов) · проверьте и распечатайте</p>
-                </div>
-              </div>
-              <button
-                onClick={() => setDocViewerOpen(true)}
-                className="flex items-center gap-2 px-4 py-2.5 text-sm rounded-lg bg-[#C9A84C] text-[#0a0a0a] hover:bg-[#D9B85C] transition-all font-bold shadow-lg shadow-[#C9A84C]/20"
-              >
-                <Maximize2 size={15} /> Открыть документы
-              </button>
-            </div>
-
-            <div className="flex items-start gap-2 p-3 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15">
-              <Info size={14} className="text-[#C9A84C] flex-shrink-0 mt-0.5" />
-              <div className="text-xs text-[#888] leading-relaxed">
-                <p className="font-bold text-[#aaa] mb-1">Как пользоваться:</p>
-                <ol className="list-decimal list-inside space-y-0.5">
-                  <li>Нажмите «Открыть документы» — откроется просмотрщик</li>
-                  <li>Просмотрите каждый документ (стрелки влево/вправо)</li>
-                  <li>Нажмите «Печать» для печати всех страниц</li>
-                  <li>Подпишите каждый документ</li>
-                  <li>Принесите подписанные документы на пункт сбора</li>
-                </ol>
-              </div>
-            </div>
-
-            <div className="space-y-2">
-              {candidate.documents.filter(d => d.type === 'generated').map((doc, idx) => (
-                <div key={idx} className="flex items-center justify-between px-3 py-2.5 rounded-lg bg-[#C9A84C]/5 border border-[#C9A84C]/15 hover:border-[#C9A84C]/30 transition-all">
-                  <div className="flex items-center gap-2 min-w-0">
-                    <FileText size={14} className="text-[#C9A84C] flex-shrink-0" />
-                    <span className="text-sm text-[#ccc] truncate">{doc.name}</span>
-                    {doc.uploaded_at && <span className="text-xs text-[#555] flex-shrink-0">{new Date(doc.uploaded_at).toLocaleDateString('ru-RU')}</span>}
-                  </div>
-                  <div className="flex items-center gap-1.5 flex-shrink-0">
-                    <a href={doc.url} target="_blank" rel="noreferrer" className="p-1.5 rounded text-[#888] hover:text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all" title="В новой вкладке">
-                      <ExternalLink size={14} />
-                    </a>
-                    <a href={doc.url} download className="p-1.5 rounded text-[#888] hover:text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all" title="Скачать">
-                      <Download size={14} />
-                    </a>
-                  </div>
-                </div>
-              ))}
-            </div>
-          </div>
+        {candidate?.documents && (
+          <CandidateDocumentsSection
+            documents={candidate.documents}
+            candidateName={form.full_name}
+            onOpenViewer={() => setDocViewerOpen(true)}
+          />
         )}
 
         {/* Индикатор статуса проверки СБ — только после отправки анкеты (Этап 2+) */}
