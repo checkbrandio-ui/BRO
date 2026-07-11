@@ -1,6 +1,6 @@
 import { useState, useEffect, useMemo } from 'react';
 import { Link } from 'react-router-dom';
-import { FileText, Shield, FileSignature, Lock, Printer, Search, Loader2, Layers, Briefcase, AlertCircle, ChevronLeft, ChevronRight, FileCheck, ArrowLeft, Save, CheckCircle, Mail } from 'lucide-react';
+import { FileText, Shield, FileSignature, Lock, Printer, Search, Loader2, Layers, Briefcase, AlertCircle, ChevronLeft, ChevronRight, FileCheck, ArrowLeft, Save, CheckCircle, Mail, ExternalLink, Download } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 
 const DOCUMENT_TYPES = [
@@ -157,6 +157,28 @@ export default function DocumentGenerator() {
     if (iframe && iframe.contentWindow) { iframe.contentWindow.focus(); iframe.contentWindow.print(); }
   };
 
+  const handleOpenInNewTab = () => {
+    if (!preview) return;
+    const blob = new Blob([preview], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    window.open(url, '_blank');
+    setTimeout(() => URL.revokeObjectURL(url), 10000);
+  };
+
+  const handleDownloadHTML = () => {
+    if (!preview) return;
+    const name = (previewCandidate?.full_name || 'document').replace(/\s+/g, '_');
+    const title = packageDocs.length > 0 ? packageDocs[activeDocIdx]?.title : DOCUMENT_TYPES.find(d => d.id === docType)?.label || '';
+    const fileName = `${name}_${title || 'document'}.html`;
+    const blob = new Blob([preview], { type: 'text/html;charset=utf-8' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = fileName;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
+
   const switchDoc = (idx) => { setActiveDocIdx(idx); setPreview(packageDocs[idx]?.html || ''); };
 
   const hasMissingData = previewCandidate && (!previewCandidate.form_status || previewCandidate.form_status !== 'completed');
@@ -298,7 +320,7 @@ export default function DocumentGenerator() {
           </div>
 
           {/* Right panel — preview */}
-          <div className="glass-card rounded-xl overflow-hidden flex flex-col" style={{ minHeight: '700px' }}>
+          <div className="glass-card rounded-xl overflow-hidden flex flex-col min-h-[500px] lg:min-h-[700px]">
             {preview ? (
               <>
                 <div className="flex items-center justify-between px-4 py-3 border-b border-[rgba(123,63,191,0.15)]">
@@ -315,7 +337,11 @@ export default function DocumentGenerator() {
                       {previewCandidate && <span className="text-[#F8FAFC]/30 ml-2">· {previewCandidate.full_name}</span>}
                     </div>
                   </div>
-                  <button onClick={handlePrint} className="flex items-center gap-2 px-4 py-2 text-xs rounded-lg bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/25 transition-all font-semibold whitespace-nowrap"><Printer size={14} /> Печать / PDF</button>
+                  <div className="flex items-center gap-2 flex-shrink-0">
+                    <button onClick={handleOpenInNewTab} disabled={!preview} title="Открыть в новой вкладке" className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs rounded-lg border border-[rgba(123,63,191,0.3)] text-[#F8FAFC]/60 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all font-semibold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"><ExternalLink size={14} /> <span className="hidden sm:inline">Открыть</span></button>
+                    <button onClick={handleDownloadHTML} disabled={!preview} title="Скачать HTML" className="flex items-center gap-1.5 px-2.5 sm:px-3 py-2 text-xs rounded-lg border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all font-semibold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"><Download size={14} /> <span className="hidden sm:inline">HTML</span></button>
+                    <button onClick={handlePrint} disabled={!preview} title="Печать / Сохранить в PDF" className="flex items-center gap-2 px-3 sm:px-4 py-2 text-xs rounded-lg bg-[#C9A84C]/15 border border-[#C9A84C]/30 text-[#C9A84C] hover:bg-[#C9A84C]/25 transition-all font-semibold whitespace-nowrap disabled:opacity-40 disabled:cursor-not-allowed"><Printer size={14} /> <span className="hidden sm:inline">Печать / </span>PDF</button>
+                  </div>
                 </div>
                 {packageDocs.length > 1 && (
                   <div className="flex gap-1 px-4 py-2 border-b border-[rgba(123,63,191,0.1)] overflow-x-auto">
@@ -324,7 +350,7 @@ export default function DocumentGenerator() {
                     ))}
                   </div>
                 )}
-                <iframe id="doc-preview" srcDoc={preview} className="w-full flex-1 bg-white" style={{ minHeight: '650px' }} title="Предпросмотр документа" />
+                <iframe id="doc-preview" srcDoc={preview} className="w-full flex-1 bg-white min-h-[400px] lg:min-h-[650px]" title="Предпросмотр документа" />
               </>
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-8">

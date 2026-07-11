@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
-import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, Phone, FileText, FileCheck } from 'lucide-react';
+import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, Phone, FileText, FileCheck, Menu } from 'lucide-react';
 import CandidateModal from '../../components/admin/CandidateModal';
 import InlineCommentCell from '@/components/admin/InlineCommentCell';
 import { HoverCard, HoverCardTrigger, HoverCardContent } from '@/components/ui/hover-card';
@@ -70,6 +70,7 @@ export default function Candidates() {
   const [bulkDocsOpen, setBulkDocsOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
   const [showFilters, setShowFilters] = useState(false);
+  const [showMobileMenu, setShowMobileMenu] = useState(false);
 
   // Реактивный breakpoint для переключения table → card
   useEffect(() => {
@@ -569,6 +570,39 @@ export default function Candidates() {
             <Link to="/admin/trash" className="hidden md:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-red-400 hover:border-red-500/30 transition-all">
               <Trash2 size={13}/> Корзина
             </Link>
+
+            {/* Mobile burger menu */}
+            <div className="relative lg:hidden">
+              <button
+                onClick={() => setShowMobileMenu(v => !v)}
+                className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all"
+                title="Меню"
+              >
+                <Menu size={16} />
+              </button>
+              {showMobileMenu && (
+                <>
+                  <div className="fixed inset-0 z-40" onClick={() => setShowMobileMenu(false)} />
+                  <div className="absolute right-0 top-full mt-2 w-56 glass-card rounded-xl p-2 z-50 shadow-2xl">
+                    <Link to="/admin/assistant" onClick={() => setShowMobileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+                      <Sparkles size={14}/> ИИ-помощник
+                    </Link>
+                    <Link to="/admin/documents" onClick={() => setShowMobileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+                      <FileText size={14}/> Документы
+                    </Link>
+                    <Link to="/admin/assembly-points" onClick={() => setShowMobileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+                      <MapPin size={14}/> Точки сбора
+                    </Link>
+                    <Link to="/admin/candidate-logs" onClick={() => setShowMobileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F8FAFC]/60 hover:bg-[#7B3FBF]/10 hover:text-[#7B3FBF] transition-all">
+                      <ClipboardList size={14}/> Журнал
+                    </Link>
+                    <Link to="/admin/trash" onClick={() => setShowMobileMenu(false)} className="flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-[#F8FAFC]/60 hover:bg-red-500/10 hover:text-red-400 transition-all">
+                      <Trash2 size={14}/> Корзина
+                    </Link>
+                  </div>
+                </>
+              )}
+            </div>
 
             <button onClick={async () => { await loadReferenceData(); await load(); }} title="Обновить данные"
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
