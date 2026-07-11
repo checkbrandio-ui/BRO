@@ -16,8 +16,7 @@ export default function GeneratedDocumentsSection({ candidateId, candidateName }
     if (!candidateId) return;
     if (silent) setRefreshing(true); else setLoading(true);
     try {
-      const results = await base44.entities.Candidate.filter({ id: candidateId });
-      const c = results[0];
+      const c = await base44.entities.Candidate.get(candidateId);
       if (c) {
         setDocs((c.documents || []).filter(d => d.type === 'generated'));
       }

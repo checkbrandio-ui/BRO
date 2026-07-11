@@ -118,7 +118,8 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
         setResults(prev => {
           const next = { ...prev };
           next.docs[entry.candidate.id] = { candidate: entry.candidate, documents: res.data.documents };
-          next.done = next.total - next.errors.length;
+          // done = total (все обработаны), прогресс считается по docs+errors
+          next.done = next.total;
           return next;
         });
         await saveAndNotify(entry.candidate, res.data.documents);

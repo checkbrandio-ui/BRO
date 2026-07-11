@@ -182,6 +182,10 @@ export default function DocumentGenerator() {
     }
     setSaving(false);
     setSuccess(`Сохранено: ${done - errors} из ${ids.length}${errors > 0 ? `, ошибок: ${errors}` : ''}`);
+    // Обновляем локальный список кандидатов с новыми документами
+    setCandidates(prev => prev.map(c => selectedIds.has(c.id)
+      ? { ...c, documents: [...(c.documents || []).filter(d => d.type !== 'generated'), { name: mode === 'package' ? 'Полный пакет документов' : (DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ'), url: '', type: 'generated', uploaded_at: new Date().toISOString() }] }
+      : c));
   };
 
   const handlePrint = () => {
