@@ -1112,6 +1112,84 @@ const PACKAGE_ORDER = [
 ];
 
 // ============================================================
+// ОБЪЕДИНЕНИЕ HTML-ДОКУМЕНТОВ В ОДИН ФАЙЛ
+// ============================================================
+function combineDocuments(documents) {
+  if (!documents || documents.length === 0) return '';
+  const firstHtml = documents[0].html || '';
+  const styleMatch = firstHtml.match(/<style[^>]*>([\s\S]*?)<\/style>/i);
+  const css = styleMatch ? styleMatch[1] : '';
+  const bodies = documents.map(d => {
+    const bodyMatch = d.html.match(/<body[^>]*>([\s\S]*?)<\/body>/i);
+    return bodyMatch ? bodyMatch[1] : d.html;
+  });
+  return `<!DOCTYPE html>
+<html lang="ru">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Пакет документов — БРО-СНБ</title>
+<style>
+${css}
+</style>
+</head>
+<body>
+${bodies.map((body, idx) => idx === 0 ? body : `<div style="page-break-before: always;">${body}</div>`).join('\n')}
+</body>
+</html>`;
+}
+
+// ============================================================
+// СОХРАНЕНИЕ ДОКУМЕНТА В АНКЕТУ + УВЕДОМЛЕНИЯ
+// ============================================================
+async function saveAndNotify(base44, candidate, ctx, documents, packageLabel, origin) {
+  const combinedHtml = combineDocuments(documents);
+  const blob = new Blob([combinedHtml], { type: 'text/html;charset=utf-8' });
+  const filename = `documents_${(ctx.full_name || 'candidate').replace(/\s+/g, '_')}.html`;
+  const file = new File([blob], filename, { type: 'text/html' });
+
+  const uploadRes = await base44.asServiceRole.integrations.Core.UploadFile({ file });
+  const file_url = uploadRes.file_url;
+
+  const existingDocs = candidate.documents || [];
+  const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
+  await base44.asServiceRole.entities.Candidate.update(candidate.id, {
+    documents: [...filteredDocs, { name: packageLabel, url: file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
+  });
+
+  const notifyErrors = [];
+
+  try {
+    await base44.asServiceRole.entities.Notification.create({
+      candidate_id: candidate.id,
+      candidate_name: ctx.full_name,
+      agency_id: candidate.agency_id || '',
+      agency_name: candidate.agency_name || '',
+      message: `Сгенерированы документы (${packageLabel})`,
+      link: '/admin/candidates',
+      is_read: false,
+      category: 'documents',
+      actor_name: 'Администратор',
+      actor_role: 'admin',
+    });
+  } catch (e) { notifyErrors.push('notification: ' + e.message); }
+
+  if (candidate.email) {
+    try {
+      const formLink = origin ? `${origin}/anketa-kandidata/${candidate.form_token || ''}` : '';
+      await base44.asServiceRole.integrations.Core.SendEmail({
+        to: candidate.email,
+        subject: 'Ваши документы готовы — БРО-СНБ',
+        body: `Здравствуйте, ${ctx.full_name}!\n\nВаш пакет документов сгенерирован и доступен в вашей анкете.\n\nДля получения документов:\n1. Откройте вашу анкету: ${formLink}\n2. Найдите раздел «Ваш пакет документов готов»\n3. Нажмите «Скачать всё» — все документы сохранятся одним файлом\n4. Откройте файл и нажмите Ctrl+P (или ⌘+P на Mac)\n5. Выберите «Сохранить как PDF»\n6. Распечатайте PDF и подпишите каждый документ\n7. Принесите подписанные документы на пункт сбора\n\nС уважением,\nООО «Братоуверие-СНБ»`,
+        from_name: 'БРО-СНБ',
+      });
+    } catch (e) { notifyErrors.push('email: ' + e.message); }
+  }
+
+  return { file_url, errors: notifyErrors };
+}
+
+// ============================================================
 // ОСНОВНОЙ ОБРАБОТЧИК
 // ============================================================
 Deno.serve(async (req) => {
@@ -1121,7 +1199,7 @@ Deno.serve(async (req) => {
     if (!user) return Response.json({ error: 'Не авторизован' }, { status: 401 });
 
     const body = await req.json();
-    const { candidate_id, document_type, package: pkg } = body;
+    const { candidate_id, document_type, package: pkg, save_and_notify, origin } = body;
 
     if (!candidate_id) return Response.json({ error: 'Не указан candidate_id' }, { status: 400 });
 
@@ -1176,6 +1254,11 @@ Deno.serve(async (req) => {
         title: TEMPLATES[t].title,
         html: TEMPLATES[t].builder(ctx),
       }));
+      if (save_and_notify) {
+        const pkgLabel = pkg === 'all' ? 'Полный пакет документов' : pkg === 'a' ? 'Пакет А (Штат)' : 'Пакет Б (Объект)';
+        const result = await saveAndNotify(base44, candidate, ctx, documents, pkgLabel, origin);
+        return Response.json({ saved: true, file_url: result.file_url, documents, ctx, notify_errors: result.errors });
+      }
       return Response.json({ documents, ctx });
     }
 
@@ -1186,6 +1269,13 @@ Deno.serve(async (req) => {
 
     const html = TEMPLATES[document_type].builder(ctx);
     const filename = `${document_type}_${ctx.full_name || 'document'}.html`;
+    const docTitle = TEMPLATES[document_type].title;
+
+    if (save_and_notify) {
+      const documents = [{ type: document_type, title: docTitle, html }];
+      const result = await saveAndNotify(base44, candidate, ctx, documents, docTitle, origin);
+      return Response.json({ saved: true, file_url: result.file_url, documents, ctx, notify_errors: result.errors });
+    }
 
     return Response.json({ html, filename, ctx });
   } catch (error) {

@@ -125,64 +125,28 @@ export default function DocumentGenerator() {
     setError('');
     setSuccess('');
     setSaveProgress({ done: 0, total: ids.length, errors: 0 });
+    const CHUNK_SIZE = 4;
     let done = 0, errors = 0;
-    for (const id of ids) {
-      try {
-        const payload = { candidate_id: id };
+    for (let i = 0; i < ids.length; i += CHUNK_SIZE) {
+      const chunk = ids.slice(i, i + CHUNK_SIZE);
+      const settled = await Promise.allSettled(chunk.map(async id => {
+        const payload = { candidate_id: id, save_and_notify: true, origin: window.location.origin };
         if (mode === 'package') payload.package = packageType;
         else payload.document_type = docType;
         const res = await base44.functions.invoke('generateDocument', payload);
-        if (res.data?.error) { errors++; done++; setSaveProgress({ done, total: ids.length, errors }); continue; }
-        const docs = res.data?.documents || (res.data?.html ? [{ title: DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ', html: res.data.html }] : []);
-        if (!docs.length) { errors++; done++; setSaveProgress({ done, total: ids.length, errors }); continue; }
-        const combined = docs.map(d => `<!-- ${d.title} -->\n${d.html}`).join('\n\n<hr style="page-break-after:always;">\n\n');
-        const blob = new Blob([combined], { type: 'text/html;charset=utf-8' });
-        const file = new File([blob], mode === 'package' ? 'documents.html' : `${docType}.html`, { type: 'text/html' });
-        const uploadRes = await base44.integrations.Core.UploadFile({ file });
-        const file_url = uploadRes.file_url;
-        const cand = candidates.find(c => c.id === id);
-        const existingDocs = cand?.documents || [];
-        const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
-        const docName = mode === 'package' ? 'Полный пакет документов' : (DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ');
-        await base44.entities.Candidate.update(id, {
-          documents: [...filteredDocs, { name: docName, url: file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
-        });
-        // Уведомление в систему
-        try {
-          await base44.entities.Notification.create({
-            candidate_id: id,
-            candidate_name: cand?.full_name || '',
-            agency_id: cand?.agency_id || '',
-            agency_name: cand?.agency_name || '',
-            message: `Сгенерирован документ: ${docName}`,
-            link: '/admin/candidates',
-            is_read: false,
-            category: 'documents',
-            actor_name: 'Администратор',
-            actor_role: 'admin',
-          });
-        } catch (_) {}
-        // Email-уведомление кандидату
-        if (cand?.email) {
-          try {
-            await base44.integrations.Core.SendEmail({
-              to: cand.email,
-              subject: 'Ваши документы готовы — БРО-СНБ',
-              body: `Здравствуйте, ${cand.full_name}!\n\nВаш пакет документов сгенерирован и доступен в вашей анкете.\n\nДля просмотра и печати:\n1. Откройте вашу анкету по ссылке: ${window.location.origin}/anketa-kandidata/${cand.form_token || ''}\n2. Найдите раздел «Ваш пакет документов готов»\n3. Нажмите «Открыть» → Ctrl+P для печати\n4. Распечатайте все страницы и подпишите\n5. Принесите подписанные документы на пункт сбора\n\nС уважением,\nООО «Братоуверие-СНБ»`,
-              from_name: 'БРО-СНБ',
-            });
-          } catch (_) {}
-        }
+        if (res.data?.error) throw new Error(res.data.error);
+        if (!res.data?.saved) throw new Error('Не сохранено');
+        if (res.data.notify_errors?.length) console.warn(`Notify errors for ${id}:`, res.data.notify_errors);
+        return id;
+      }));
+      settled.forEach(r => {
+        if (r.status !== 'fulfilled') errors++;
         done++;
-        setSaveProgress({ done, total: ids.length, errors });
-      } catch (e) {
-        errors++; done++;
-        setSaveProgress({ done, total: ids.length, errors });
-      }
+      });
+      setSaveProgress({ done, total: ids.length, errors });
     }
     setSaving(false);
     setSuccess(`Сохранено: ${done - errors} из ${ids.length}${errors > 0 ? `, ошибок: ${errors}` : ''}`);
-    // Обновляем локальный список кандидатов с новыми документами
     setCandidates(prev => prev.map(c => selectedIds.has(c.id)
       ? { ...c, documents: [...(c.documents || []).filter(d => d.type !== 'generated'), { name: mode === 'package' ? 'Полный пакет документов' : (DOCUMENT_TYPES.find(d => d.id === docType)?.label || 'Документ'), url: '', type: 'generated', uploaded_at: new Date().toISOString() }] }
       : c));

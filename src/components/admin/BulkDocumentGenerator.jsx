@@ -8,90 +8,59 @@ const PACKAGES = [
   { id: 'b', label: 'Пакет Б — Объект', desc: 'Расписка + NDA + Мат.отв. + ТБ + Режим + Акт' },
 ];
 
+const CHUNK_SIZE = 4;
+
 export default function BulkDocumentGenerator({ candidates, onClose, onComplete }) {
   const [packageType, setPackageType] = useState('all');
   const [running, setRunning] = useState(false);
-  const [results, setResults] = useState(null); // { total, done, errors[], docs{} }
+  const [results, setResults] = useState(null);
   const stopRef = useRef(false);
 
-  // Сохранение документов в анкету кандидата + отправка уведомления
-  const saveAndNotify = async (c, documents) => {
-    try {
-      const combined = documents.map(d => `<!-- ${d.title} -->\n${d.html}`).join('\n\n<hr style="page-break-after:always;">\n\n');
-      const blob = new Blob([combined], { type: 'text/html;charset=utf-8' });
-      const file = new File([blob], `documents_${(c.full_name || 'candidate').replace(/\s+/g, '_')}.html`, { type: 'text/html' });
-      const uploadRes = await base44.integrations.Core.UploadFile({ file });
-      const existingDocs = c.documents || [];
-      const filteredDocs = existingDocs.filter(d => d.type !== 'generated');
-      const docName = packageType === 'all' ? 'Полный пакет документов' : packageType === 'a' ? 'Пакет А (Штат)' : 'Пакет Б (Объект)';
-      await base44.entities.Candidate.update(c.id, {
-        documents: [...filteredDocs, { name: docName, url: uploadRes.file_url, type: 'generated', uploaded_at: new Date().toISOString() }],
-      });
-      // Уведомление в систему
-      try {
-        await base44.entities.Notification.create({
-          candidate_id: c.id,
-          candidate_name: c.full_name,
-          agency_id: c.agency_id || '',
-          agency_name: c.agency_name || '',
-          message: `Сгенерированы документы (${docName})`,
-          link: '/admin/candidates',
-          is_read: false,
-          category: 'documents',
-          actor_name: 'Система',
-          actor_role: 'admin',
-        });
-      } catch (_) {}
-      // Email-уведомление кандидату
-      if (c.email) {
-        try {
-          await base44.integrations.Core.SendEmail({
-            to: c.email,
-            subject: 'Ваши документы готовы — БРО-СНБ',
-            body: `Здравствуйте, ${c.full_name}!\n\nВаш пакет документов сгенерирован и доступен в вашей анкете.\n\nДля просмотра и печати:\n1. Откройте вашу анкету по ссылке: ${window.location.origin}/anketa-kandidata/${c.form_token || ''}\n2. Найдите раздел «Ваш пакет документов готов»\n3. Нажмите «Открыть» → Ctrl+P для печати\n4. Распечатайте все страницы и подпишите\n5. Принесите подписанные документы на пункт сбора\n\nС уважением,\nООО «Братоуверие-СНБ»`,
-            from_name: 'БРО-СНБ',
-          });
-        } catch (_) {}
-      }
-    } catch (saveErr) {
-      // Документ сгенерирован, но не сохранён — не блокируем процесс
+  const processOne = async (c) => {
+    const res = await base44.functions.invoke('generateDocument', {
+      candidate_id: c.id,
+      package: packageType,
+      save_and_notify: true,
+      origin: window.location.origin,
+    });
+    if (res.data?.error) throw new Error(res.data.error);
+    if (!res.data?.saved) throw new Error('Документ не сохранён');
+    if (res.data.notify_errors?.length > 0) {
+      console.warn(`Notify errors for ${c.full_name}:`, res.data.notify_errors);
     }
+    return { candidate: c, documents: res.data.documents };
   };
 
   const start = async () => {
     setRunning(true);
     stopRef.current = false;
     const total = candidates.length;
-    const state = { total, done: 0, errors: [], docs: {}, currentId: null };
+    const state = { total, done: 0, errors: [], docs: {}, currentIds: null };
     setResults({ ...state });
 
-    for (const c of candidates) {
+    for (let i = 0; i < candidates.length; i += CHUNK_SIZE) {
       if (stopRef.current) break;
-      state.currentId = c.id;
+      const chunk = candidates.slice(i, i + CHUNK_SIZE);
+      state.currentIds = chunk.map(c => c.id);
       setResults({ ...state });
-      try {
-        const res = await base44.functions.invoke('generateDocument', {
-          candidate_id: c.id,
-          package: packageType,
-        });
-        if (res.data?.error) {
-          state.errors.push({ candidate: c, error: res.data.error });
-        } else if (res.data?.documents) {
-          state.docs[c.id] = { candidate: c, documents: res.data.documents };
-          await saveAndNotify(c, res.data.documents);
+
+      const settled = await Promise.allSettled(chunk.map(c => processOne(c)));
+
+      settled.forEach((r, idx) => {
+        const c = chunk[idx];
+        if (r.status === 'fulfilled') {
+          state.docs[c.id] = r.value;
         } else {
-          state.errors.push({ candidate: c, error: 'Пустой ответ от генератора' });
+          state.errors.push({ candidate: c, error: r.reason?.message || 'Ошибка сети' });
         }
-      } catch (e) {
-        state.errors.push({ candidate: c, error: e.message || 'Ошибка сети' });
-      }
-      state.done++;
+        state.done++;
+      });
       setResults({ ...state });
     }
-    state.currentId = null;
+
+    state.currentIds = null;
     setRunning(false);
     setResults({ ...state });
-    // Уведомляем родительский компонент о завершении
     if (onComplete && Object.keys(state.docs).length > 0) {
       onComplete(Object.keys(state.docs));
     }
@@ -104,26 +73,16 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
     setResults(prev => {
       const next = { ...prev };
       next.errors = next.errors.filter(e => e.candidate.id !== entry.candidate.id);
-      next.total = next.total; // unchanged
       return next;
     });
     try {
-      const res = await base44.functions.invoke('generateDocument', {
-        candidate_id: entry.candidate.id,
-        package: packageType,
+      const result = await processOne(entry.candidate);
+      setResults(prev => {
+        const next = { ...prev };
+        next.docs[entry.candidate.id] = result;
+        next.done = next.total;
+        return next;
       });
-      if (res.data?.error) {
-        setResults(prev => ({ ...prev, errors: [...prev.errors, { candidate: entry.candidate, error: res.data.error }] }));
-      } else if (res.data?.documents) {
-        setResults(prev => {
-          const next = { ...prev };
-          next.docs[entry.candidate.id] = { candidate: entry.candidate, documents: res.data.documents };
-          // done = total (все обработаны), прогресс считается по docs+errors
-          next.done = next.total;
-          return next;
-        });
-        await saveAndNotify(entry.candidate, res.data.documents);
-      }
     } catch (e) {
       setResults(prev => ({ ...prev, errors: [...prev.errors, { candidate: entry.candidate, error: e.message }] }));
     }
@@ -153,13 +112,12 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-sm p-4" onClick={onClose}>
       <div className="glass-card rounded-2xl w-full max-w-3xl max-h-[90vh] flex flex-col overflow-hidden" onClick={e => e.stopPropagation()}>
-        {/* Header */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-[rgba(123,63,191,0.2)]">
           <div className="flex items-center gap-3">
             <Package size={20} className="text-[#C9A84C]" />
             <div>
               <h2 className="text-lg font-bold text-[#F8FAFC]">Пакетная генерация документов</h2>
-              <p className="text-xs text-[#F8FAFC]/40">Выбрано кандидатов: {candidates.length}</p>
+              <p className="text-xs text-[#F8FAFC]/40">Выбрано кандидатов: {candidates.length} · параллельно по {CHUNK_SIZE}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-white/10 text-[#F8FAFC]/50 hover:text-[#F8FAFC] transition-all">
@@ -168,7 +126,6 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
         </div>
 
         <div className="overflow-y-auto flex-1 p-6 space-y-5">
-          {/* Package selection */}
           {!results && (
             <>
               <div>
@@ -190,15 +147,13 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
                   ))}
                 </div>
               </div>
-
               <div className="px-4 py-3 rounded-xl bg-[#C9A84C]/8 border border-[#C9A84C]/20 text-xs text-[#C9A84C]/70 flex items-start gap-2">
                 <AlertCircle size={14} className="flex-shrink-0 mt-0.5" />
-                <span>Генерация идёт последовательно. Для каждого кандидата создаётся отдельный HTML-файл со всеми документами пакета. Ошибки показываются сразу — можно исправить и повторить.</span>
+                <span>Генерация идёт параллельно по {CHUNK_SIZE} кандидата. Документы сохраняются прямо в анкеты, кандидат получает email. Ошибки показываются сразу — можно повторить.</span>
               </div>
             </>
           )}
 
-          {/* Progress */}
           {results && (
             <>
               <div className="space-y-3">
@@ -220,15 +175,13 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
                 </div>
               </div>
 
-              {/* Current candidate */}
-              {running && results.currentId && (
+              {running && results.currentIds && (
                 <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-[#7B3FBF]/10 border border-[#7B3FBF]/20 text-xs text-[#F8FAFC]/60">
                   <Loader2 size={13} className="animate-spin text-[#7B3FBF]" />
-                  <span>Генерация для: <strong className="text-[#F8FAFC]">{candidates.find(c => c.id === results.currentId)?.full_name}</strong></span>
+                  <span>Генерация для: <strong className="text-[#F8FAFC]">{candidates.filter(c => results.currentIds.includes(c.id)).map(c => c.full_name).join(', ')}</strong></span>
                 </div>
               )}
 
-              {/* Success list */}
               {Object.keys(results.docs).length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-green-400 uppercase tracking-widest mb-2">Сгенерировано</h4>
@@ -252,7 +205,6 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
                 </div>
               )}
 
-              {/* Errors */}
               {results.errors.length > 0 && (
                 <div>
                   <h4 className="text-xs font-bold text-red-400 uppercase tracking-widest mb-2">Ошибки ({results.errors.length})</h4>
@@ -279,10 +231,9 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
           )}
         </div>
 
-        {/* Footer */}
         <div className="flex items-center justify-between gap-3 px-6 py-4 border-t border-[rgba(123,63,191,0.2)]">
           {results && !running && results.errors.length > 0 && (
-            <span className="text-xs text-red-400/70">Часть документов не сгенерирована — нажмите «Повторить»</span>
+            <span className="text-xs text-red-400/70">Часть документов не сгенерировано — нажмите «Повторить»</span>
           )}
           <div className="flex items-center gap-2 ml-auto">
             {results && !running && Object.keys(results.docs).length > 1 && (

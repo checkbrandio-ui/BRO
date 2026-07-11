@@ -14,6 +14,7 @@ import {
   downloadAllDocuments,
   printAllDocuments,
 } from '@/lib/documentDownload';
+import DocumentChecklist from '@/components/candidate/DocumentChecklist';
 
 /**
  * Секция «Ваш пакет документов готов» для страницы анкеты кандидата.
@@ -138,6 +139,9 @@ export default function CandidateDocumentsSection({
           </p>
         </div>
       </div>
+
+      {/* Чек-лист подписания */}
+      <DocumentChecklist />
 
       {/* Список отдельных документов */}
       <div className="space-y-2">
