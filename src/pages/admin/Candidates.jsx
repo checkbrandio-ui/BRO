@@ -16,6 +16,7 @@ import FormLinkModal from '@/components/admin/FormLinkModal';
 import CandidateMapDrawer from '@/components/admin/CandidateMapDrawer';
 import BulkActionsBar from '@/components/admin/BulkActionsBar';
 import BulkDocumentGenerator from '@/components/admin/BulkDocumentGenerator';
+import CandidateMobileCard from '@/components/admin/CandidateMobileCard';
 import { useToast } from '@/components/ui/use-toast';
 import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS, isCIS } from '@/lib/candidateConstants';
 import StatusDropdown from '@/components/ui/StatusDropdown';
@@ -67,6 +68,15 @@ export default function Candidates() {
   const [sortDir, setSortDir] = useState(null);
   const [mapCandidate, setMapCandidate] = useState(null);
   const [bulkDocsOpen, setBulkDocsOpen] = useState(false);
+  const [isMobile, setIsMobile] = useState(typeof window !== 'undefined' && window.innerWidth < 768);
+  const [showFilters, setShowFilters] = useState(false);
+
+  // Реактивный breakpoint для переключения table → card
+  useEffect(() => {
+    const handler = () => setIsMobile(window.innerWidth < 768);
+    window.addEventListener('resize', handler);
+    return () => window.removeEventListener('resize', handler);
+  }, []);
 
   // Загрузка справочных данных (агентства, города, анкеты) — один раз при монтировании
   const loadReferenceData = useCallback(async () => {
@@ -542,7 +552,8 @@ export default function Candidates() {
             <span className="text-[rgba(123,63,191,0.4)]">/</span>
             <h1 className="text-sm font-bold text-[#F8FAFC]">База кандидатов</h1>
           </div>
-          <div className="flex items-center gap-1.5 sm:gap-2 flex-wrap justify-end">
+          <div className="flex items-center gap-1.5 sm:gap-2 justify-end">
+            {/* Desktop nav links */}
             <Link to="/admin/assistant" className="hidden lg:flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <Sparkles size={13}/> ИИ-помощник
             </Link>
@@ -563,19 +574,21 @@ export default function Candidates() {
               className="p-2 rounded-lg border border-[rgba(123,63,191,0.2)] text-[#F8FAFC]/50 hover:text-[#7B3FBF] hover:border-[#7B3FBF]/40 transition-all">
               <RefreshCw size={14} />
             </button>
+            {/* Mobile: compact icons for archive + export */}
             {archived.length > 0 && (
-              <button onClick={() => setShowArchive(v => !v)}
-                className={`flex items-center gap-2 px-4 py-2 text-xs rounded border transition-all ${showArchive ? 'border-[#C9A84C]/50 text-[#C9A84C] bg-[#C9A84C]/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#C9A84C]'}`}>
-                <Archive size={13} /> Архив ({archived.length})
+              <button onClick={() => setShowArchive(v => !v)} title="Архив"
+                className={`flex items-center gap-1 px-2.5 py-2 text-xs rounded-lg border transition-all ${showArchive ? 'border-[#C9A84C]/50 text-[#C9A84C] bg-[#C9A84C]/10' : 'border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/40 hover:text-[#C9A84C]'}`}>
+                <Archive size={14} /><span className="hidden sm:inline ml-1">Архив</span><span className="hidden sm:inline">({archived.length})</span>
               </button>
             )}
-            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
-              <Download size={14} /> Экспорт CSV
+            <button onClick={exportCSV} title="Экспорт CSV"
+              className="flex items-center gap-1 px-2.5 py-2 text-xs rounded-lg border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+              <Download size={14} /><span className="hidden sm:inline">CSV</span>
             </button>
             {!showArchive && (
               <button onClick={() => { setEditCandidate(null); setModalOpen(true); }}
-                className="flex items-center gap-2 px-4 py-2 text-xs rounded bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] transition-all">
-                <Plus size={14} /> Добавить кандидата
+                className="flex items-center gap-1 px-2.5 sm:px-4 py-2 text-xs rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] transition-all font-semibold">
+                <Plus size={14} /><span className="hidden sm:inline">Добавить</span>
               </button>
             )}
           </div>
@@ -593,7 +606,7 @@ export default function Candidates() {
 
         {/* Stats */}
         {!showArchive && (
-          <div className="grid grid-cols-2 md:grid-cols-5 gap-4 mb-6">
+          <div className="grid grid-cols-2 md:grid-cols-5 gap-2.5 md:gap-4 mb-4 md:mb-6">
             {[
               { label: 'Всего активных', value: active.length },
               { label: 'Согласованы СБ', value: sbCount },
@@ -601,10 +614,10 @@ export default function Candidates() {
               { label: 'К отправке', value: readyCount },
               { label: 'Выплачено (чел.)', value: paidCount, sub: `${(paidCount * 100000).toLocaleString('ru-RU')} ₽` },
             ].map(s => (
-              <div key={s.label} className="glass-card rounded-xl p-4">
-                <div className="text-2xl font-black text-[#7B3FBF]">{s.value}</div>
-                <div className="text-xs text-[#F8FAFC]/45 mt-1">{s.label}</div>
-                {s.sub && <div className="text-xs text-[#C9A84C] font-bold mt-0.5">{s.sub}</div>}
+              <div key={s.label} className="glass-card rounded-xl p-3 md:p-4">
+                <div className="text-xl md:text-2xl font-black text-[#7B3FBF]">{s.value}</div>
+                <div className="text-[10px] md:text-xs text-[#F8FAFC]/45 mt-1 leading-tight">{s.label}</div>
+                {s.sub && <div className="text-[10px] md:text-xs text-[#C9A84C] font-bold mt-0.5">{s.sub}</div>}
               </div>
             ))}
           </div>
@@ -620,7 +633,24 @@ export default function Candidates() {
         )}
 
         {/* Filters */}
-        <div className="flex flex-wrap gap-2 sm:gap-3 mb-4">
+        {/* Mobile toggle */}
+        <button
+          onClick={() => setShowFilters(v => !v)}
+          className="md:hidden w-full flex items-center justify-between px-4 py-2.5 mb-2 rounded-lg glass-card text-sm text-[#F8FAFC]/70"
+        >
+          <span className="flex items-center gap-2 font-semibold">
+            <Search size={14} className="text-[#7B3FBF]" />
+            Фильтры
+            {(Object.values(filters).some(f => typeof f === 'string' ? f : f) || logisticsPoint) && (
+              <span className="px-1.5 py-0.5 rounded-full bg-[#7B3FBF]/30 text-[10px] text-[#F8FAFC]">
+                {Object.values(filters).filter(f => f).length + (logisticsPoint ? 1 : 0)}
+              </span>
+            )}
+          </span>
+          <RefreshCw size={14} className={`text-[#F8FAFC]/30 transition-transform ${showFilters ? 'rotate-180' : ''}`} />
+        </button>
+
+        <div className={`${showFilters ? 'flex' : 'hidden'} md:flex flex-wrap gap-2 sm:gap-3 mb-4`}>
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
             <input type="text" placeholder="Поиск по ФИО, должности, городу, телефону..."
@@ -730,10 +760,40 @@ export default function Candidates() {
           />
         )}
 
-        {/* Table */}
+        {/* Table / Mobile Cards */}
         {loading ? (
           <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" /></div>
+        ) : isMobile ? (
+          /* Mobile card view */
+          <div className="space-y-2.5">
+            {displayed.map(c => (
+              <CandidateMobileCard
+                key={c.id}
+                c={c}
+                isSelected={selectedIds.has(c.id)}
+                onToggle={toggleSelect}
+                onEdit={(cand) => { setEditCandidate(cand); setModalOpen(true); }}
+                onCopyLink={copyFormLink}
+                onRegenerate={regenerateFormToken}
+                onSendEmail={sendFormEmail}
+                onAutoAssembly={handleAutoAssembly}
+                onGenerateForm={generateFormToken}
+                isDuplicate={duplicateIds.has(c.id)}
+                animatingId={animatingId}
+                showArchive={showArchive}
+                onArchive={handleArchive}
+                onUnarchive={handleUnarchive}
+                onDelete={handleDelete}
+              />
+            ))}
+            {displayed.length === 0 && (
+              <div className="text-center py-12 text-[#F8FAFC]/30 text-sm">
+                {showArchive ? 'Архив пуст' : 'Кандидаты не найдены'}
+              </div>
+            )}
+          </div>
         ) : (
+          /* Desktop table */
           <div className="glass-card rounded-xl">
             <div className="overflow-x-auto table-scroll">
               <table className="w-full text-sm">

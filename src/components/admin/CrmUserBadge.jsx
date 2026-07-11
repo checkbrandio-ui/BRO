@@ -102,9 +102,13 @@ export default function CrmUserBadge() {
     window.addEventListener('mouseup', onUp);
   };
 
-  const style = savedPos.current
+  // На мобильных — фиксируем внизу справа, не перекрывает хедер
+  const isMobile = typeof window !== 'undefined' && window.innerWidth < 768;
+  const style = savedPos.current && !isMobile
     ? { left: `${savedPos.current.x}px`, top: `${savedPos.current.y}px` }
-    : { top: '1rem', right: '1rem' };
+    : isMobile
+      ? { bottom: '5.5rem', right: '0.75rem' }
+      : { top: '1rem', right: '1rem' };
 
   return (
     <div
@@ -143,7 +147,7 @@ export default function CrmUserBadge() {
           </div>
         </>
       )}
-      <div className="flex items-center gap-2 px-4 py-2.5 rounded-full bg-[#0D1B3E] border shadow-lg hover:shadow-xl transition-shadow group">
+      <div className="flex items-center gap-1.5 md:gap-2 px-3 md:px-4 py-2 md:py-2.5 rounded-full bg-[#0D1B3E] border shadow-lg hover:shadow-xl transition-shadow group">
         <GripHorizontal size={12} className="text-[#F8FAFC]/20 group-hover:text-[#F8FAFC]/40 transition-colors flex-shrink-0 cursor-grab active:cursor-grabbing" />
         <button
           data-menu-toggle
@@ -153,7 +157,7 @@ export default function CrmUserBadge() {
           {isSuper
             ? <ShieldCheck size={15} className="text-[#C9A84C] flex-shrink-0" />
             : <UserCog size={15} className="text-[#7B3FBF] flex-shrink-0" />}
-          <span className="text-xs font-medium text-[#F8FAFC] max-w-[120px] truncate">{admin.full_name}</span>
+          <span className="text-xs font-medium text-[#F8FAFC] max-w-[80px] md:max-w-[120px] truncate">{admin.full_name}</span>
           <ChevronUp size={13} className={`text-[#F8FAFC]/30 transition-transform ${open ? '' : 'rotate-180'}`} />
         </button>
       </div>
