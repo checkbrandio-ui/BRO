@@ -17,18 +17,22 @@ export default function BulkDocumentGenerator({ candidates, onClose, onComplete 
   const stopRef = useRef(false);
 
   const processOne = async (c) => {
-    const res = await base44.functions.invoke('generateDocument', {
-      candidate_id: c.id,
-      package: packageType,
-      save_and_notify: true,
-      origin: window.location.origin,
-    });
-    if (res.data?.error) throw new Error(res.data.error);
-    if (!res.data?.saved) throw new Error('Документ не сохранён');
-    if (res.data.notify_errors?.length > 0) {
-      console.warn(`Notify errors for ${c.full_name}:`, res.data.notify_errors);
+    try {
+      const res = await base44.functions.invoke('generateDocument', {
+        candidate_id: c.id,
+        package: packageType,
+        save_and_notify: true,
+        origin: window.location.origin,
+      });
+      if (res.data?.error) throw new Error(res.data.error);
+      if (!res.data?.saved) throw new Error('Документ не сохранён');
+      if (res.data.notify_errors?.length > 0) {
+        console.warn(`Notify errors for ${c.full_name}:`, res.data.notify_errors);
+      }
+      return { candidate: c, documents: res.data.documents };
+    } catch (e) {
+      throw new Error(e?.response?.data?.error || e.message || 'Ошибка сети');
     }
-    return { candidate: c, documents: res.data.documents };
   };
 
   const start = async () => {

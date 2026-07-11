@@ -112,9 +112,9 @@ export default function DocumentGenerator() {
         setPreview(res.data.documents[0]?.html || '');
       } else if (res.data?.html) setPreview(res.data.html);
       else setError('Пустой ответ от генератора');
-    } catch (e) {
-      setError(e.message || 'Ошибка генерации документа');
-    }
+      } catch (e) {
+      setError(e?.response?.data?.error || e.message || 'Ошибка генерации документа');
+      }
     setLoading(false);
   };
 
@@ -133,11 +133,16 @@ export default function DocumentGenerator() {
         const payload = { candidate_id: id, save_and_notify: true, origin: window.location.origin };
         if (mode === 'package') payload.package = packageType;
         else payload.document_type = docType;
-        const res = await base44.functions.invoke('generateDocument', payload);
-        if (res.data?.error) throw new Error(res.data.error);
-        if (!res.data?.saved) throw new Error('Не сохранено');
-        if (res.data.notify_errors?.length) console.warn(`Notify errors for ${id}:`, res.data.notify_errors);
-        return id;
+        try {
+          const res = await base44.functions.invoke('generateDocument', payload);
+          if (res.data?.error) throw new Error(res.data.error);
+          if (!res.data?.saved) throw new Error('Не сохранено');
+          if (res.data.notify_errors?.length) console.warn(`Notify errors for ${id}:`, res.data.notify_errors);
+          return id;
+        } catch (e) {
+          const apiMsg = e?.response?.data?.error || e?.message || 'Ошибка генерации';
+          throw new Error(apiMsg);
+        }
       }));
       settled.forEach(r => {
         if (r.status !== 'fulfilled') errors++;
