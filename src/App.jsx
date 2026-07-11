@@ -61,9 +61,7 @@ function App() {
             <Route path="/agency-login" element={<AgencyLogin />} />
             <Route path="/agency/workspace" element={<AgencyWorkspace />} />
             <Route path="/agency/notifications" element={<AgencyNotifications />} />
-            <Route path="/form/:token" element={<Navigate to="/anketa-kandidata/:token" replace />} />
-            <Route path="/anketa/:token" element={<Navigate to="/anketa-kandidata/:token" replace />} />
-            <Route path="/anketa-kandidata/:token" element={<CandidateOnboarding />} />
+            <Route path="/form/:token" element={<CandidateOnboarding />} />
             <Route path="/consent" element={<ConsentPage />} />
             <Route path="/handbook" element={<ManagerHandbook />} />
             <Route path="/crm-login" element={<CrmLogin />} />

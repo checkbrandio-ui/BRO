@@ -1176,7 +1176,7 @@ async function saveAndNotify(base44, candidate, ctx, documents, packageLabel, or
 
   if (candidate.email) {
     try {
-      const formLink = origin ? `${origin}/anketa-kandidata/${candidate.form_token || ''}` : '';
+      const formLink = origin ? `${origin}/form/${candidate.form_token || ''}` : '';
       await base44.asServiceRole.integrations.Core.SendEmail({
         to: candidate.email,
         subject: 'Ваши документы готовы — БРО-СНБ',

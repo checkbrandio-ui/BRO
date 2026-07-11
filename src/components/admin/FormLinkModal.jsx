@@ -12,7 +12,7 @@ export default function FormLinkModal({ candidate, onClose, onRegenerate }) {
   const [regenerating, setRegenerating] = useState(false);
   const [currentToken, setCurrentToken] = useState(candidate?.form_token || '');
 
-  const formUrl = currentToken ? `${window.location.origin}/anketa-kandidata/${currentToken}` : '';
+  const formUrl = currentToken ? `${window.location.origin}/form/${currentToken}` : '';
 
   const handleCopy = () => {
     navigator.clipboard.writeText(formUrl);

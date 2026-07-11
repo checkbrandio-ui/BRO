@@ -97,7 +97,7 @@ export async function notifyLogisticsChange(
         await base44.integrations.Core.SendEmail({
           to: newData.email,
           subject: `Логистика: ${candidateName}`,
-          body: `${message}\n\n${logisticsDetails}\n\nИнициатор: ${actorName}\nДата: ${now}\n\nДля согласования перейдите в анкету: ${window.location.origin}/anketa/${newData.form_token || ''}`,
+          body: `${message}\n\n${logisticsDetails}\n\nИнициатор: ${actorName}\nДата: ${now}\n\nДля согласования перейдите в анкету: ${window.location.origin}/form/${newData.form_token || ''}`,
           from_name: 'БРО-СНБ',
         }).catch(() => {});
       }

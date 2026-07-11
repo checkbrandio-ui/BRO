@@ -430,7 +430,7 @@ export default function CandidateOnboarding() {
     try {
       const agencyName = candidate?.agency_name || 'Агентство';
       const subject = `Анкета заполнена: ${form.full_name}`;
-      const body = `Кандидат ${form.full_name} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть: ${window.location.origin}/anketa/${token}?edit=1`;
+      const body = `Кандидат ${form.full_name} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть: ${window.location.origin}/form/${token}?edit=1`;
       const emailPromises = [];
       if (candidate?.agency_id) {
         const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });
