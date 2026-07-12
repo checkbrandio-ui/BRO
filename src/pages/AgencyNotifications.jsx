@@ -1,12 +1,13 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import { X, CheckCircle, Trash2, RefreshCw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 
 export default function AgencyNotifications() {
   const navigate = useNavigate();
-  
-  // Проверяем session — если нет, возвращаем на login агентства
+  const { toast } = useToast();
+
   const session = (() => {
     try { return JSON.parse(sessionStorage.getItem('agency_session')); } catch { return null; }
   })();
@@ -15,48 +16,55 @@ export default function AgencyNotifications() {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    if (!session?.id) {
-      navigate('/agency-login', { replace: true });
-      return;
-    }
+    if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
     load();
-  }, [session?.id]);
+  }, []);
 
   const load = async () => {
     if (!session?.id) return;
     setLoading(true);
     try {
-      const items = await base44.entities.Notification.filter(
-        { agency_id: session.id },
-        '-created_date',
-        100
-      );
-      setNotifications(items);
-    } catch (_) {}
-    setLoading(false);
+      const items = await apiClient.get(`/api/notifications?agency_id=${session.id}&limit=100`);
+      setNotifications(Array.isArray(items) ? items : []);
+    } catch (e) {
+      toast({ title: 'Ошибка загрузки уведомлений', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleMarkAsRead = async (id) => {
-    await base44.entities.Notification.update(id, { is_read: true });
-    setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    try {
+      await apiClient.patch(`/api/notifications/${id}`, { is_read: true });
+      setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
+    } catch (e) {
+      toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleMarkAllAsRead = async () => {
     const unread = notifications.filter(n => !n.is_read);
-    await Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { is_read: true })));
-    setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    try {
+      await Promise.all(unread.map(n => apiClient.patch(`/api/notifications/${n.id}`, { is_read: true })));
+      setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
+    } catch (e) {
+      toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleDelete = async (id) => {
-    await base44.entities.Notification.delete(id);
-    setNotifications(prev => prev.filter(n => n.id !== id));
+    try {
+      await apiClient.delete(`/api/notifications/${id}`);
+      setNotifications(prev => prev.filter(n => n.id !== id));
+    } catch (e) {
+      toast({ title: 'Ошибка удаления', description: e.message, variant: 'destructive' });
+    }
   };
 
   const unreadCount = notifications.filter(n => !n.is_read).length;
 
   return (
     <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
-      {/* Header */}
       <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-40">
         <div className="max-w-2xl mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <h1 className="text-lg font-bold">Уведомления — {session?.name}</h1>
