@@ -1,33 +1,37 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
 import { KeyRound, ArrowRight, Building2 } from 'lucide-react';
 import { motion } from 'framer-motion';
 
 export default function AgencyLogin() {
-  const [code, setCode]       = useState('');
+  const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError]     = useState('');
   const navigate = useNavigate();
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!code.trim()) { setError('Введите код доступа'); return; }
+    const code = inputRef.current?.value?.trim() || '';
+    if (!code) { setError('Введите код доступа'); return; }
     setLoading(true);
     setError('');
     try {
-      const agencies = await base44.entities.Agency.filter({ access_code: code.trim(), is_active: true });
-      if (!agencies || agencies.length === 0) {
-        setError('Неверный код доступа. Обратитесь к администратору.');
+      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/auth/agency-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_code: code }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data?.agency) {
+        setError(json.error || 'Неверный код доступа. Обратитесь к администратору.');
         setLoading(false);
         return;
       }
-      const agency = agencies[0];
-      // Сохраняем сессию агентства в localStorage
-      sessionStorage.setItem('agency_session', JSON.stringify({ id: agency.id, name: agency.name }));
+      const agency = json.data.agency;
+      sessionStorage.setItem('agency_session', JSON.stringify({ id: agency.id, name: agency.name, access_code: agency.access_code }));
       navigate('/agency/workspace');
-    } catch {
-      setError('Ошибка проверки кода. Попробуйте позже.');
+    } catch (err) {
+      setError('Ошибка соединения с сервером. Попробуйте позже.');
     }
     setLoading(false);
   };
@@ -64,12 +68,15 @@ export default function AgencyLogin() {
                 <div className="relative">
                   <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
                   <input
+                    ref={inputRef}
                     type="text"
-                    value={code}
-                    onChange={e => { setCode(e.target.value); setError(''); }}
+                    name="agency_code"
+                    defaultValue=""
+                    autoComplete="off"
                     placeholder="Введите код доступа"
                     className="w-full pl-10 pr-4 py-3.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.25)] rounded-xl text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/20 focus:outline-none focus:border-[#7B3FBF] focus:ring-1 focus:ring-[#7B3FBF]/30 transition-all tracking-widest text-center font-mono"
                     autoFocus
+                    onChange={() => { if (error) setError(''); }}
                   />
                 </div>
               </div>

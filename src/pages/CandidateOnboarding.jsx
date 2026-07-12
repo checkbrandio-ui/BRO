@@ -206,7 +206,7 @@ export default function CandidateOnboarding() {
   // Загрузка куратора точки сбора при подтверждённой логистике
   useEffect(() => {
     if (candidate?.logistics_status === 'confirmed' && candidate?.assembly_point) {
-      base44.entities.City.filter({ name: candidate.assembly_point, is_assembly_point: true })
+      fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/cities?name=${encodeURIComponent(candidate.assembly_point)}`).then(r=>r.json()).then(j=>Array.isArray(j.data)?j.data:[])
         .then(cities => {
           const c = cities[0];
           setCurator(c && (c.curator_name || c.curator_phone) ? { name: c.curator_name, phone: c.curator_phone } : null);
@@ -236,80 +236,51 @@ export default function CandidateOnboarding() {
   // Realtime-подписка на изменения кандидата — мгновенное обновление логистики.
   // ВАЖНО: не перезаписываем поля формы, если кандидат активно редактирует анкету,
   // чтобы не сбивать ввод. Обновляем только при подтверждённой/предложенной логистике.
+  // realtime подписка отключена в REST-режиме
   useEffect(() => {
-   if (!candidate?.id) return;
-   const unsubscribe = base44.entities.Candidate.subscribe((event) => {
-     if (event.data?.id !== candidate.id) return;
-     const updated = event.data;
-     setCandidate(updated);
-     // Обновляем форму только если статус логистики — confirmed или pending_candidate
-     // (т.е. данные пришли от администратора, а не от самого кандидата)
-     const shouldSync = updated.logistics_status === 'confirmed' || updated.logistics_status === 'pending_candidate';
-     if (shouldSync) {
-       setForm(f => ({
-         ...f,
-         logistics_status: updated.logistics_status ?? f.logistics_status,
-         assembly_point: updated.assembly_point ?? f.assembly_point,
-         arrival_date: updated.arrival_date ?? f.arrival_date,
-         arrival_time: updated.arrival_time ?? f.arrival_time,
-         proposed_assembly_point: updated.proposed_assembly_point ?? f.proposed_assembly_point,
-         proposed_arrival_date: updated.proposed_arrival_date ?? f.proposed_arrival_date,
-         proposed_arrival_time: updated.proposed_arrival_time ?? f.proposed_arrival_time,
-         ticket_photo_url: updated.ticket_photo_url ?? f.ticket_photo_url,
-       }));
-     }
-   });
-   return unsubscribe;
+    // no-op: real-time обновления кандидата недоступны без WebSocket
   }, [candidate?.id]);
 
   useEffect(() => {
     const loadForm = async () => {
-      let records = await base44.entities.CandidateForm.filter({ form_token: token });
-      if (!records.length) {
-        // Auto-recover: CandidateForm record missing but Candidate has the token
-        const cands = await base44.entities.Candidate.filter({ form_token: token });
-        if (cands.length) {
-          const cand = cands[0];
-          const recovered = await base44.entities.CandidateForm.create({
-            candidate_id: cand.id, form_token: token, status: 'pending',
-          });
-          records = [recovered];
+      try {
+        // REST: загружаем кандидата и форму по токену
+        const apiBase = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+        const formResp = await fetch(`${apiBase}/api/form/${token}`);
+        const formJson = await formResp.json();
+        if (!formResp.ok || !formJson.data) { setNotFound(true); setLoading(false); return; }
+        const { candidate: fetchedCand, form: fetchedForm } = formJson.data;
+        const rec = fetchedForm;
+        setFormRecord(rec);
+        const cand = fetchedCand || null;
+        // Блокируем доступ к анкете, если кандидат удалён
+        if (cand?.deleted_at) { setNotFound(true); setLoading(false); return; }
+        setCandidate(cand);
+        setLogisticsSnapshot({
+          assembly_point: cand?.assembly_point || '',
+          arrival_date: cand?.arrival_date || '',
+          arrival_time: cand?.arrival_time || '',
+          ticket_photo_url: cand?.ticket_photo_url || '',
+        });
+        if (rec.status === 'completed') {
+          const filled = prefillFromRecord(rec, cand);
+          setForm({ ...EMPTY_FORM, ...filled });
+          if (rec.uploaded_docs?.length) setUploadedDocs(rec.uploaded_docs);
+          if (filled.actual_address === filled.registration_address && filled.registration_address) setActualSameAsReg(true);
+          if (filled.birth_place === filled.city && filled.city) setBirthPlaceSameAsCity(true);
+          setIsEditing(editMode);
+          setSubmitted(!editMode);
         } else {
-          setNotFound(true); setLoading(false); return;
+          const filled = prefillFromCandidate(cand);
+          setForm({ ...EMPTY_FORM, ...filled });
+          setIsEditing(true);
         }
+      } catch (err) {
+        console.error('[loadForm] crash:', err);
+        setNotFound(true);
+      } finally {
+        setLoading(false);
       }
-      const rec = records[0];
-      setFormRecord(rec);
-      const cands = rec.candidate_id
-        ? await base44.entities.Candidate.filter({ id: rec.candidate_id })
-        : await base44.entities.Candidate.filter({ form_token: token });
-      const cand = cands[0] || null;
-      // Блокируем доступ к анкете, если кандидат удалён (мягкое удаление в корзину)
-      if (cand?.deleted_at) {
-        setNotFound(true); setLoading(false); return;
-      }
-      setCandidate(cand);
-      // Инициализируем снимок логистики из данных кандидата
-      setLogisticsSnapshot({
-        assembly_point: cand?.assembly_point || '',
-        arrival_date: cand?.arrival_date || '',
-        arrival_time: cand?.arrival_time || '',
-        ticket_photo_url: cand?.ticket_photo_url || '',
-      });
-      if (rec.status === 'completed') {
-        const filled = prefillFromRecord(rec, cand);
-        setForm({ ...EMPTY_FORM, ...filled });
-        if (rec.uploaded_docs?.length) setUploadedDocs(rec.uploaded_docs);
-        if (filled.actual_address === filled.registration_address && filled.registration_address) setActualSameAsReg(true);
-        if (filled.birth_place === filled.city && filled.city) setBirthPlaceSameAsCity(true);
-        setIsEditing(editMode);
-        setSubmitted(!editMode);
-      } else {
-        const filled = prefillFromCandidate(cand);
-        setForm({ ...EMPTY_FORM, ...filled });
-        setIsEditing(true);
-      }
-      setLoading(false);
     };
     loadForm();
   }, [token, editMode]);
@@ -369,7 +340,10 @@ export default function CandidateOnboarding() {
     const now = new Date().toISOString();
     const missingDocs = getMissingRequiredDocs(uploadedDocs, form.citizenship);
     const saveData = { ...form, uploaded_docs: uploadedDocs, consent_timestamp: now, submitted_at: now, status: 'completed' };
-    await base44.entities.CandidateForm.update(formRecord.id, saveData);
+    await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/form/${token}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...saveData, status: 'pending' })
+      });
     if (formRecord.candidate_id) {
       // Логистика: если кандидат указал свои данные и статус 'none' — переводим в pending_admin
       // Если логистика уже подтверждена, но кандидат изменил данные — сбрасываем в pending_admin
@@ -418,7 +392,10 @@ export default function CandidateOnboarding() {
         candidateUpdate.birth_place = form.birth_place;
         candidateUpdate.citizenship = form.citizenship;
       }
-      await base44.entities.Candidate.update(formRecord.candidate_id, candidateUpdate);
+      await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/form/${token}`, {
+        method: 'PATCH', headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...candidateUpdate, status: 'completed' })
+      });
       setCandidate(prev => ({ ...prev, ...candidateUpdate }));
       // Уведомляем админа при изменении логистики
       await notifyLogisticsChange(
@@ -433,31 +410,34 @@ export default function CandidateOnboarding() {
       const body = `Кандидат ${form.full_name} заполнил анкету.\n\nАгентство: ${agencyName}\nДолжность: ${form.position || '—'}\nТелефон: ${form.phone}\nEmail: ${form.email || '—'}\n\nПросмотреть: ${window.location.origin}/form/${token}?edit=1`;
       const emailPromises = [];
       if (candidate?.agency_id) {
-        const agencies = await base44.entities.Agency.filter({ id: candidate.agency_id });
-        if (agencies[0]?.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].email, subject, body, from_name: 'БРО-СНБ' }));
-        if (agencies[0]?.manager_email) emailPromises.push(base44.integrations.Core.SendEmail({ to: agencies[0].manager_email, subject, body, from_name: 'БРО-СНБ' }));
+        const agRes = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/agencies/${candidate.agency_id}`);
+        const agJson = agRes.ok ? await agRes.json() : { data: null };
+        const agencies = agJson.data ? [agJson.data] : [];
+        // email: SMTP не настроен
+        // email: SMTP не настроен
       }
-      const admins = await base44.entities.User.filter({ role: 'admin' });
-      admins.forEach(admin => { if (admin.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: admin.email, subject, body, from_name: 'БРО-СНБ' })); });
+      const admins = []; // SMTP не настроен
+      // email: SMTP не настроен
       try {
-        const moderators = await base44.entities.User.filter({ role: 'moderator' });
-        moderators.forEach(mod => { if (mod.email) emailPromises.push(base44.integrations.Core.SendEmail({ to: mod.email, subject, body, from_name: 'БРО-СНБ' })); });
+        const moderators = []; // SMTP не настроен
+        // email: SMTP не настроен
       } catch (_) {}
       if (form.email) {
-        emailPromises.push(base44.integrations.Core.SendEmail({ to: form.email, subject: 'Анкета получена', body: `Здравствуйте, ${form.full_name}!\n\nВаша анкета получена и передана в кадровый отдел.\n\nДата: ${new Date().toLocaleString('ru-RU')}`, from_name: 'БРО-СНБ' }));
+        // email to candidate: SMTP не настроен
       }
       await Promise.allSettled(emailPromises);
       // Создаём in-app уведомление
       try {
-        await base44.entities.Notification.create({
-          agency_id: candidate?.agency_id || '',
+        await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/notifications`, {
+          method: 'POST', headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({agency_id: candidate?.agency_id || '',
           agency_name: candidate?.agency_name || '',
           candidate_id: formRecord.candidate_id || '',
           candidate_name: form.full_name,
           message: 'Анкета кандидата заполнена и отправлена',
           link: '/admin/candidates',
           is_read: false,
-          category: 'form',
+          category: 'form',})
         });
       } catch (_) {}
     } catch (_) {}
@@ -502,7 +482,7 @@ export default function CandidateOnboarding() {
         ticket_photo_url: form.ticket_photo_url,
         logistics_status: newStatus,
       };
-      await base44.entities.Candidate.update(formRecord.candidate_id, update);
+      await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/candidates/${formRecord.candidate_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(update) });
       setCandidate(prev => ({ ...prev, ...update }));
       set('logistics_status', newStatus);
       setLogisticsSnapshot(logisticsFields());
@@ -531,13 +511,13 @@ export default function CandidateOnboarding() {
         const confirmedAssembly = candidate.proposed_assembly_point || candidate.assembly_point;
         const confirmedDate = candidate.proposed_arrival_date || candidate.arrival_date;
         const confirmedTime = candidate.proposed_arrival_time || candidate.arrival_time;
-        await base44.entities.Candidate.update(formRecord.candidate_id, {
+        await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/candidates/${formRecord.candidate_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           assembly_point: confirmedAssembly,
           arrival_date: confirmedDate,
           arrival_time: confirmedTime,
           logistics_status: 'confirmed',
           logistics_confirmed_at: now,
-        });
+        }) });
         // Синхронизируем форму
         set('logistics_status', 'confirmed');
         set('assembly_point', confirmedAssembly);
@@ -569,10 +549,10 @@ export default function CandidateOnboarding() {
         });
       } else if (action === 'reject') {
         // Кандидат отклоняет и предлагает свои данные
-        await base44.entities.Candidate.update(formRecord.candidate_id, {
+        await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/candidates/${formRecord.candidate_id}`, { method: 'PATCH', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
           logistics_status: 'pending_admin',
           proposed_by: 'candidate',
-        });
+        }) });
         // Синхронизируем форму
         set('logistics_status', 'pending_admin');
         await notifyLogisticsChange(

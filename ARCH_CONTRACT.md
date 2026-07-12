@@ -1,176 +1,120 @@
-# 🛡️ АРХИТЕКТУРНЫЙ КОНТРАКТ — Bratouverie CRM
-**Версия: 1.0 | Дата: 2026-07-04**
+> **ПЕРВЫМ делом читай PROJECT_MEMORY.md — там вся история проекта.**
 
-> Этот документ — **закон для всей команды разработки**. Изменения в замороженных файлах без согласования запрещены.
+# ARCH_CONTRACT — BRO-CRM
 
----
-
-## 🎯 Принцип двойной авторизации
-
-Система использует **ДВЕ независимые системы авторизации**:
-
-| Система | Кто | Как | Хранение | Файлы |
-|---------|-----|-----|----------|-------|
-| **Админ (CRM)** | Менеджеры Bratouverie | login page | `localStorage.base44_access_token` | AuthContext, ProtectedRoute, AdminRoute |
-| **Агентство** | Кадровые агентства-партнёры | код доступа (agency_code) | `sessionStorage.agency_session` | AgencyLogin, AgencyWorkspace, AgencyNotifications |
-
-**Золотое правило**: эти системы **НИКОГДА не пересекаются**. Агентства не используют `base44.auth.*`, админы не используют `agency_session`.
+> Последнее обновление: 2026-07-13  
+> Читать ПЕРЕД любым изменением кода.
 
 ---
 
-## 🚫 ЗАМОРОЖЕННЫЕ ФАЙЛЫ (НЕ ТРОГАТЬ)
+## Стек
 
-### Авторизация и доступ
-
-| Файл | Почему заморожен | Последствия изменения |
-|------|-----------------|----------------------|
-| `src/lib/AuthContext.jsx` | Ядро авторизации админов. Проверяет `me()` для CRM. | 401 на публичных страницах, слом всей авторизации |
-| `src/lib/hasBase44Token.js` | Единственный щит перед `me()`. Используется ВЕЗДЕ. | Потеря щита, каскад 401 ошибок |
-| `src/components/ProtectedRoute.jsx` | Шлюз защищённых маршрутов для админов. | Все админские страницы станут публичными |
-| `src/components/AdminRoute.jsx` | Защита admin-only маршрутов. | Неавторизованные получат доступ к управлению |
-| `src/pages/AgencyLogin.jsx` | Точка входа для агентств. Записывает `agency_session`. | Все агентства потеряют доступ |
-| `src/api/base44Client.js` | Центральный SDK-клиент. Все сущности идут через него. | Слом всех запросов к API |
-
-### Сущности данных (CRM)
-
-| Сущность | Назначение | Критическая связка |
-|----------|-----------|-------------------|
-| `Candidate` | Карточка кандидата | `form_token` привязывает к `CandidateForm` |
-| `CandidateForm` | Анкета кандидата | `candidate_id` + `form_token` — связь с карточкой |
-| `Agency` | Кадровое агентство | `access_code` — вход для агентства |
-| `City` | Справочник городов с координатами | `lat`, `lon`, `is_assembly_point` — для логистики |
-| `Notification` | Уведомления | Привязаны к `candidate_id` + `agency_id` |
-
-### Backend-функции (ядро)
-
-| Function | Назначение | Защитная связка |
-|----------|-----------|----------------|
-| `createCandidateSafe` | Создание кандидата с проверкой дублей | ЕДИНСТВЕННЫЙ способ создания карточки |
-| `ensureCandidateForm` | Гарантия связки Candidate → CandidateForm | Запускается автоматизацией при создании |
-| `notifyCandidateChanges` | Уведомления при создании/изменении | Триггер для всей коммуникации |
-| `findNearestCity` | Автоопределение точки сбора | Работает БЕЗ авторизации (service role) |
-| `sendFormLink` | Отправка email со ссылкой на анкету | Зависит от `form_token` |
+| Слой       | Технология                        |
+|------------|-----------------------------------|
+| Frontend   | React + Vite, Vercel              |
+| Backend    | Node.js / Express, PM2 на VPS     |
+| Database   | PostgreSQL 16 (appdb / appuser)   |
+| API домен  | https://api.bro-crm.ru            |
+| Frontend   | https://bro-s52g.vercel.app       |
+| VPS        | 193.200.74.125 (root)             |
+| Backend dir| /var/www/backend                  |
 
 ---
 
-## 📜 ЗАМОРОЖЕННЫЕ СВЯЗКИ (НЕ НАРУШАТЬ)
+## Аутентификация (три уровня)
 
-### 🔗 Кандидат → Анкета → Токен
+| Роль              | Метод         | Хранение              |
+|-------------------|---------------|-----------------------|
+| CRM-администратор | JWT Bearer    | localStorage `base44_access_token` + `crm_admin_session` |
+| Агентство         | access_code   | localStorage `agency_session` |
+| Публичная форма   | form_token    | URL параметр          |
 
-```
-Candidate (form_token) ──→ CandidateForm (form_token + candidate_id)
-         │
-         └── При создании Candidate с form_token
-             → АВТОМАТИЗАЦИЯ ensureCandidateForm
-             → Создаёт CandidateForm (status: 'pending')
-             → Две сущности всегда синхронизированы
-```
-
-**Правило**: `form_token` генерируется в `createCandidateSafe` (или `generateFormToken` в Candidates.jsx). Никогда не создавать `CandidateForm` напрямую — только через `ensureCandidateForm`.
-
-### 🔗 Агентство → Кандидат
-
-```
-Agency (id, access_code) ──→ Candidate (agency_id)
-         │
-         └── При создании из AgencyWorkspace
-             → agency_id берётся из sessionStorage.agency_session
-             → НЕ из base44 user
-```
-
-**Правило**: `agency_id` в Candidate берется из `getAgencyId()` (sessionStorage). Никогда не из `user.id`.
+**Middleware:** проверяет `Authorization: Bearer <jwt>`, валидирует по таблицам `crm_admins` и `users`.
 
 ---
 
-## ✅ РАЗРЕШЁННЫЕ операции
+## API эндпоинты (все через /api/)
 
-Эти файлы **МОЖНО и НУЖНО** улучшать:
-
-| Файл | Что улучшать |
-|------|-------------|
-| `src/pages/admin/Candidates.jsx` | Таблица, фильтры, статистика, UI |
-| `src/components/admin/CandidateModal.jsx` | Форма карточки, загрузка документов, tabs |
-| `src/pages/CandidateOnboarding.jsx` | UX анкеты, валидация, загрузка файлов |
-| `src/pages/admin/Assistant.jsx` | ИИ-функции, подсказки |
-| `src/lib/candidateLogger.js` | Формат логов, новые события |
-| `src/lib/docUtils.js` | Типы документов, валидация |
-| `base44/functions/sendFormLink/entry.ts` | Email-шаблоны, обработка ошибок |
-| `base44/functions/notifyCandidateChanges/entry.ts` | Новые поля, новые получатели |
-
----
-
-## 🚨 АНТИПАТТЕРН — ЗАПРЕЩЁННЫЙ КОД
-
-### ❌ НЕВЕРНО (вызывает 401):
-```jsx
-// В любом компоненте на публичной странице:
-useEffect(() => {
-  const user = await base44.auth.me(); // ← 401 на пуblic route!
-}, []);
 ```
+POST   /api/auth/crm-login          → { data: { admin, token } }
+POST   /api/auth/agency-login       → { data: { agency, token } }
 
-### ✅ ВЕРНО:
-```jsx
-import { hasAdminToken } from '@/lib/hasBase44Token';
+GET    /api/candidates              ← Bearer
+POST   /api/candidates              ← Bearer
+PATCH  /api/candidates/:id          ← Bearer
 
-// На публичной странице — без запроса:
-const isAdmin = hasAdminToken(); // ← проверяет localStorage, НЕ 401
+GET    /api/agencies                ← Bearer
+POST   /api/agencies                ← Bearer
+PATCH  /api/agencies/:id            ← Bearer
 
-// На защищённой странице:
-useEffect(() => {
-  if (hasAdminToken()) {
-    base44.auth.me().then(u => setUser(u)); // ← безопасно, уже знаем что токен есть
-  }
-}, []);
-```
+GET    /api/cities
+GET    /api/cities/search?q=
 
-### ❌ НЕВЕРНО:
-```jsx
-// В AgencyWorkspace или любом агентском компоненте:
-const { user } = useAuth(); // ← это base44 auth, не agency_session
-```
+GET    /api/users                   ← Bearer
+GET    /api/crm-admins              ← Bearer
+POST   /api/crm-admins              ← Bearer (super_admin only)
 
-### ✅ ВЕРНО для агентств:
-```jsx
-import { hasAgencySession, getAgencyId } from '@/lib/hasBase44Token';
+GET    /api/notifications           ← Bearer
+GET    /api/assembly-points         ← Bearer
 
-if (!hasAgencySession()) navigate('/agency-login');
-const agencyId = getAgencyId(); // ← sessionStorage, не base44 user
+POST   /api/upload                  ← Bearer, multipart/form-data
+                                    → { data: { file_url } }
+
+GET    /api/candidate-forms         ← Bearer
+POST   /api/candidate-forms         ← Bearer
+GET    /api/candidate-logs          ← Bearer
+
+POST   /api/fn/:name               ← функции (create-candidate-safe, search-cities, ...)
 ```
 
 ---
 
-## 🏗️ НОВЫЕ КОМПОНЕНТЫ — ПРАВИЛА
+## Правила разработки
 
-При создании нового файла соблюдать:
+### Frontend
+1. **Полная перезапись файла** — никогда не патчить через `sed` частично.  
+   Всегда читать файл целиком (`cat`), редактировать, записывать целиком.
+2. **Токен** — хранится в `localStorage` под ключом `base44_access_token`.
+3. **API_URL** — всегда через `import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'`.
+4. **Ошибки** — каждый `onSave` / `handleSubmit` обёрнут в `try/catch`,  
+   ошибка показывается в UI (не `alert`, не `console.log`).
+5. **Состояния** — все `useState` объявлены в теле компонента, не в JSX.
+6. **Сборка** — `npx vite build` перед каждым `git push`. Pre-push хук блокирует сломанный код.
 
-1. **Backend function** → только в `base44/functions/<name>/entry.ts`
-2. **UI компонент** → в `src/components/` или `src/pages/`
-3. **Хелпер/утилита** → в `src/lib/`
-4. **Никогда** не создавать бизнес-логику в UI компонентах — только читать/писать сущности
+### Backend
+1. Все роуты в `/var/www/backend/src/routes/`.
+2. Каждый роут: `try/catch` → `res.status(500).json({ data: null, error: e.message })`.
+3. PATCH — динамический UPDATE по переданным полям (не перезаписывать всё).
+4. При ошибке валидации — `400`, при дубле — `409`, при не найдено — `404`.
+5. После изменений на VPS: `pm2 restart crm-backend`.
 
----
-
-## 📋 Чеклист перед коммитом
-
-Перед пушем любого изменения **проверь**:
-
-- [ ] Изменяемый файл не в списке замороженных
-- [ ] Нет новых вызовов `base44.auth.me()` на публичных страницах
-- [ ] `agency_id` берётся из `getAgencyId()`, не из `user.id`
-- [ ] Связка `Candidate → CandidateForm` не нарушена
-- [ ] `form_token` всегда генерируется одним способом
-
----
-
-## 🔧 Текущая конфигурация
-
-- **App ID**: `69f4a665db2c72a42818d397`
-- **App URL**: (пусто = default Base44 routing)
-- **GitHub**: `bratouverie.github.io2` → `bratouverie-snb.ru`
-- **token key**: `base44_access_token` (localStorage)
-- **agency session key**: `agency_session` (sessionStorage)
+### Деплой
+1. `git push` → Vercel автоматически деплоит frontend.
+2. Backend изменения — напрямую по SSH на VPS, перезапуск PM2.
+3. После деплоя — запустить `bash smoke_test.sh` (12 проверок за 15 сек).
 
 ---
 
-_Изменения в этот документ вносятся только через отдельный PR с пометкой [ARCH-CONTRACT]. Автор: Господин / AI assistant._
+## Сущности БД (таблицы)
+
+| Таблица          | Ключевые поля                                      |
+|------------------|----------------------------------------------------|
+| crm_admins       | id, email, full_name, role, access_code, is_active |
+| agencies         | id, name, city, access_code(unique), is_active     |
+| candidates       | id, full_name, birth_date, phone, agency_id        |
+| cities           | id, name, lat, lon                                  |
+| users            | id, email, full_name, role                         |
+| notifications    | id, type, message, is_read, created_at             |
+| assembly_points  | id, name, city, lat, lon                           |
+| candidate_forms  | id, candidate_id, form_token, status               |
+| candidate_logs   | id, candidate_id, action, actor_name, created_at  |
+
+---
+
+## Что НЕЛЬЗЯ делать
+
+- ❌ Использовать `@base44/sdk` — удалён, заменён на `src/api/base44Client.js`
+- ❌ Хранить секреты в коде — только в `.env` на VPS
+- ❌ Делать `git push` без прохождения pre-push хука
+- ❌ Говорить «готово» без проверки — сначала `smoke_test.sh`
+- ❌ Патчить JSX через `sed` — только полная перезапись файла

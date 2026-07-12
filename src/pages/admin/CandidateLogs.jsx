@@ -1,8 +1,16 @@
 import { useState, useEffect } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Search, X, ChevronDown, ChevronRight, Undo2, Loader2 } from 'lucide-react';
 import { getCurrentActor } from '@/lib/crmSession';
+
+// Централизованный fetch helper (использует тот же токен что apiClient)
+const _token = () => localStorage.getItem('base44_access_token') || '';
+const _h = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${_token()}` });
+const _api = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+
+
 
 const ACTION_LABELS = { create: 'Создание', update: 'Изменение', delete: 'Удаление' };
 const ACTION_COLORS = { create: 'text-green-400 bg-green-400/10 border-green-400/20', update: 'text-blue-400 bg-blue-400/10 border-blue-400/20', delete: 'text-red-400 bg-red-400/10 border-red-400/20' };
@@ -67,7 +75,8 @@ export default function CandidateLogs() {
 
   const load = async () => {
     setLoading(true);
-    const data = await base44.entities.CandidateLog.list('-timestamp', 500);
+    const lr = await apiClient.get('/api/candidate-logs?sort=-timestamp&limit=500');
+    const data = lr.data || [];
     setLogs(data);
     setLoading(false);
   };
@@ -89,15 +98,15 @@ export default function CandidateLogs() {
           if (k !== '_undo') undoData[k] = diff[k].from;
         });
         if (Object.keys(undoData).length > 0) {
-          await base44.entities.Candidate.update(log.candidate_id, undoData);
+          await fetch(`${_api}/api/candidates/${log.candidate_id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(undoData) });
         }
       } else if (log.action === 'delete') {
-        await base44.entities.Candidate.update(log.candidate_id, { deleted_at: null });
+        await apiClient.patch('/api/candidates/${log.candidate_id}', { deleted_at: null });
       } else if (log.action === 'create') {
-        await base44.entities.Candidate.update(log.candidate_id, { deleted_at: new Date().toISOString() });
+        await apiClient.patch('/api/candidates/${log.candidate_id}', { deleted_at: new Date().toISOString() });
       }
       const actor = getCurrentActor();
-      await base44.entities.CandidateLog.create({
+      await fetch(`${_api}/api/candidate-logs`, { method: 'POST', headers: _h(), body: JSON.stringify({
         candidate_id: log.candidate_id,
         candidate_name: log.candidate_name,
         action: 'update',
@@ -106,7 +115,7 @@ export default function CandidateLogs() {
         agency_name: '',
         changes: JSON.stringify({ _undo: { from: ACTION_LABELS[log.action] || log.action, to: '↩ Отмена действия' } }),
         timestamp: new Date().toISOString(),
-      });
+      }) });
       load();
     } catch (e) {
       alert('Не удалось отменить: ' + (e.message || 'запись не найдена'));

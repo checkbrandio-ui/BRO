@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Plus, Download, Search, Trash2, Edit2, X, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, Navigation, CalendarDays, RefreshCw, Archive, ArchiveRestore, AlertTriangle, ClipboardList, ClipboardCopy, Link2, Sparkles, Loader2, Mail, Phone, FileText, FileCheck, Menu } from 'lucide-react';
@@ -22,6 +23,7 @@ import { SB_BADGE, MED_BADGE, LOGISTICS_STATUS, SB_OPTIONS, MED_OPTIONS, isCIS }
 import StatusDropdown from '@/components/ui/StatusDropdown';
 import ArrivalsCalendar from '@/components/admin/ArrivalsCalendar';
 import { getCurrentActor } from '@/lib/crmSession';
+
 
 const POSITIONS = ['Разнорабочий','Строитель','Водитель B','Водитель C','Водитель CE','Водитель D','Автослесарь','Медицинский работник','Охранник'];
 const SB_COLORS  = { 'Не проверялся':'text-[#F8FAFC]/40', 'На проверке':'text-yellow-400', 'Согласован':'text-green-400', 'Не согласован':'text-red-400' };
@@ -81,63 +83,78 @@ export default function Candidates() {
 
   // Загрузка справочных данных (агентства, города, анкеты) — один раз при монтировании
   const loadReferenceData = useCallback(async () => {
-    const [ag, cities, forms] = await Promise.all([
-      base44.entities.Agency.list('-created_date', 200),
-      base44.entities.City.list('-created_date', 500),
-      base44.entities.CandidateForm.filter({ status: 'completed' }, '-created_date', 500),
-    ]);
-    const fDocsMap = {};
-    forms.forEach(f => {
-      if (f.candidate_id && f.uploaded_docs?.length) {
-        fDocsMap[f.candidate_id] = f.uploaded_docs;
-      }
-    });
-    const cityMap = {};
-    cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
-    const activeAg = ag.filter(a => !a.deleted_at);
-    agenciesRef.current = activeAg;
-    formDocsRef.current = fDocsMap;
-    setAgencies(activeAg);
-    setCityCache(cityMap);
-    setRefLoaded(true);
+    try {
+      const [agRes, citRes, fmRes] = await Promise.all([
+        fetch(`${_api}/api/agencies?limit=200`, { headers: _h() }).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`${_api}/api/cities?limit=500`, { headers: _h() }).then(r => r.json()).catch(() => ({ data: [] })),
+        fetch(`${_api}/api/candidate-forms?status=completed&limit=500`, { headers: _h() }).then(r => r.json()).catch(() => ({ data: [] })),
+      ]);
+      const ag = agRes.data || [];
+      const cities = citRes.data || [];
+      const forms = fmRes.data || [];
+      const fDocsMap = {};
+      forms.forEach(f => {
+        if (f.candidate_id && f.uploaded_docs?.length) {
+          fDocsMap[f.candidate_id] = f.uploaded_docs;
+        }
+      });
+      const cityMap = {};
+      cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
+      const activeAg = ag.filter(a => !a.deleted_at);
+      agenciesRef.current = activeAg;
+      formDocsRef.current = fDocsMap;
+      setAgencies(activeAg);
+      setCityCache(cityMap);
+    } catch (e) {
+      console.error('[loadReferenceData] crash:', e);
+    } finally {
+      setRefLoaded(true);
+    }
   }, []);
 
   // Загрузка кандидатов с серверной фильтрацией (deleted_at + базовые фильтры)
   const load = useCallback(async () => {
     if (!refLoaded) return;
     setLoading(true);
-    // Серверный запрос: не загружаем удалённые записи + применяем активные фильтры
-    const query = { deleted_at: null };
-    if (filters.agency) query.agency_id = filters.agency;
-    if (filters.position) query.position = filters.position;
-    if (filters.sb_check && filters.sb_check !== 'Не проверялся') query.sb_check = filters.sb_check;
-    if (filters.medical_check && filters.medical_check !== 'Не проверялся') query.medical_check = filters.medical_check;
-    if (filters.form_status) query.form_status = filters.form_status;
-    if (filters.logistics_status === 'confirmed') query.logistics_status = 'confirmed';
-    const cand = await base44.entities.Candidate.filter(query, '-created_date', 500);
-    const activeAgIds = new Set(agenciesRef.current.map(a => a.id));
-    const filtered = cand
-      .filter(c => !c.agency_id || activeAgIds.has(c.agency_id))
-      .map(c => {
-        const formDocs = formDocsRef.current[c.id];
-        if (formDocs?.length) {
-          const existingUrls = new Set((c.documents || []).map(d => d.url).filter(Boolean));
-          const newDocs = formDocs.filter(fd => !existingUrls.has(fd.url));
-          return { ...c, documents: [...(c.documents || []), ...newDocs] };
-        }
-        return c;
-      });
-    setCandidates(filtered);
-    setDuplicateIds(findDuplicateIds(filtered));
-    setLoading(false);
-    setSelectedIds(new Set());
+    try {
+      const query = { deleted_at: null };
+      if (filters.agency) query.agency_id = filters.agency;
+      if (filters.position) query.position = filters.position;
+      if (filters.sb_check && filters.sb_check !== 'Не проверялся') query.sb_check = filters.sb_check;
+      if (filters.medical_check && filters.medical_check !== 'Не проверялся') query.medical_check = filters.medical_check;
+      if (filters.form_status) query.form_status = filters.form_status;
+      if (filters.logistics_status === 'confirmed') query.logistics_status = 'confirmed';
+      const params = new URLSearchParams({ limit: 500, sort: '-created_date' });
+      Object.entries(query).forEach(([k,v]) => { if (v !== undefined && v !== null) params.set(k, v); });
+      const candRes = await fetch(`${_api}/api/candidates?${params}`, { headers: _h() }).then(r => r.json());
+      const cand = candRes.data || [];
+      const activeAgIds = new Set(agenciesRef.current.map(a => a.id));
+      const filtered = cand
+        .filter(c => !c.agency_id || activeAgIds.has(c.agency_id))
+        .map(c => {
+          const formDocs = formDocsRef.current[c.id];
+          if (formDocs?.length) {
+            const existingUrls = new Set((c.documents || []).map(d => d.url).filter(Boolean));
+            const newDocs = formDocs.filter(fd => !existingUrls.has(fd.url));
+            return { ...c, documents: [...(c.documents || []), ...newDocs] };
+          }
+          return c;
+        });
+      setCandidates(filtered);
+      setDuplicateIds(findDuplicateIds(filtered));
+      setSelectedIds(new Set());
+    } catch (e) {
+      console.error('[load candidates] crash:', e);
+    } finally {
+      setLoading(false);
+    }
   }, [refLoaded, filters.agency, filters.position, filters.sb_check, filters.medical_check, filters.form_status, filters.logistics_status]);
 
   // Монтирование: справочные данные → затем кандидаты загружаются через [load] effect
   useEffect(() => {
     loadReferenceData();
     // Загружаем текущего пользователя для логов
-    base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
+    fetch(`${_api}/api/auth/me`, { headers: _h() }).then(r => r.json()).then(j => { if (j.data) setCurrentUser(j.data); }).catch(() => {});
   }, [loadReferenceData]);
 
   // Повторный запрос кандидатов при изменении серверных фильтров
@@ -145,28 +162,9 @@ export default function Candidates() {
     load();
   }, [load]);
 
-  // Realtime-подписка — обновляем только изменённую запись без перезагрузки таблицы
-  useEffect(() => {
-    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
-      if (!event.data) return;
-      if (event.type === 'update') {
-        setCandidates(prev => prev.map(c => {
-          if (c.id !== event.data.id) return c;
-          // Сохраняем виртуальный мёрдж документов из анкет, но добавляем сгенерированные документы из сервера
-          const formDocs = formDocsRef.current[c.id];
-          const serverDocs = event.data.documents || [];
-          const formDocsUrls = new Set((formDocs || []).map(d => d.url).filter(Boolean));
-          const serverGenerated = serverDocs.filter(d => d.type === 'generated' && !formDocsUrls.has(d.url));
-          const existingNonGenerated = (c.documents || []).filter(d => d.type !== 'generated');
-          const mergedDocs = [...existingNonGenerated, ...serverGenerated];
-          return { ...c, ...event.data, documents: mergedDocs };
-        }));
-      } else if (event.type === 'create') {
-        setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
-      }
-    });
-    return unsubscribe;
-  }, []);
+  // Realtime-подписка отключена (WebSocket недоступен в REST режиме)
+  // Данные обновляются при ручном рефреше или после действий
+
 
   const getActor = () => getCurrentActor();
 
@@ -174,7 +172,7 @@ export default function Candidates() {
     if (id) {
       const old = candidates.find(c => c.id === id);
       const actor = getActor();
-      await base44.entities.Candidate.update(id, data);
+      await fetch(`${_api}/api/candidates/${id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(data) });
       // Логирование и уведомления параллельно — независимы друг от друга
       await Promise.all([
         logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor }),
@@ -218,23 +216,23 @@ export default function Candidates() {
     if (!confirm('Переместить кандидата в корзину? Запись можно будет восстановить.')) return;
     const cand = candidates.find(c => c.id === id);
     const ts = new Date().toISOString();
-    await base44.entities.Candidate.update(id, { deleted_at: ts });
+    await apiClient.patch('/api/candidates/${id}', { deleted_at: ts });
     await logCandidateAction({ action: 'delete', candidate: { ...cand, deleted_at: ts }, actor: getActor() });
     if (cand?.agency_id) {
       const remaining = candidates.filter(c => c.id !== id && c.agency_id === cand.agency_id);
-      await base44.entities.Agency.update(cand.agency_id, { candidates_count: remaining.length });
+      await apiClient.patch('/api/agencies/${cand.agency_id}', { candidates_count: remaining.length });
     }
     setCandidates(prev => prev.filter(c => c.id !== id));
   };
 
   const handleArchive = async (c) => {
-    await base44.entities.Candidate.update(c.id, { is_archived: true });
+    await apiClient.patch('/api/candidates/${c.id}', { is_archived: true });
     await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: true }, oldData: c, actor: getActor() });
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: true } : x));
   };
 
   const handleUnarchive = async (c) => {
-    await base44.entities.Candidate.update(c.id, { is_archived: false });
+    await apiClient.patch('/api/candidates/${c.id}', { is_archived: false });
     await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: false }, oldData: c, actor: getActor() });
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: false } : x));
   };
@@ -344,7 +342,7 @@ export default function Candidates() {
       const newComment = baseComment ? `${baseComment}\n\n${autoComment}` : autoComment;
       const updated = { assembly_point: nearest.name, assembly_distance: String(distanceKm), comment: newComment };
 
-      await base44.entities.Candidate.update(c.id, updated);
+      await fetch(`${_api}/api/candidates/${c.id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(updated) });
       await logCandidateAction({ action: 'update', candidate: { ...c, ...updated }, oldData: c, actor: getActor() });
       setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x));
     } finally {
@@ -354,8 +352,8 @@ export default function Candidates() {
 
   const generateFormToken = async (c) => {
     const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-    await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
-    await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+    await apiClient.patch('/api/candidates/${c.id}', { form_token: token, form_status: 'pending' });
+    await fetch(`${_api}/api/candidate-forms`, { method: 'POST', headers: _h(), body: JSON.stringify({ candidate_id: c.id, form_token: token, status: 'pending' }) });
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: token, form_status: 'pending' } : x));
   };
 
@@ -363,10 +361,10 @@ export default function Candidates() {
     if (!c?.form_token) return;
     if (!confirm(`Перевыпустить ссылку на анкету для «${c.full_name}»?\n\nСтарая ссылка перестанет работать.`)) return;
     const newToken = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-    await base44.entities.Candidate.update(c.id, { form_token: newToken, form_status: 'pending' });
-    const oldForms = await base44.entities.CandidateForm.filter({ form_token: c.form_token });
-    if (oldForms.length > 0) {
-      await base44.entities.CandidateForm.update(oldForms[0].id, { form_token: newToken, status: 'pending' });
+    await apiClient.patch('/api/candidates/${c.id}', { form_token: newToken, form_status: 'pending' });
+    const oldFormsRes = await fetch(`${_api}/api/candidate-forms?form_token=${encodeURIComponent(c.form_token || '')}`, { headers: _h() }).then(r => r.json());
+    if (oldFormsRes.data?.length > 0) {
+      await apiClient.patch('/api/candidate-forms/${oldFormsRes.data[0].id}', { form_token: newToken, status: 'pending' });
     }
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: newToken, form_status: 'pending' } : x));
   };
@@ -381,7 +379,8 @@ export default function Candidates() {
     if (!c.email || !c.form_token) return;
     const url = `${window.location.origin}/form/${c.form_token}`;
     try {
-      await base44.integrations.Core.SendEmail({
+      // Email отправка временно отключена
+      if (false) await fetch('/noop', {
         to: c.email,
         subject: 'Заполнение анкеты кандидата — Bratouveriye SNB',
         body: `Здравствуйте, ${c.full_name}!\n\nПросим вас заполнить онлайн-анкету по ссылке:\n${url}\n\nЗаполнение займёт около 10 минут.\n\nС уважением,\nООО «Братоуверие-СНБ»`,
@@ -424,7 +423,7 @@ export default function Candidates() {
     setBulkBusy(true);
     try {
       const updates = ids.map(id => ({ id, [field]: value }));
-      await base44.entities.Candidate.bulkUpdate(updates);
+      await Promise.all(updates.map(u => fetch(`${_api}/api/candidates/${u.id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(u) })));
       const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
@@ -454,7 +453,7 @@ export default function Candidates() {
     try {
       const ts = new Date().toISOString();
       const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
-      await base44.entities.Candidate.bulkUpdate(updates);
+      await Promise.all(updates.map(u => fetch(`${_api}/api/candidates/${u.id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(u) })));
       const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
@@ -502,8 +501,8 @@ export default function Candidates() {
     try {
       const updates = await Promise.all(selected.map(async c => {
         const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-        await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
-        await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+        await apiClient.patch('/api/candidates/${c.id}', { form_token: token, form_status: 'pending' });
+        await fetch(`${_api}/api/candidate-forms`, { method: 'POST', headers: _h(), body: JSON.stringify({ candidate_id: c.id, form_token: token, status: 'pending' }) });
         return { id: c.id, form_token: token, form_status: 'pending' };
       }));
       setCandidates(prev => prev.map(c => {
@@ -1096,7 +1095,7 @@ export default function Candidates() {
           onClose={() => setBulkDocsOpen(false)}
           onComplete={(savedIds) => {
             // Обновляем документы для сохранённых кандидатов из сервера
-            Promise.all(savedIds.map(id => base44.entities.Candidate.get(id))).then(updated => {
+            Promise.all(savedIds.map(id => fetch(`${_api}/api/candidates/${id}`, { headers: _h() }).then(r => r.json()).then(j => j.data))).then(updated => {
               const updates = {};
               updated.forEach(c => { if (c) updates[c.id] = c; });
               setCandidates(prev => prev.map(c => updates[c.id] ? { ...c, ...updates[c.id] } : c));
@@ -1115,7 +1114,7 @@ export default function Candidates() {
           onClose={() => setMapCandidate(null)}
           onAssignAssemblyPoint={async (pointName, distance) => {
             const updated = { assembly_point: pointName, assembly_distance: distance != null ? String(distance) : '' };
-            await base44.entities.Candidate.update(mapCandidate.id, updated);
+            await fetch(`${_api}/api/candidates/${mapCandidate.id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(updated) });
             await logCandidateAction({ action: 'update', candidate: { ...mapCandidate, ...updated }, oldData: mapCandidate, actor: getActor() });
             setCandidates(prev => prev.map(x => x.id === mapCandidate.id ? { ...x, ...updated } : x));
             setMapCandidate(prev => prev ? { ...prev, ...updated } : prev);

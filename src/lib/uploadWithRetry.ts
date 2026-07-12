@@ -1,16 +1,29 @@
-import { base44 } from '@/api/base44Client';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+const TOKEN_KEY = 'base44_access_token';
 
 /**
- * Загрузка файла с автоматическими повторными попытками.
- * При сетевом сбое повторяет запрос до maxRetries раз с экспоненциальной задержкой.
- * Критично для нестабильных соединений (VPN, мобильный интернет).
+ * Загрузка файла на наш бэкенд с автоматическими повторными попытками.
  */
 export async function uploadWithRetry(file: File, maxRetries = 3): Promise<string> {
   let lastError: unknown;
   for (let attempt = 0; attempt < maxRetries; attempt++) {
     try {
-      const { file_url } = await base44.integrations.Core.UploadFile({ file });
-      return file_url as string;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const token = localStorage.getItem(TOKEN_KEY);
+      const headers: Record<string, string> = {};
+      if (token) headers['Authorization'] = `Bearer ${token}`;
+
+      const res = await fetch(`${API_URL}/api/upload`, {
+        method: 'POST',
+        headers,
+        body: formData,
+      });
+
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || `HTTP ${res.status}`);
+      return json.data.file_url as string;
     } catch (err) {
       lastError = err;
       if (attempt < maxRetries - 1) {
@@ -24,7 +37,6 @@ export async function uploadWithRetry(file: File, maxRetries = 3): Promise<strin
 
 /**
  * Клиентская валидация файла перед загрузкой.
- * Возвращает строку с ошибкой или null если файл валиден.
  */
 export function validateFile(file: File, maxSizeMB = 20): string | null {
   const maxSize = maxSizeMB * 1024 * 1024;

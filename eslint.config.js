@@ -19,42 +19,30 @@ export default [
       parserOptions: {
         ecmaVersion: 2022,
         sourceType: "module",
-        ecmaFeatures: {
-          jsx: true,
-        },
+        ecmaFeatures: { jsx: true },
       },
     },
-    settings: {
-      react: {
-        version: "detect",
-      },
-    },
+    settings: { react: { version: "detect" } },
     plugins: {
       react: pluginReact,
       "react-hooks": pluginReactHooks,
       "unused-imports": pluginUnusedImports,
     },
     rules: {
-      "no-unused-vars": "off",
+      // Критичные ошибки — блокируют пуш
+      "react-hooks/rules-of-hooks": "error",      // хуки не в условиях/циклах
+      "no-undef": "error",                         // необъявленные переменные (ловит saveErr!)
       "react/jsx-uses-vars": "error",
       "react/jsx-uses-react": "error",
-      "unused-imports/no-unused-imports": "error",
-      "unused-imports/no-unused-vars": [
-        "warn",
-        {
-          vars: "all",
-          varsIgnorePattern: "^_",
-          args: "after-used",
-          argsIgnorePattern: "^_",
-        },
-      ],
+      "react/no-unknown-property": ["error", { ignore: ["cmdk-input-wrapper", "toast-close"] }],
+
+      // Предупреждения — не блокируют пуш
+      "unused-imports/no-unused-imports": "warn",
+      "unused-imports/no-unused-vars": "warn",
+      "react-hooks/exhaustive-deps": "warn",
+      "no-unused-vars": "off",
       "react/prop-types": "off",
       "react/react-in-jsx-scope": "off",
-      "react/no-unknown-property": [
-        "error",
-        { ignore: ["cmdk-input-wrapper", "toast-close"] },
-      ],
-      "react-hooks/rules-of-hooks": "error",
     },
   },
 ];

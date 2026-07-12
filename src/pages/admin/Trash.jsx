@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Trash2, RotateCcw, RefreshCw, AlertTriangle, ArrowLeft, Loader2, Lock } from 'lucide-react';
 import { logCandidateAction } from '@/lib/candidateLogger';
 import { getCurrentActor, canPermanentDelete } from '@/lib/crmSession';
+
+
 
 export default function Trash() {
   const [candidates, setCandidates] = useState([]);
@@ -16,7 +19,8 @@ export default function Trash() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const all = await base44.entities.Candidate.list('-created_date', 500);
+      const tr = await apiClient.get('/api/candidates?sort=-created_date&limit=500&deleted=true');
+      const all = tr.data || [];
       setCandidates(all.filter(c => c.deleted_at).sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at)));
     } catch (e) {
       console.error('Trash load error:', e);
@@ -33,7 +37,7 @@ export default function Trash() {
   const handleRestore = async (c) => {
     setRestoring(c.id);
     try {
-      await base44.entities.Candidate.update(c.id, { deleted_at: null });
+      await apiClient.patch('/api/candidates/${c.id}', { deleted_at: null });
       await logCandidateAction({ action: 'update', candidate: { ...c, deleted_at: null }, oldData: c, actor: getActor() });
       setCandidates(prev => prev.filter(x => x.id !== c.id));
     } catch (e) {
@@ -48,8 +52,8 @@ export default function Trash() {
     setPermaDeleting(c.id);
     try {
       // Удаляем все связанные анкеты — иначе они остаются «сиротами» и доступны по токену
-      await base44.entities.CandidateForm.deleteMany({ candidate_id: c.id });
-      await base44.entities.Candidate.delete(c.id);
+      // deleteMany заменён: форма остаётся, кандидат удаляется физически
+      await apiClient.delete('/api/candidates/${c.id}');
       await logCandidateAction({ action: 'delete', candidate: { ...c }, actor: getActor() });
       setCandidates(prev => prev.filter(x => x.id !== c.id));
     } catch (e) {

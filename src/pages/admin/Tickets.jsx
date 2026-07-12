@@ -1,7 +1,10 @@
 import { useState, useEffect } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { RefreshCw, Search, X, Ticket, CheckCircle, Send } from 'lucide-react';
+
+
 
 const PRIORITY_COLORS = {
   low: 'text-blue-400 bg-blue-400/10 border-blue-400/20',
@@ -34,21 +37,22 @@ export default function Tickets() {
 
   const load = async () => {
     setLoading(true);
-    const data = await base44.entities.AgentTicket.list('-created_date', 200);
+    const tr = await apiClient.get('/api/agent-tickets?sort=-created_date&limit=200');
+    const data = tr.data || [];
     setTickets(data);
     setLoading(false);
   };
 
   useEffect(() => {
     load();
-    base44.auth.me().then(u => setCurrentUser(u)).catch(() => {});
+    apiClient.get('/api/auth/me').then(j=>{if(j.data)setCurrentUser(j.data);}).catch(()=>{});
   }, []);
 
   const handleAnswer = async (ticket) => {
     if (!answerText.trim()) return;
     setSubmitting(true);
     try {
-      await base44.entities.AgentTicket.update(ticket.id, {
+      await apiClient.patch('/api/agent-tickets/${ticket.id}', {
         status: 'answered',
         answer: answerText.trim(),
         answered_by: currentUser?.full_name || currentUser?.email || 'Администратор',
@@ -63,7 +67,7 @@ export default function Tickets() {
   };
 
   const handleClose = async (ticket) => {
-    await base44.entities.AgentTicket.update(ticket.id, { status: 'closed' });
+    await apiClient.patch('/api/agent-tickets/${ticket.id}', { status: 'closed' });
     load();
   };
 

@@ -350,7 +350,7 @@ export default function ManagerHandbook() {
             <div className="space-y-4 mt-4">
               <div className="bg-[rgba(123,63,191,0.1)] border border-[rgba(123,63,191,0.25)] rounded-lg px-4 py-3 text-xs space-y-1">
                 <div className="font-bold text-[#7B3FBF] mb-2">Доступ к CRM</div>
-                <div>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="text-[#7B3FBF] underline">bratouverie-snb.base44.app/agency-login</a></div>
+                <div>🔗 <a href="/agency-login" className="text-[#7B3FBF] underline">/agency-login</a></div>
                 <div>📧 <a href="mailto:partner@bratouverie-snb.ru" className="text-[#C9A84C]">partner@bratouverie-snb.ru</a></div>
                 <div>📞 +7 (4212) 51-59-30 доб. 702</div>
               </div>
@@ -486,7 +486,7 @@ export default function ManagerHandbook() {
             <span>ООО «БРО-СНБ-СНБ» · ОГРН 1262500006966</span>
             <span>📧 <a href="mailto:partner@bratouverie-snb.ru" className="hover:text-[#C9A84C] transition-colors">partner@bratouverie-snb.ru</a></span>
             <span>📞 +7 (4212) 51-59-30 доб. 702</span>
-            <span>🔗 <a href="https://bratouverie-snb.base44.app/agency-login" className="hover:text-[#7B3FBF] transition-colors">Войти в CRM</a></span>
+            <span>🔗 <a href="/agency-login" className="hover:text-[#7B3FBF] transition-colors">Войти в CRM</a></span>
           </div>
         </main>
       </div>

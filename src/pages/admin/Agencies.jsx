@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react';
 import { base44 } from '@/api/base44Client';
+const { Agency } = base44.entities;
 import { Link, useNavigate } from 'react-router-dom';
 import { Plus, Download, Mail, Phone, Edit2, Trash2, Search, RefreshCw, RotateCcw } from 'lucide-react';
 import AgencyModal from '../../components/admin/AgencyModal';
@@ -18,11 +19,11 @@ export default function Agencies() {
   const load = async () => {
     setLoading(true);
     const [ag, cand] = await Promise.all([
-      base44.entities.Agency.list('-created_date', 200),
-      base44.entities.Candidate.list('-created_date', 500),
+      Agency.list(),
+      base44.entities.Candidate.list(),
     ]);
-    setAgencies(ag);
-    setCandidates(cand);
+    setAgencies(Array.isArray(ag) ? ag : []);
+    setCandidates(Array.isArray(cand) ? cand : []);
     setLoading(false);
   };
 
@@ -33,27 +34,30 @@ export default function Agencies() {
   // Soft-delete: помечаем deleted_at, кандидатов не трогаем
   const handleDelete = async (agency) => {
     if (!confirm(`Удалить агентство "${agency.name}"?\nКандидаты будут скрыты из статистики. Восстановление возможно в течение 3 дней.`)) return;
-    await base44.entities.Agency.update(agency.id, { deleted_at: new Date().toISOString() });
+    await Agency.update(agency.id, { deleted_at: new Date().toISOString() });
     load();
   };
 
   // Восстановление
   const handleRestore = async (agency) => {
-    await base44.entities.Agency.update(agency.id, { deleted_at: null });
+    await Agency.update(agency.id, { deleted_at: null });
     load();
   };
 
   const handleSave = async (data, id) => {
-    if (id) {
-      await base44.entities.Agency.update(id, data);
-    } else {
-      // При создании: если дата договора не указана — ставим сегодня
-      const today = new Date().toISOString().split('T')[0];
-      await base44.entities.Agency.create(data);
+    try {
+      if (id) {
+        await Agency.update(id, data);
+      } else {
+        if (!data.name?.trim()) { alert('Укажите наименование агентства'); return; }
+        await Agency.create(data);
+      }
+      setModalOpen(false);
+      setEditAgency(null);
+      load();
+    } catch (e) {
+      alert('Ошибка сохранения: ' + e.message);
     }
-    setModalOpen(false);
-    setEditAgency(null);
-    load();
   };
 
   const exportCSV = () => {

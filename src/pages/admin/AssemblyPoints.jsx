@@ -1,9 +1,12 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Search, RefreshCw, MapPin, ArrowLeft, Check, Plus, Pencil, Trash2 } from 'lucide-react';
 import AddCityModal from '@/components/admin/AddCityModal';
 import CityEditModal from '@/components/admin/CityEditModal';
+
+
 
 export default function AssemblyPoints() {
   const [cities, setCities] = useState([]);
@@ -17,7 +20,8 @@ export default function AssemblyPoints() {
 
   const load = useCallback(async () => {
     setLoading(true);
-    const data = await base44.entities.City.list('-created_date', 500);
+    const cr = await apiClient.get('/api/cities?sort=-created_date&limit=500');
+    const data = cr.data || [];
     setCities(data);
     setLoading(false);
   }, []);
@@ -27,7 +31,7 @@ export default function AssemblyPoints() {
   const toggle = async (city) => {
     setTogglingId(city.id);
     try {
-      await base44.entities.City.update(city.id, { is_assembly_point: !city.is_assembly_point });
+      await apiClient.patch('/api/cities/${city.id}', { is_assembly_point: !city.is_assembly_point });
       setCities(prev => prev.map(c => c.id === city.id ? { ...c, is_assembly_point: !c.is_assembly_point } : c));
     } catch (e) {
       alert('Ошибка: ' + e.message);
@@ -51,12 +55,13 @@ export default function AssemblyPoints() {
     setDeleting(true);
     try {
       // Проверяем, есть ли кандидаты, привязанные к этому городу
-      const linked = await base44.entities.Candidate.filter({ city: confirmDelete.name });
+      const linkRes = await apiClient.get('/api/candidates?city=${encodeURIComponent(confirmDelete.name)}&limit=10');
+      const linked = linkRes.data || [];
       if (linked.length > 0) {
         alert(`Невозможно удалить: к городу «${confirmDelete.name}» привязано ${linked.length} кандидатов. Сначала переназначьте их на другой город.`);
         return;
       }
-      await base44.entities.City.delete(confirmDelete.id);
+      await apiClient.delete('/api/cities/${confirmDelete.id}');
       setConfirmDelete(null);
       load();
     } catch (e) {

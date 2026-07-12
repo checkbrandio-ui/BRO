@@ -1,8 +1,11 @@
 import { useState, useEffect } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { base44 } from '@/api/base44Client';
 import { Plus, Trash2, Shield, User, RefreshCw, Search, Mail } from 'lucide-react';
 import { motion } from 'framer-motion';
+
+
 
 const ROLE_LABELS = { admin: 'Администратор', user: 'Менеджер' };
 const ROLE_COLORS = {
@@ -24,7 +27,7 @@ export default function Users() {
   const load = async () => {
     setLoading(true);
     const [allUsers, currentUser] = await Promise.all([
-      base44.entities.User.list('-created_date', 200),
+      apiClient.get('/api/users?sort=-created_date&limit=200').then(j=>j.data||[]),
       base44.auth.me(),
     ]);
     setUsers(allUsers);
@@ -52,7 +55,7 @@ export default function Users() {
   const handleRoleChange = async (user, newRole) => {
     if (user.id === me?.id) { alert('Нельзя изменить свою роль'); return; }
     setUpdatingId(user.id);
-    await base44.entities.User.update(user.id, { role: newRole });
+    await apiClient.patch('/api/users/${user.id}', { role: newRole });
     setUsers(u => u.map(x => x.id === user.id ? { ...x, role: newRole } : x));
     setUpdatingId(null);
   };
@@ -60,7 +63,7 @@ export default function Users() {
   const handleDelete = async (user) => {
     if (user.id === me?.id) { alert('Нельзя удалить себя'); return; }
     if (!confirm(`Удалить пользователя ${user.full_name || user.email}?`)) return;
-    await base44.entities.User.delete(user.id);
+    await apiClient.delete('/api/users/${user.id}');
     setUsers(u => u.filter(x => x.id !== user.id));
   };
 

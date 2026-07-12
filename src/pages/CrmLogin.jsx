@@ -1,12 +1,13 @@
-import { useState } from 'react';
+import { useState, useRef } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
 import { setCrmAdmin } from '@/lib/crmSession';
 import { KeyRound, ArrowRight, ShieldCheck } from 'lucide-react';
 import { motion } from 'framer-motion';
 
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+
 export default function CrmLogin() {
-  const [code, setCode] = useState('');
+  const inputRef = useRef(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
   const navigate = useNavigate();
@@ -14,27 +15,29 @@ export default function CrmLogin() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    if (!code.trim()) { setError('Введите код доступа'); return; }
+    const code = inputRef.current?.value?.trim() || '';
+    if (!code) { setError('Введите код доступа'); return; }
     setLoading(true);
     setError('');
     try {
-      const admins = await base44.entities.CrmAdmin.filter({ access_code: code.trim(), is_active: true });
-      if (!admins || admins.length === 0) {
-        setError('Неверный код доступа или аккаунт деактивирован.');
+      const res = await fetch(`${API_URL}/api/auth/crm-login`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ access_code: code }),
+      });
+      const json = await res.json();
+      if (!res.ok || !json.data?.admin) {
+        setError(json.error || 'Неверный код доступа или аккаунт деактивирован.');
         setLoading(false);
         return;
       }
-      const admin = admins[0];
-      // Обновляем время последнего входа
-      try {
-        await base44.entities.CrmAdmin.update(admin.id, { last_login: new Date().toISOString() });
-      } catch (_) {}
-      // Сохраняем сессию (без access_code)
+      const admin = json.data.admin;
+      if (json.data.token) localStorage.setItem('base44_access_token', json.data.token);
       setCrmAdmin({ id: admin.id, full_name: admin.full_name, role: admin.role });
       const next = searchParams.get('next') || '/admin/candidates';
       navigate(next);
-    } catch {
-      setError('Ошибка проверки кода. Попробуйте позже.');
+    } catch (err) {
+      setError('Ошибка соединения с сервером: ' + (err?.message || 'попробуйте позже'));
     }
     setLoading(false);
   };
@@ -70,12 +73,15 @@ export default function CrmLogin() {
                 <div className="relative">
                   <KeyRound size={15} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
                   <input
+                    ref={inputRef}
                     type="text"
-                    value={code}
-                    onChange={e => { setCode(e.target.value); setError(''); }}
-                    placeholder="CRM-XXXX-XXXX-XXXX"
+                    name="access_code"
+                    placeholder="BRO-ADMIN-XXXX"
+                    defaultValue=""
+                    autoComplete="off"
                     className="w-full pl-10 pr-4 py-3.5 bg-[rgba(255,255,255,0.04)] border border-[rgba(201,168,76,0.25)] rounded-xl text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/20 focus:outline-none focus:border-[#C9A84C] focus:ring-1 focus:ring-[#C9A84C]/30 transition-all tracking-widest text-center font-mono"
                     autoFocus
+                    onChange={() => { if (error) setError(''); }}
                   />
                 </div>
               </div>

@@ -1,9 +1,17 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Plus, RefreshCw, Trash2, Power, KeyRound, ShieldCheck, UserCog, Copy, Check, X, Loader2 } from 'lucide-react';
 import { getCrmAdmin, generateAccessCode } from '@/lib/crmSession';
 import { useToast } from '@/components/ui/use-toast';
+
+// Централизованный fetch helper (использует тот же токен что apiClient)
+const _token = () => localStorage.getItem('base44_access_token') || '';
+const _h = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${_token()}` });
+const _api = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+
+
 
 export default function CrmAdmins() {
   const { toast } = useToast();
@@ -18,7 +26,8 @@ export default function CrmAdmins() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const list = await base44.entities.CrmAdmin.list('-created_date', 100);
+      const lr = await apiClient.get('/api/crm-admins?sort=-created_date&limit=100');
+      const list = lr.data || [];
       setAdmins(list);
     } catch (_) {}
     setLoading(false);
@@ -33,18 +42,19 @@ export default function CrmAdmins() {
     }
     setCreating(true);
     try {
-      const existing = await base44.entities.CrmAdmin.filter({ access_code: newAdmin.access_code.trim() });
+      const exRes = await apiClient.get('/api/crm-admins?access_code=${encodeURIComponent(newAdmin.access_code.trim())}');
+      const existing = exRes.data || [];
       if (existing.length > 0) {
         toast({ title: 'Код уже используется', description: 'Сгенерируйте новый код', variant: 'destructive' });
         setCreating(false);
         return;
       }
-      await base44.entities.CrmAdmin.create({
+      await fetch(`${_api}/api/crm-admins`, { method: 'POST', headers: _h(), body: JSON.stringify({
         full_name: newAdmin.full_name.trim(),
         access_code: newAdmin.access_code.trim(),
         role: newAdmin.role,
         is_active: true,
-      });
+      }) });
       toast({ title: '✓ Администратор создан', description: `Код: ${newAdmin.access_code}` });
       setShowCreate(false);
       setNewAdmin({ full_name: '', access_code: generateAccessCode(), role: 'manager' });
@@ -56,7 +66,7 @@ export default function CrmAdmins() {
   };
 
   const handleToggleActive = async (admin) => {
-    await base44.entities.CrmAdmin.update(admin.id, { is_active: !admin.is_active });
+    await apiClient.patch('/api/crm-admins/${admin.id}', { is_active: !admin.is_active });
     load();
   };
 
@@ -71,7 +81,7 @@ export default function CrmAdmins() {
       return;
     }
     if (!confirm(`Удалить администратора «${admin.full_name}»?`)) return;
-    await base44.entities.CrmAdmin.delete(admin.id);
+    await apiClient.delete('/api/crm-admins/${admin.id}');
     load();
   };
 

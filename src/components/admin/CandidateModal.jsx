@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { AlertTriangle, Loader2 } from 'lucide-react';
 import { base44 } from '@/api/base44Client';
 import CandidateFormView from './CandidateFormView';
@@ -18,6 +19,11 @@ import AdminStatusesSection from './AdminStatusesSection';
 import CommentSection from './CommentSection';
 import CandidateDocuments from './CandidateDocuments';
 import GeneratedDocumentsSection from './GeneratedDocumentsSection';
+
+const _token = () => localStorage.getItem('base44_access_token') || '';
+const _h = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${_token()}` });
+const _api = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
+
 
 export default function CandidateModal({ candidate, agencies, lockedAgencyId, candidateList, onSave, onClose, onNavigate }) {
   const isAgencyMode = !!lockedAgencyId;
@@ -86,43 +92,57 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     setStopList(null);
   }, [candidate?.id]);
 
-  const refreshCandidate = async () => {
-    if (!candidate?.id) return;
-    setRefreshing(true);
-    try {
-      const results = await base44.entities.Candidate.filter({ id: candidate.id });
-      if (results[0]) setForm(buildForm(results[0]));
-    } catch (e) {}
-    setRefreshing(false);
-  };
-
+  // Загружаем города и сборные пункты через REST
   useEffect(() => {
     setUser(getCrmAdmin());
-    base44.entities.City.filter({ is_assembly_point: true }, '-created_date', 200)
-      .then(setAssemblyPoints)
+
+    // Сборные пункты
+    apiClient.get(`/api/cities?is_assembly_point=true&limit=200`)
+      .then(r => r.json())
+      .then(j => { if (j.data) setAssemblyPoints(j.data); })
       .catch(() => {});
-    base44.entities.City.list('-created_date', 500).then(cities => {
-      const map = {};
-      cities.forEach(c => { if (c.name && c.lat != null && c.lon != null) map[c.name.toLowerCase()] = c; });
-      setCityCache(map);
-    }).catch(() => {});
+
+    // Все города для геокэша
+    apiClient.get(`/api/cities?limit=500`)
+      .then(r => r.json())
+      .then(j => {
+        if (!j.data) return;
+        const map = {};
+        j.data.forEach(c => { if (c.name && c.lat != null && c.lon != null) map[c.name.toLowerCase()] = c; });
+        setCityCache(map);
+      })
+      .catch(() => {});
   }, []);
 
+  // Загружаем форму кандидата через REST
   useEffect(() => {
     if (!candidate?.id) return;
-    base44.entities.CandidateForm.filter({ candidate_id: candidate.id }).then(async records => {
-      if (records.length > 0) {
-        const rec = records.find(r => r.status === 'completed') || records[0];
-        setCandidateFormId(rec.id);
-        setFormDocs(rec.uploaded_docs || []);
-        setCandidateFormData(rec);
-      } else {
-        const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-        const newForm = await base44.entities.CandidateForm.create({ candidate_id: candidate.id, form_token: token, status: 'pending' });
-        await base44.entities.Candidate.update(candidate.id, { form_token: token, form_status: 'pending' });
-        setCandidateFormId(newForm.id);
-      }
-    });
+    apiClient.get(`/api/candidate-forms?candidate_id=${candidate.id}`)
+      .then(r => r.json())
+      .then(async j => {
+        const records = j.data || [];
+        if (records.length > 0) {
+          const rec = records.find(r => r.status === 'completed') || records[0];
+          setCandidateFormId(rec.id);
+          setFormDocs(rec.uploaded_docs || []);
+          setCandidateFormData(rec);
+        } else {
+          // Создаём форму
+          const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+          const res = await apiClient.post(`/api/candidate-forms`, { candidate_id: candidate.id, form_token: token, status: 'pending' });
+          const newForm = await res.json();
+          if (newForm.data?.id) {
+            setCandidateFormId(newForm.data.id);
+            // Обновляем токен кандидата
+            await fetch(`${_api}/api/candidates/${candidate.id}`, {
+              method: 'PATCH',
+              headers: _h(),
+              body: JSON.stringify({ form_token: token, form_status: 'pending' }),
+            });
+          }
+        }
+      })
+      .catch(() => {});
   }, [candidate?.id]);
 
   const currentIndex = candidateList && candidate?.id
@@ -138,11 +158,26 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     return Object.keys(initial).some(k => String(initial[k] ?? '') !== String(form[k] ?? ''));
   };
 
+  const refreshCandidate = async () => {
+    if (!candidate?.id) return;
+    setRefreshing(true);
+    try {
+      const res = await apiClient.get(`/api/candidates/${candidate.id}`);
+      const j = await res.json();
+      if (j.data) setForm(buildForm(j.data));
+    } catch (e) {}
+    setRefreshing(false);
+  };
+
   const handleClose = async () => {
     if (isFormDirty() && candidate?.id) {
       try {
         if (candidateFormId) {
-          await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
+          await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
+            method: 'PATCH',
+            headers: _h(),
+            body: JSON.stringify({ uploaded_docs: formDocs }),
+          });
         }
         const { documents, ...candidateData } = form;
         await onSave(candidateData, candidate?.id);
@@ -163,7 +198,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     const newComment = (form.comment || '') + callLog;
     set('comment', newComment);
     try {
-      await base44.entities.Candidate.update(candidate.id, { comment: newComment });
+      await fetch(`${_api}/api/candidates/${candidate.id}`, {
+        method: 'PATCH',
+        headers: _h(),
+        body: JSON.stringify({ comment: newComment }),
+      });
       await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
     } catch (e) {}
   };
@@ -177,7 +216,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     const newComment = (form.comment || '') + callLog;
     set('comment', newComment);
     try {
-      await base44.entities.Candidate.update(candidate.id, { comment: newComment });
+      await fetch(`${_api}/api/candidates/${candidate.id}`, {
+        method: 'PATCH',
+        headers: _h(),
+        body: JSON.stringify({ comment: newComment }),
+      });
       await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
     } catch (e) {}
   };
@@ -187,10 +230,18 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     if (isFormDirty() && candidate?.id) {
       try {
         if (candidateFormId) {
-          await base44.entities.CandidateForm.update(candidateFormId, { uploaded_docs: formDocs });
+          await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
+            method: 'PATCH',
+            headers: _h(),
+            body: JSON.stringify({ uploaded_docs: formDocs }),
+          });
         }
         const { documents, ...candidateData } = form;
-        await base44.entities.Candidate.update(candidate.id, candidateData);
+        await fetch(`${_api}/api/candidates/${candidate.id}`, {
+          method: 'PATCH',
+          headers: _h(),
+          body: JSON.stringify(candidateData),
+        });
         await logCandidateAction({ action: 'update', candidate: { ...candidateData, id: candidate.id }, oldData: candidate, actor: getCurrentActor() });
       } catch (e) {}
     }
@@ -204,7 +255,11 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     try {
       const oldData = { ...candidate };
       const newData = { ...candidate, ...updates };
-      await base44.entities.Candidate.update(candidate.id, updates);
+      await fetch(`${_api}/api/candidates/${candidate.id}`, {
+        method: 'PATCH',
+        headers: _h(),
+        body: JSON.stringify(updates),
+      });
       const actor = getCurrentActor();
       const tasks = [
         notifyLogisticsChange(newData, oldData, actor),
@@ -227,17 +282,25 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     set('agency_name', agency?.name || '');
   };
 
-  const checkStopList = async (full_name, birth_date) => {
-    if (!full_name || !birth_date) { setStopList(null); return; }
+  // Проверка стоп-листа через REST с дебаунсом
+  const stopCheckTimer = useRef(null);
+  const checkStopList = (full_name, birth_date) => {
+    clearTimeout(stopCheckTimer.current);
+    if (!full_name || !birth_date) { setStopList(null); setChecking(false); return; }
     setChecking(true);
-    const found = await base44.entities.Candidate.filter({ full_name, birth_date });
-    const others = found.filter(c => c.id !== candidate?.id && !c.deleted_at);
-    if (others.length > 0) {
-      setStopList({ full_name: others[0].full_name, agency_name: others[0].agency_name });
-    } else {
-      setStopList(null);
-    }
-    setChecking(false);
+    stopCheckTimer.current = setTimeout(async () => {
+      try {
+        const params = new URLSearchParams({ full_name, birth_date });
+        const res = await apiClient.get(`/api/candidates?${params}&limit=5`);
+        const j = await res.json();
+        const found = (j.data || []).filter(c => c.id !== candidate?.id && !c.deleted_at);
+        setStopList(found.length > 0 ? { full_name: found[0].full_name, agency_name: found[0].agency_name } : null);
+      } catch {
+        setStopList(null);
+      } finally {
+        setChecking(false);
+      }
+    }, 600);
   };
 
   const handleNameChange = (v) => {
@@ -263,11 +326,9 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     if (result) {
       const distance = result.distance;
       set('assembly_distance', String(distance));
-
       const role = user?.role === 'admin' ? 'Администратор' : 'Модератор';
       const timestamp = new Date().toLocaleString('ru-RU');
       const newCommentText = `[${role} | ${timestamp}] Выбрана точка сбора: ${assemblyPointName} (${distance} км)`;
-
       const oldComments = (form.comment || '').split('\n---\n');
       const baseComment = oldComments[0]?.trim() || '';
       const newComment = baseComment ? `${baseComment}\n---\n${newCommentText}` : newCommentText;
@@ -281,10 +342,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     const newErrors = {};
     if (!form.full_name?.trim()) newErrors.full_name = true;
     if (!form.birth_date) newErrors.birth_date = true;
-    if (Object.keys(newErrors).length > 0) {
-      setErrors(newErrors);
-      return;
-    }
+    if (Object.keys(newErrors).length > 0) { setErrors(newErrors); return; }
     setErrors({});
     if (form.city && !cityObject) {
       alert('Пожалуйста, выберите населённый пункт из списка. Текстовый ввод не допускается — выберите ближайший из каталога.');
@@ -294,8 +352,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     setSaving(true);
     try {
       if (candidateFormId) {
-        await base44.entities.CandidateForm.update(candidateFormId, {
-          uploaded_docs: formDocs,
+        await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
+          method: 'PATCH',
+          headers: _h(),
+          body: JSON.stringify({ uploaded_docs: formDocs }),
         });
       }
       const { documents, ...candidateData } = form;

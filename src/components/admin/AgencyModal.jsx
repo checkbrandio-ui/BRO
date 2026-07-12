@@ -1,31 +1,49 @@
 import { useState } from 'react';
 import { X, Upload } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
+
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
 
 export default function AgencyModal({ agency, onSave, onClose }) {
   const [form, setForm] = useState({
-    name: agency?.name || '',
-    city: agency?.city || '',
-    email: agency?.email || '',
-    phone: agency?.phone || '',
-    is_active: agency?.is_active !== false,
-    access_code: agency?.access_code || '',
-    contract_url: agency?.contract_url || '',
-    contract_date: agency?.contract_date ?? '',
+    name:               agency?.name || '',
+    city:               agency?.city || '',
+    email:              agency?.email || '',
+    phone:              agency?.phone || '',
+    is_active:          agency?.is_active !== false,
+    access_code:        agency?.access_code || '',
+    contract_url:       agency?.contract_url || '',
+    contract_date:      agency?.contract_date ?? '',
     special_conditions: agency?.special_conditions || '',
-    comment: agency?.comment || '',
+    comment:            agency?.comment || '',
     planned_candidates: agency?.planned_candidates || '',
   });
   const [uploading, setUploading] = useState(false);
-  const [dragOver, setDragOver]   = useState(false);
+  const [dragOver,  setDragOver]  = useState(false);
+  const [uploadErr, setUploadErr] = useState('');
+  const [saveErr,   setSaveErr]   = useState('');
+  const [saving,    setSaving]    = useState(false);
 
   const set = (k, v) => setForm(f => ({ ...f, [k]: v }));
 
   const uploadContract = async (file) => {
     if (!file) return;
     setUploading(true);
-    const { file_url } = await base44.integrations.Core.UploadFile({ file });
-    set('contract_url', file_url);
+    setUploadErr('');
+    try {
+      const token = localStorage.getItem('base44_access_token');
+      const fd = new FormData();
+      fd.append('file', file);
+      const res = await fetch(`${API_URL}/api/upload`, {
+        method: 'POST',
+        headers: { Authorization: `Bearer ${token}` },
+        body: fd,
+      });
+      const json = await res.json();
+      if (!res.ok) throw new Error(json.error || 'Ошибка загрузки');
+      set('contract_url', json.data?.file_url || json.file_url || '');
+    } catch (e) {
+      setUploadErr(e.message);
+    }
     setUploading(false);
   };
 
@@ -34,6 +52,18 @@ export default function AgencyModal({ agency, onSave, onClose }) {
     setDragOver(false);
     const file = e.dataTransfer.files[0];
     if (file) uploadContract(file);
+  };
+
+  const handleSave = async () => {
+    if (!form.name?.trim()) { setSaveErr('Укажите наименование агентства'); return; }
+    setSaveErr('');
+    setSaving(true);
+    try {
+      await onSave(form, agency?.id);
+    } catch (e) {
+      setSaveErr(e.message || 'Ошибка сохранения');
+    }
+    setSaving(false);
   };
 
   const inp = "w-full bg-[rgba(255,255,255,0.04)] border border-[rgba(123,63,191,0.2)] rounded-lg px-3 py-2.5 text-sm text-[#F8FAFC] placeholder:text-[#F8FAFC]/25 focus:outline-none focus:border-[#7B3FBF] transition-all";
@@ -69,10 +99,8 @@ export default function AgencyModal({ agency, onSave, onClose }) {
               <label className="block text-xs text-[#F8FAFC]/40 mb-1.5">Код доступа агентства</label>
               <div className="flex gap-2">
                 <input className={inp + ' flex-1 font-mono tracking-widest'} value={form.access_code} onChange={e => set('access_code', e.target.value)} placeholder="AG-2026-XYZ" />
-                <button type="button" onClick={() => {
-                  const code = 'AG-' + Math.random().toString(36).substring(2, 8).toUpperCase();
-                  set('access_code', code);
-                }} className="px-3 py-2 text-xs rounded-lg bg-[#7B3FBF]/15 border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[#7B3FBF]/25 transition-all whitespace-nowrap">
+                <button type="button" onClick={() => set('access_code', 'AG-' + Math.random().toString(36).substring(2, 8).toUpperCase())}
+                  className="px-3 py-2 text-xs rounded-lg bg-[#7B3FBF]/15 border border-[rgba(123,63,191,0.3)] text-[#7B3FBF] hover:bg-[#7B3FBF]/25 transition-all whitespace-nowrap">
                   Сгенерировать
                 </button>
               </div>
@@ -107,10 +135,12 @@ export default function AgencyModal({ agency, onSave, onClose }) {
               <Upload size={18} className="mx-auto mb-1.5 text-[#F8FAFC]/30" />
               <p className="text-xs text-[#F8FAFC]/40 mb-2">Перетащите PDF, DOC или</p>
               <label className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[rgba(123,63,191,0.12)] border border-[rgba(123,63,191,0.25)] rounded-lg text-xs text-[#7B3FBF] cursor-pointer hover:bg-[rgba(123,63,191,0.2)] transition-all">
-                <Upload size={12} /> {uploading ? 'Загрузка...' : 'Выбрать файл'}
+                <Upload size={12} />
+                {uploading ? 'Загрузка...' : 'Выбрать файл'}
                 <input type="file" className="hidden" onChange={e => uploadContract(e.target.files[0])} accept=".pdf,.doc,.docx" />
               </label>
-              {form.contract_url && (
+              {uploadErr && <p className="text-xs text-red-400 mt-2">{uploadErr}</p>}
+              {form.contract_url && !uploadErr && (
                 <a href={form.contract_url} target="_blank" rel="noreferrer" className="block text-xs text-[#C9A84C] hover:underline mt-2">
                   ✓ Договор загружен — скачать
                 </a>
@@ -127,11 +157,21 @@ export default function AgencyModal({ agency, onSave, onClose }) {
             <textarea className={inp + ' resize-none'} rows={2} value={form.comment} onChange={e => set('comment', e.target.value)} placeholder="Комментарий..." />
           </div>
 
+          {saveErr && (
+            <div className="text-sm text-red-400 bg-red-500/10 border border-red-500/20 rounded-lg px-4 py-3 text-center">
+              {saveErr}
+            </div>
+          )}
+
           <div className="flex justify-end gap-3 pt-2">
-            <button onClick={onClose} className="px-6 py-2.5 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-all">Отмена</button>
-            <button onClick={() => onSave(form, agency?.id)}
-              className="px-6 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold transition-all">
-              {agency ? 'Сохранить' : 'Создать'}
+            <button onClick={onClose} className="px-6 py-2.5 text-sm rounded-lg border border-[rgba(255,255,255,0.1)] text-[#F8FAFC]/60 hover:text-[#F8FAFC] transition-all">
+              Отмена
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="px-6 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] font-bold transition-all disabled:opacity-60 disabled:cursor-not-allowed">
+              {saving ? 'Сохранение...' : (agency ? 'Сохранить' : 'Создать')}
             </button>
           </div>
         </div>

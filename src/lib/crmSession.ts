@@ -10,7 +10,7 @@ const CRM_SESSION_KEY = 'crm_admin_session';
 /** Получить текущего CRM-админа из сессии. */
 export function getCrmAdmin(): CrmAdmin | null {
   try {
-    const raw = sessionStorage.getItem(CRM_SESSION_KEY);
+    const raw = localStorage.getItem(CRM_SESSION_KEY);
     return raw ? (JSON.parse(raw) as CrmAdmin) : null;
   } catch {
     return null;
@@ -19,7 +19,7 @@ export function getCrmAdmin(): CrmAdmin | null {
 
 /** Сохранить сессию CRM-админа (без access_code — код не храним в браузере). */
 export function setCrmAdmin(admin: CrmAdmin): void {
-  sessionStorage.setItem(
+  localStorage.setItem(
     CRM_SESSION_KEY,
     JSON.stringify({ id: admin.id, full_name: admin.full_name, role: admin.role })
   );
@@ -27,7 +27,7 @@ export function setCrmAdmin(admin: CrmAdmin): void {
 
 /** Очистить сессию (выход). */
 export function clearCrmSession(): void {
-  sessionStorage.removeItem(CRM_SESSION_KEY);
+  localStorage.removeItem(CRM_SESSION_KEY);
 }
 
 /** Авторизован ли CRM-админ. */

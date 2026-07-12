@@ -1,7 +1,10 @@
 import { useState, useEffect, useCallback } from 'react';
+import { apiClient } from '@/api/base44Client';
 import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell, Check, Trash2, RefreshCw, CheckCheck, User } from 'lucide-react';
+
+
 
 const CATEGORY_LABELS = {
   card: 'Карточка',
@@ -33,7 +36,8 @@ export default function Notifications() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const items = await base44.entities.Notification.list('-created_date', 200);
+      const nr = await apiClient.get('/api/notifications?sort=-created_date&limit=200');
+      const items = nr.data || [];
       setNotifications(items);
     } catch (_) {}
     setLoading(false);
@@ -41,24 +45,24 @@ export default function Notifications() {
 
   useEffect(() => {
     load();
-    const unsubscribe = base44.entities.Notification.subscribe(() => load());
+    const unsubscribe = () => {}; // realtime disabled
     return unsubscribe;
   }, [load]);
 
   const markRead = async (id) => {
-    await base44.entities.Notification.update(id, { is_read: true });
+    await apiClient.patch('/api/notifications/${id}', { is_read: true });
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.is_read);
     if (!unread.length) return;
-    await Promise.all(unread.map(n => base44.entities.Notification.update(n.id, { is_read: true })));
+    await Promise.all(unread.map(n => apiClient.patch('/api/notifications/${n.id}', { is_read: true })));
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
   const deleteNotification = async (id) => {
-    await base44.entities.Notification.delete(id);
+    await apiClient.delete('/api/notifications/${id}');
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
