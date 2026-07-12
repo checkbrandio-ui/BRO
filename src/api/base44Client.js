@@ -126,3 +126,6 @@ export const CandidateLog = entities.CandidateLog;
 export const AgentTicket = entities.AgentTicket;
 export const User = entities.User;
 export const CrmAdmin = entities.CrmAdmin;
+
+// Совместимость с named import { base44 }
+export { base44 };
