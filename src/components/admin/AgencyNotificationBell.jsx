@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 
@@ -9,23 +9,15 @@ export default function AgencyNotificationBell({ agencyId }) {
   const load = useCallback(async () => {
     if (!agencyId) return;
     try {
-      const items = await base44.entities.Notification.filter(
-        { is_read: false, agency_id: agencyId },
-        '-created_date',
-        50
-      );
-      setUnread(items.length);
+      const items = await apiClient.get(`/api/notifications?is_read=false&agency_id=${agencyId}&limit=50`);
+      setUnread(Array.isArray(items) ? items.length : 0);
     } catch (_) {}
   }, [agencyId]);
 
   useEffect(() => {
     load();
     const interval = setInterval(load, 30000);
-    const unsubscribe = base44.entities.Notification.subscribe(() => load());
-    return () => {
-      clearInterval(interval);
-      unsubscribe?.();
-    };
+    return () => clearInterval(interval);
   }, [load]);
 
   return (
