@@ -1,10 +1,6 @@
-// Кастомный адаптер — заменяет @base44/sdk
-// API URL: https://api.bro-crm.ru
-
 const API_URL = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
 const TOKEN_KEY = 'base44_access_token';
 
-// HTTP клиент
 const api = {
  async request(method, path, body = null, publicRoute = false) {
    const headers = { 'Content-Type': 'application/json' };
@@ -27,59 +23,39 @@ const api = {
  delete: (path) => api.request('DELETE', path),
 };
 
-// ---- AUTH ----
 const auth = {
  async login(email, password) {
    const data = await api.post('/api/auth/login', { email, password }, true);
    localStorage.setItem(TOKEN_KEY, data.token);
    return data.user;
  },
- async logout() {
-   localStorage.removeItem(TOKEN_KEY);
- },
- async me() {
-   return api.get('/api/auth/me');
- },
+ async logout() { localStorage.removeItem(TOKEN_KEY); },
+ async me() { return api.get('/api/auth/me'); },
  async agencyLogin(access_code) {
    const data = await api.post('/api/auth/agency-login', { access_code }, true);
    sessionStorage.setItem('agency_session', JSON.stringify(data.agency));
    return data.agency;
  },
- async getFormByToken(token) {
-   return api.get(`/api/auth/form/${token}`, true);
- },
 };
 
-// ---- ENTITY FACTORY ----
 function makeEntity(path) {
  return {
    async list(sort = '-created_at', limit = 500) {
-     const params = new URLSearchParams({ limit });
-     if (sort) params.set('sort', sort);
-     return api.get(`${path}?${params}`);
+     return api.get(`${path}?limit=${limit}`);
    },
    async filter(query = {}, sort, limit) {
-     const params = new URLSearchParams(query);
+     const params = new URLSearchParams();
+     Object.entries(query).forEach(([k, v]) => { if (v !== undefined && v !== null) params.set(k, v); });
      if (limit) params.set('limit', limit);
-     if (sort) params.set('sort', sort);
      return api.get(`${path}?${params}`);
    },
-   async get(id) {
-     return api.get(`${path}/${id}`);
-   },
-   async create(data) {
-     return api.post(path, data);
-   },
-   async update(id, data) {
-     return api.put(`${path}/${id}`, data);
-   },
-   async delete(id) {
-     return api.delete(`${path}/${id}`);
-   },
+   async get(id) { return api.get(`${path}/${id}`); },
+   async create(data) { return api.post(path, data); },
+   async update(id, data) { return api.put(`${path}/${id}`, data); },
+   async delete(id) { return api.delete(`${path}/${id}`); },
  };
 }
 
-// ---- ENTITIES ----
 const entities = {
  Candidate: makeEntity('/api/candidates'),
  Agency: makeEntity('/api/agencies'),
@@ -93,29 +69,16 @@ const entities = {
  CrmAdmin: makeEntity('/api/users'),
 };
 
-// ---- FUNCTIONS ----
 const functions = {
  findNearestCity: (data) => api.post('/api/fn/find-nearest-city', data),
  getCrmAnalytics: (data) => api.post('/api/fn/crm-analytics', data),
 };
 
-// ---- ПУБЛИЧНЫЕ МАРШРУТЫ ----
-const publicApi = {
- getFormByToken: (token) => api.get(`/api/candidate-forms/token/${token}`, true),
- submitForm: (token, data) => api.put(`/api/candidate-forms/token/${token}`, data),
-};
-
-// ---- ЭКСПОРТ совместимый с base44 SDK ----
-const base44 = {
- auth,
- entities,
- functions,
- public: publicApi,
- asServiceRole: { entities },
-};
+const base44 = { auth, entities, functions, asServiceRole: { entities } };
 
 export default base44;
-export { auth, entities, functions, publicApi };
+export { base44, auth, entities, functions };
+
 export const Candidate = entities.Candidate;
 export const Agency = entities.Agency;
 export const City = entities.City;
@@ -126,6 +89,3 @@ export const CandidateLog = entities.CandidateLog;
 export const AgentTicket = entities.AgentTicket;
 export const User = entities.User;
 export const CrmAdmin = entities.CrmAdmin;
-
-// Совместимость с named import { base44 }
-export { base44 };
