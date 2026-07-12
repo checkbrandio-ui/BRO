@@ -1,4 +1,4 @@
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import type { Candidate, Actor } from './types';
 
 /**
@@ -35,7 +35,7 @@ export async function notifyStatusChange(
 
   try {
     if (newData.agency_id) {
-      await base44.entities.Notification.create({
+      await apiClient.post('/api/notifications', {
         agency_id: newData.agency_id,
         agency_name: newData.agency_name || '',
         candidate_id: newData.id || '',
@@ -48,21 +48,22 @@ export async function notifyStatusChange(
         actor_role: actorRole,
       });
 
-      const agency = await base44.entities.Agency.get(newData.agency_id);
-      if (agency) {
-        const recipientEmails = [agency.email, agency.manager_email].filter(Boolean) as string[];
-        if (recipientEmails.length > 0) {
+      apiClient.get(`/api/agencies/${newData.agency_id}`)
+        .then((agency: any) => {
+          if (!agency) return;
+          const recipientEmails = [agency.email, agency.manager_email].filter(Boolean) as string[];
+          if (recipientEmails.length === 0) return;
           const subject = `Статус обновлён: ${newData.full_name}`;
           const body = `Статус кандидата «${newData.full_name}» обновлён.\n\nАгентство: ${agency.name}\nДолжность: ${newData.position || '—'}\n\nИзменения:\n${changes.join('\n')}\n\nИнициатор: ${actorName}\nДата: ${now}`;
-          await Promise.allSettled(
+          return Promise.allSettled(
             recipientEmails.map((email) =>
-              base44.integrations.Core.SendEmail({ to: email, subject, body, from_name: 'БРО-СНБ' })
+              apiClient.post('/api/integrations/send-email', { to: email, subject, body, from_name: 'БРО-СНБ' })
             )
           );
-        }
-      }
+        })
+        .catch(() => {});
     }
   } catch {
-    // Silent
+    // Silent — нотификации не должны блокировать основное действие
   }
 }
