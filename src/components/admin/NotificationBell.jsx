@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
 import { isCrmAuthenticated } from '@/lib/crmSession';
@@ -10,8 +10,8 @@ export default function NotificationBell() {
 
   const load = useCallback(async () => {
     try {
-      const items = await base44.entities.Notification.filter({ is_read: false }, '-created_date', 50);
-      setUnread(items.length);
+      const items = await apiClient.get('/api/notifications?is_read=false&limit=50');
+      setUnread(Array.isArray(items) ? items.length : 0);
     } catch (_) {}
   }, []);
 
@@ -20,8 +20,7 @@ export default function NotificationBell() {
     setVisible(true);
     load();
     const interval = setInterval(load, 30000);
-    const unsubscribe = base44.entities.Notification.subscribe(() => load());
-    return () => { clearInterval(interval); unsubscribe(); };
+    return () => clearInterval(interval);
   }, [load]);
 
   if (!visible) return null;
