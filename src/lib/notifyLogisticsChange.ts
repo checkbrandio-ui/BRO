@@ -1,16 +1,16 @@
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import type { Candidate, Actor } from './types';
 
 /**
  * Создаёт in-app уведомления и отправляет email при изменении статуса логистики.
  *
  * FSM (две стороны согласования: Карточка vs Анкета):
- * — none → pending_candidate: админ (сторона А) предложил → уведомляем кандидата (сторона Б)
- * — none → pending_admin: кандидат (сторона Б) указал данные → уведомляем админа (сторона А)
+ * — none → pending_candidate: админ предложил → уведомляем кандидата
+ * — none → pending_admin: кандидат указал данные → уведомляем админа
  * — pending_admin → confirmed: админ подтвердил → уведомляем кандидата
  * — pending_candidate → confirmed: кандидат согласовал → уведомляем админа
- * — none → confirmed: админ утвердил без согласования → уведомляем кандидата
- * — confirmed → pending_admin/pending_candidate: пересогласование → уведомляем противоположную сторону
+ * — none → confirmed: утверждено без согласования → уведомляем кандидата
+ * — confirmed → pending_*: пересогласование → уведомляем противоположную сторону
  */
 export async function notifyLogisticsChange(
   newData: Candidate,
@@ -87,63 +87,67 @@ export async function notifyLogisticsChange(
 
   try {
     if (notifyCandidate) {
-      await base44.entities.Notification.create({
+      await apiClient.post('/api/notifications', {
         ...notifBase,
         agency_id: newData.agency_id || '',
         agency_name: newData.agency_name || '',
       });
+
       if (newData.email) {
         const logisticsDetails = formatLogisticsDetails(newData);
-        await base44.integrations.Core.SendEmail({
+        apiClient.post('/api/integrations/send-email', {
           to: newData.email,
           subject: `Логистика: ${candidateName}`,
           body: `${message}\n\n${logisticsDetails}\n\nИнициатор: ${actorName}\nДата: ${now}\n\nДля согласования перейдите в анкету: ${window.location.origin}/form/${newData.form_token || ''}`,
           from_name: 'БРО-СНБ',
         }).catch(() => {});
       }
+
       if (newData.agency_id) {
-        const agency = await base44.entities.Agency.get(newData.agency_id);
-        if (agency) {
-          const emails = [agency.email, agency.manager_email].filter(Boolean) as string[];
-          await Promise.allSettled(
-            emails.map((email) =>
-              base44.integrations.Core.SendEmail({
-                to: email,
-                subject: `Логистика: ${candidateName}`,
-                body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`,
-                from_name: 'БРО-СНБ',
-              })
-            )
-          );
-        }
+        apiClient.get(`/api/agencies/${newData.agency_id}`)
+          .then((agency: any) => {
+            if (!agency) return;
+            const emails = [agency.email, agency.manager_email].filter(Boolean) as string[];
+            return Promise.allSettled(
+              emails.map((email) =>
+                apiClient.post('/api/integrations/send-email', {
+                  to: email,
+                  subject: `Логистика: ${candidateName}`,
+                  body: `${message}\n\nИнициатор: ${actorName}\nДата: ${now}`,
+                  from_name: 'БРО-СНБ',
+                })
+              )
+            );
+          })
+          .catch(() => {});
       }
     }
 
     if (notifyAdmin) {
-      await base44.entities.Notification.create(notifBase);
-      try {
-        const [admins, moderators] = await Promise.all([
-          base44.entities.User.filter({ role: 'admin' }),
-          base44.entities.User.filter({ role: 'moderator' }).catch(() => []),
-        ]);
-        const emailBody = `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`;
-        const emailRecipients = [...admins, ...moderators]
-          .filter((u: { email?: string }) => u.email)
-          .map((u: { email: string }) => u.email);
-        await Promise.allSettled(
-          emailRecipients.map((email: string) =>
-            base44.integrations.Core.SendEmail({
-              to: email,
-              subject: `Логистика: ${candidateName}`,
-              body: emailBody,
-              from_name: 'БРО-СНБ',
-            }).catch(() => {})
-          )
-        );
-      } catch {}
+      await apiClient.post('/api/notifications', notifBase);
+
+      apiClient.get('/api/users?role=admin&limit=100')
+        .then(async (admins: any[]) => {
+          const moderators = await apiClient.get('/api/users?role=moderator&limit=100').catch(() => []);
+          const emailBody = `${message}\n\n${formatLogisticsDetails(newData)}\n\nИнициатор: ${actorName}\nДата: ${now}`;
+          const recipients = [...(admins || []), ...(moderators || [])]
+            .filter((u: any) => u?.email)
+            .map((u: any) => u.email);
+          return Promise.allSettled(
+            recipients.map((email: string) =>
+              apiClient.post('/api/integrations/send-email', {
+                to: email,
+                subject: `Логистика: ${candidateName}`,
+                body: emailBody,
+                from_name: 'БРО-СНБ',
+              }).catch(() => {})
+            )
+          );
+        })
+        .catch(() => {});
     }
   } catch {
-    // Silent
+    // Silent — нотификации не должны блокировать основное действие
   }
 }
 
