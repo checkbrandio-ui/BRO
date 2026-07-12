@@ -193,6 +193,7 @@ pm2 restart crm-backend
 | 13 июля 2026 | **Документация** — PROJECT_MEMORY и ARCH_CONTRACT приведены в соответствие с реальным кодом |
 | 13 июля 2026 | **DEVELOPMENT_APPROACH.md** — создан документ подхода к разработке |
 | 13 июля 2026 | **Пакет А** — мигрированы 4 lib-нотификатора на apiClient (notifyLogisticsChange, notifyStatusChange, notifyFinalCallConfirmed, candidateLogger) |
+| 13 июля 2026 | **Пакет Б** — Agencies.jsx мигрирован на apiClient, alert → toast, try/catch/finally |
 
 ---
 
