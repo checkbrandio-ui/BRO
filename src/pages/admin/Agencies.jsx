@@ -1,62 +1,77 @@
 import { useState, useEffect } from 'react';
-import { base44 } from '@/api/base44Client';
-const { Agency } = base44.entities;
-import { Link, useNavigate } from 'react-router-dom';
+import { apiClient } from '@/api/base44Client';
+import { Link } from 'react-router-dom';
 import { Plus, Download, Mail, Phone, Edit2, Trash2, Search, RefreshCw, RotateCcw } from 'lucide-react';
+import { useToast } from '@/components/ui/use-toast';
 import AgencyModal from '../../components/admin/AgencyModal';
 
 export default function Agencies() {
-  const [agencies, setAgencies]     = useState([]);
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading]       = useState(true);
-  const [search, setSearch]         = useState('');
-  const [filterCity, setFilterCity] = useState('');
+  const { toast } = useToast();
+  const [agencies, setAgencies]       = useState([]);
+  const [candidates, setCandidates]   = useState([]);
+  const [loading, setLoading]         = useState(true);
+  const [search, setSearch]           = useState('');
+  const [filterCity, setFilterCity]   = useState('');
   const [showDeleted, setShowDeleted] = useState(false);
-  const [modalOpen, setModalOpen]   = useState(false);
-  const [editAgency, setEditAgency] = useState(null);
-  const navigate = useNavigate();
+  const [modalOpen, setModalOpen]     = useState(false);
+  const [editAgency, setEditAgency]   = useState(null);
 
   const load = async () => {
     setLoading(true);
-    const [ag, cand] = await Promise.all([
-      Agency.list(),
-      base44.entities.Candidate.list(),
-    ]);
-    setAgencies(Array.isArray(ag) ? ag : []);
-    setCandidates(Array.isArray(cand) ? cand : []);
-    setLoading(false);
+    try {
+      const [ag, cand] = await Promise.all([
+        apiClient.get('/api/agencies?limit=500'),
+        apiClient.get('/api/candidates?limit=1000'),
+      ]);
+      setAgencies(Array.isArray(ag) ? ag : []);
+      setCandidates(Array.isArray(cand) ? cand : []);
+    } catch (e) {
+      toast({ title: 'Ошибка загрузки', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => { load(); }, []);
 
-  const getCandidatesForAgency = (agencyId) => candidates.filter(c => c.agency_id === agencyId && !c.deleted_at);
+  const getCandidatesForAgency = (agencyId) =>
+    candidates.filter(c => c.agency_id === agencyId && !c.deleted_at);
 
-  // Soft-delete: помечаем deleted_at, кандидатов не трогаем
   const handleDelete = async (agency) => {
     if (!confirm(`Удалить агентство "${agency.name}"?\nКандидаты будут скрыты из статистики. Восстановление возможно в течение 3 дней.`)) return;
-    await Agency.update(agency.id, { deleted_at: new Date().toISOString() });
-    load();
+    try {
+      await apiClient.patch(`/api/agencies/${agency.id}`, { deleted_at: new Date().toISOString() });
+      load();
+    } catch (e) {
+      toast({ title: 'Ошибка удаления', description: e.message, variant: 'destructive' });
+    }
   };
 
-  // Восстановление
   const handleRestore = async (agency) => {
-    await Agency.update(agency.id, { deleted_at: null });
-    load();
+    try {
+      await apiClient.patch(`/api/agencies/${agency.id}`, { deleted_at: null });
+      load();
+    } catch (e) {
+      toast({ title: 'Ошибка восстановления', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleSave = async (data, id) => {
     try {
       if (id) {
-        await Agency.update(id, data);
+        await apiClient.patch(`/api/agencies/${id}`, data);
       } else {
-        if (!data.name?.trim()) { alert('Укажите наименование агентства'); return; }
-        await Agency.create(data);
+        if (!data.name?.trim()) {
+          toast({ title: 'Укажите наименование агентства', variant: 'destructive' });
+          return;
+        }
+        await apiClient.post('/api/agencies', data);
       }
       setModalOpen(false);
       setEditAgency(null);
       load();
     } catch (e) {
-      alert('Ошибка сохранения: ' + e.message);
+      toast({ title: 'Ошибка сохранения', description: e.message, variant: 'destructive' });
     }
   };
 
@@ -64,7 +79,7 @@ export default function Agencies() {
     const headers = ['Агентство', 'Город', 'Email', 'Телефон', 'Кандидатов', 'Дата договора', 'Активно'];
     const rows = activeAgencies.map(a => [
       a.name, a.city, a.email, a.phone,
-      getCandidatesForAgency(a.id).length, a.contract_date, a.is_active ? 'Да' : 'Нет'
+      getCandidatesForAgency(a.id).length, a.contract_date, a.is_active ? 'Да' : 'Нет',
     ]);
     const csv = [headers, ...rows].map(r => r.map(v => `"${v || ''}"`).join(',')).join('\n');
     const blob = new Blob(['\ufeff' + csv], { type: 'text/csv;charset=utf-8;' });
@@ -72,7 +87,6 @@ export default function Agencies() {
     const a = document.createElement('a'); a.href = url; a.download = 'agencies.csv'; a.click();
   };
 
-  // Разделяем на активные и удалённые (не старше 3 дней)
   const now = Date.now();
   const THREE_DAYS = 3 * 24 * 60 * 60 * 1000;
   const activeAgencies  = agencies.filter(a => !a.deleted_at);
@@ -81,10 +95,8 @@ export default function Agencies() {
     return now - new Date(a.deleted_at).getTime() < THREE_DAYS;
   });
 
-  // Кандидаты только активных агентств (для статистики)
   const activeAgencyIds = new Set(activeAgencies.map(a => a.id));
   const activeCandidates = candidates.filter(c => activeAgencyIds.has(c.agency_id) && !c.deleted_at);
-
   const cities = [...new Set(activeAgencies.map(a => a.city).filter(Boolean))].sort();
 
   const filtered = (showDeleted ? deletedAgencies : activeAgencies).filter(a => {
@@ -98,7 +110,6 @@ export default function Agencies() {
 
   return (
     <div className="min-h-screen bg-[#05070A] text-[#F8FAFC]">
-      {/* Header */}
       <div className="border-b border-[rgba(123,63,191,0.15)] bg-[#05070A]/90 backdrop-blur-xl sticky top-0 z-40">
         <div className="w-full mx-auto px-6 h-16 flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
@@ -121,7 +132,8 @@ export default function Agencies() {
                 <RotateCcw size={13} /> Удалённые ({deletedAgencies.length})
               </button>
             )}
-            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+            <button onClick={exportCSV}
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <Download size={14} /> Экспорт CSV
             </button>
             <button onClick={() => { setEditAgency(null); setModalOpen(true); }}
@@ -133,7 +145,6 @@ export default function Agencies() {
       </div>
 
       <div className="w-full mx-auto px-6 py-6">
-        {/* Filters */}
         <div className="flex flex-wrap gap-3 mb-6">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
@@ -148,16 +159,18 @@ export default function Agencies() {
             </select>
           )}
           {filterCity && (
-            <button onClick={() => setFilterCity('')} className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">✕ Сбросить</button>
+            <button onClick={() => setFilterCity('')}
+              className="px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
+              ✕ Сбросить
+            </button>
           )}
         </div>
 
-        {/* Stats — только по активным */}
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
           {[
-            { label: 'Всего агентств', value: activeAgencies.length },
-            { label: 'Активных', value: activeAgencies.filter(a => a.is_active !== false).length },
-            { label: 'Всего кандидатов', value: activeCandidates.length },
+            { label: 'Всего агентств',    value: activeAgencies.length },
+            { label: 'Активных',          value: activeAgencies.filter(a => a.is_active !== false).length },
+            { label: 'Всего кандидатов',  value: activeCandidates.length },
             { label: 'Готовы к отправке', value: activeCandidates.filter(c => c.payment_basis === 'Готовится к отправке').length },
           ].map(s => (
             <div key={s.label} className="glass-card rounded-xl p-4">
@@ -173,9 +186,14 @@ export default function Agencies() {
           </div>
         )}
 
-        {/* Table */}
         {loading ? (
-          <div className="flex justify-center py-20"><div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" /></div>
+          <div className="flex justify-center py-20">
+            <div className="w-8 h-8 border-4 border-[#7B3FBF]/30 border-t-[#7B3FBF] rounded-full animate-spin" />
+          </div>
+        ) : filtered.length === 0 ? (
+          <div className="text-center py-20 text-[#F8FAFC]/30 text-sm">
+            {showDeleted ? 'Нет недавно удалённых агентств' : 'Агентства не найдены'}
+          </div>
         ) : (
           <div className="glass-card rounded-xl overflow-hidden">
             <div className="overflow-x-auto table-scroll">
@@ -196,59 +214,59 @@ export default function Agencies() {
                       : null;
                     return (
                       <tr key={agency.id}
-                        className={`border-b border-[rgba(255,255,255,0.04)] transition-colors ${isDeleted ? 'opacity-60' : 'hover:bg-[rgba(123,63,191,0.06)] cursor-pointer'}`}
-                        onClick={() => !isDeleted && navigate(`/admin/candidates?agency=${agency.id}`)}>
+                        className={`border-b border-[rgba(123,63,191,0.08)] transition-colors ${isDeleted ? 'opacity-50' : 'hover:bg-[rgba(123,63,191,0.04)]'}`}>
                         <td className="px-4 py-3">
                           <div className="font-bold text-[#F8FAFC]">{agency.name}</div>
-                          {isDeleted && <div className="text-xs text-[#C9A84C]/70 mt-0.5">Удалено · восстановить можно ещё {daysLeft} дн.</div>}
-                          {!isDeleted && agency.comment && <div className="text-xs text-[#F8FAFC]/35 mt-0.5 truncate max-w-[160px]">{agency.comment}</div>}
+                          {agency.access_code && (
+                            <div className="text-xs text-[#F8FAFC]/30 font-mono mt-0.5">{agency.access_code}</div>
+                          )}
+                          {isDeleted && daysLeft != null && (
+                            <div className="text-xs text-[#C9A84C] mt-0.5">Удалено · осталось {daysLeft} д.</div>
+                          )}
                         </td>
                         <td className="px-4 py-3 text-[#F8FAFC]/60">{agency.city || '—'}</td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          {agency.email && <a href={`mailto:${agency.email}`} className="flex items-center gap-1.5 text-[#F8FAFC]/60 hover:text-[#C9A84C] text-xs mb-1"><Mail size={11}/>{agency.email}</a>}
-                          {agency.phone && <a href={`tel:${agency.phone}`} className="flex items-center gap-1.5 text-[#F8FAFC]/60 hover:text-[#C9A84C] text-xs"><Phone size={11}/>{agency.phone}</a>}
-                        </td>
-                        <td className="px-4 py-3 text-center">
-                          <span className="text-[#7B3FBF] font-bold">{cands.length}</span>
-                          {agency.planned_candidates > 0 && <span className="text-[#F8FAFC]/30 text-xs"> / {agency.planned_candidates}</span>}
-                        </td>
-                        <td className="px-4 py-3 text-xs text-[#F8FAFC]/60">
-                          {agency.contract_date
-                            ? <div>
-                                <div>{agency.contract_date.split('-').reverse().join('.')}</div>
-                                {agency.contract_url && (
-                                  <a href={agency.contract_url} target="_blank" rel="noreferrer"
-                                    onClick={e => e.stopPropagation()}
-                                    className="flex items-center gap-1 text-[#7B3FBF] hover:text-[#C9A84C] mt-0.5">
-                                    <Download size={11}/> Скачать
-                                  </a>
-                                )}
-                              </div>
-                            : <span className="text-[#F8FAFC]/25">—</span>}
+                        <td className="px-4 py-3">
+                          <div className="flex flex-col gap-1">
+                            {agency.email && (
+                              <a href={`mailto:${agency.email}`} className="flex items-center gap-1 text-xs text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-colors">
+                                <Mail size={11} />{agency.email}
+                              </a>
+                            )}
+                            {agency.phone && (
+                              <a href={`tel:${agency.phone}`} className="flex items-center gap-1 text-xs text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-colors">
+                                <Phone size={11} />{agency.phone}
+                              </a>
+                            )}
+                          </div>
                         </td>
                         <td className="px-4 py-3">
-                          {isDeleted
-                            ? <span className="text-xs px-2 py-0.5 rounded font-medium bg-red-500/10 text-red-400/70 border border-red-500/20">Удалено</span>
-                            : <span className={`text-xs px-2 py-0.5 rounded font-medium ${agency.is_active !== false ? 'bg-green-500/15 text-green-400 border border-green-500/25' : 'bg-red-500/10 text-red-400/70 border border-red-500/20'}`}>
-                                {agency.is_active !== false ? 'Активно' : 'Откл.'}
-                              </span>}
+                          <span className="text-lg font-black text-[#7B3FBF]">{cands.length}</span>
+                          {agency.planned_candidates > 0 && (
+                            <span className="text-xs text-[#F8FAFC]/30 ml-1">/ {agency.planned_candidates}</span>
+                          )}
                         </td>
-                        <td className="px-4 py-3" onClick={e => e.stopPropagation()}>
-                          <div className="flex items-center gap-2">
+                        <td className="px-4 py-3 text-[#F8FAFC]/50 text-xs">{agency.contract_date || '—'}</td>
+                        <td className="px-4 py-3">
+                          <span className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${agency.is_active !== false ? 'bg-emerald-500/15 text-emerald-400' : 'bg-red-500/15 text-red-400'}`}>
+                            {agency.is_active !== false ? 'Активно' : 'Отключено'}
+                          </span>
+                        </td>
+                        <td className="px-4 py-3">
+                          <div className="flex items-center gap-1">
                             {isDeleted ? (
                               <button onClick={() => handleRestore(agency)}
-                                className="p-1.5 rounded hover:bg-green-500/20 text-[#F8FAFC]/50 hover:text-green-400 transition-all" title="Восстановить">
-                                <RotateCcw size={14}/>
+                                className="flex items-center gap-1 px-3 py-1.5 text-xs rounded-lg bg-[#C9A84C]/15 text-[#C9A84C] hover:bg-[#C9A84C]/25 transition-all">
+                                <RotateCcw size={12} /> Восстановить
                               </button>
                             ) : (
                               <>
                                 <button onClick={() => { setEditAgency(agency); setModalOpen(true); }}
-                                  className="p-1.5 rounded hover:bg-[#7B3FBF]/20 text-[#F8FAFC]/50 hover:text-[#7B3FBF] transition-all">
-                                  <Edit2 size={14}/>
+                                  className="p-1.5 rounded-lg hover:bg-[rgba(123,63,191,0.15)] text-[#F8FAFC]/40 hover:text-[#7B3FBF] transition-all">
+                                  <Edit2 size={14} />
                                 </button>
                                 <button onClick={() => handleDelete(agency)}
-                                  className="p-1.5 rounded hover:bg-red-500/20 text-[#F8FAFC]/50 hover:text-red-400 transition-all">
-                                  <Trash2 size={14}/>
+                                  className="p-1.5 rounded-lg hover:bg-red-500/10 text-[#F8FAFC]/40 hover:text-red-400 transition-all">
+                                  <Trash2 size={14} />
                                 </button>
                               </>
                             )}
@@ -257,11 +275,6 @@ export default function Agencies() {
                       </tr>
                     );
                   })}
-                  {filtered.length === 0 && (
-                    <tr><td colSpan={7} className="text-center py-12 text-[#F8FAFC]/30">
-                      {showDeleted ? 'Удалённых агентств нет' : 'Агентства не найдены'}
-                    </td></tr>
-                  )}
                 </tbody>
               </table>
             </div>
