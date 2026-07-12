@@ -194,6 +194,7 @@ pm2 restart crm-backend
 | 13 июля 2026 | **DEVELOPMENT_APPROACH.md** — создан документ подхода к разработке |
 | 13 июля 2026 | **Пакет А** — мигрированы 4 lib-нотификатора на apiClient (notifyLogisticsChange, notifyStatusChange, notifyFinalCallConfirmed, candidateLogger) |
 | 13 июля 2026 | **Пакет Б** — Agencies.jsx мигрирован на apiClient, alert → toast, try/catch/finally |
+| 13 июля 2026 | **Пакет В** — AgencyWorkspace.jsx: 15 вызовов legacy → apiClient, subscribe → polling 30сек, alert → toast, try/catch/finally |
 
 ---
 
@@ -214,7 +215,8 @@ pm2 restart crm-backend
 | Файл | Проблема |
 |------|---------|
 | `src/pages/admin/Agencies.jsx` | `base44.entities.*` — весь CRUD через legacy |
-| `src/pages/AgencyWorkspace.jsx` | 14 вызовов `base44.entities` |
+| ~~`src/pages/AgencyWorkspace.jsx`~~ | ✅ DONE 13.07.2026 |
+| ~~`src/pages/AgencyWorkspace.jsx`~~ | ✅ DONE 13.07.2026 |
 | `src/pages/AgencyNotifications.jsx` | legacy entities |
 | `src/components/admin/NotificationBell.jsx` | legacy subscribe |
 | `src/components/admin/DispatchDashboard.jsx` | legacy функции |
