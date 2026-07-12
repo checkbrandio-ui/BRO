@@ -6,7 +6,7 @@
  * ключевых полей логистики, чтобы в истории было видно
  * финальный результат изменений, а не только факт изменения.
  */
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import type { LogActionParams, Candidate } from './types';
 
 const LOGISTICS_FIELDS: string[] = [
@@ -54,7 +54,7 @@ export async function logCandidateAction({ action, candidate, oldData, actor }: 
     if (!changes) return;
   }
 
-  await base44.entities.CandidateLog.create({
+  await apiClient.post('/api/candidate-logs', {
     candidate_id: candidate.id || 'new',
     candidate_name: candidate.full_name || '',
     action,
