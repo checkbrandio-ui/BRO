@@ -195,6 +195,7 @@ pm2 restart crm-backend
 | 13 июля 2026 | **Пакет А** — мигрированы 4 lib-нотификатора на apiClient (notifyLogisticsChange, notifyStatusChange, notifyFinalCallConfirmed, candidateLogger) |
 | 13 июля 2026 | **Пакет Б** — Agencies.jsx мигрирован на apiClient, alert → toast, try/catch/finally |
 | 13 июля 2026 | **Пакет В** — AgencyWorkspace.jsx: 15 вызовов legacy → apiClient, subscribe → polling 30сек, alert → toast, try/catch/finally |
+| 13 июля 2026 | **ХОТФИКС** — NotificationBell, AgencyNotificationBell, AgencyNotifications: Runtime Error _api устранён, subscribe → polling |
 
 ---
 
@@ -217,8 +218,8 @@ pm2 restart crm-backend
 | `src/pages/admin/Agencies.jsx` | `base44.entities.*` — весь CRUD через legacy |
 | ~~`src/pages/AgencyWorkspace.jsx`~~ | ✅ DONE 13.07.2026 |
 | ~~`src/pages/AgencyWorkspace.jsx`~~ | ✅ DONE 13.07.2026 |
-| `src/pages/AgencyNotifications.jsx` | legacy entities |
-| `src/components/admin/NotificationBell.jsx` | legacy subscribe |
+| ~~`src/pages/AgencyNotifications.jsx`~~ | ✅ DONE 13.07.2026 |
+| ~~`src/components/admin/NotificationBell.jsx`~~ | ✅ DONE 13.07.2026 |
 | `src/components/admin/DispatchDashboard.jsx` | legacy функции |
 | `src/components/admin/FormLinkModal.jsx` | legacy entities |
 | `src/components/admin/InlineCommentCell.jsx` | legacy entities |
@@ -228,7 +229,7 @@ pm2 restart crm-backend
 | `src/components/admin/CandidateFormView.jsx` | legacy entities |
 | `src/components/admin/CityEditModal.jsx` | legacy entities |
 | `src/components/admin/AddCityModal.jsx` | legacy entities |
-| `src/components/admin/AgencyNotificationBell.jsx` | legacy entities |
+| ~~`src/components/admin/AgencyNotificationBell.jsx`~~ | ✅ DONE 13.07.2026 |
 | `src/components/CitySelect.jsx` | legacy entities |
 | `src/lib/candidateLogger.ts` | legacy Notification.create |
 | `src/lib/notifyLogisticsChange.ts` | legacy Notification.create |
