@@ -1,6 +1,6 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { base44 } from '@/api/base44Client';
+import { apiClient } from '@/api/base44Client';
 import { Plus, Edit2, Trash2, LogOut, Building2, Users, Search, MessageSquare, Shield, Stethoscope, Banknote, CheckCircle, MapPin, CalendarDays, RefreshCw, X, ClipboardCopy, Download, Archive, ArchiveRestore, BookOpen, AlertTriangle, Phone } from 'lucide-react';
 import CandidateModal from '../components/admin/CandidateModal';
 import AgencyNotificationBell from '../components/admin/AgencyNotificationBell';
@@ -19,8 +19,8 @@ const POSITIONS = ['Разнорабочий','Строитель','Водите
 const SB_COLORS  = { 'Не проверялся': 'text-[#F8FAFC]/40', 'На проверке': 'text-yellow-400', 'Согласован': 'text-green-400', 'Не согласован': 'text-red-400' };
 const MED_COLORS = { 'Не проверялся': 'text-[#F8FAFC]/40', 'Прошёл': 'text-green-400', 'Не прошёл': 'text-red-400' };
 const PAY_COLORS = { 'Готовится к отправке': 'text-green-400', 'Отказался от отправки': 'text-red-400/70' };
+const POLL_INTERVAL = 30000; // 30 сек
 
-// Тултип — показывает текст НИЖЕ иконки (под хедером)
 function Tooltip({ text, children }) {
   return (
     <div className="relative group/tip inline-flex items-center">
@@ -35,90 +35,106 @@ function Tooltip({ text, children }) {
 export default function AgencyWorkspace() {
   const navigate = useNavigate();
   const { toast } = useToast();
+  const pollRef = useRef(null);
 
   const session = (() => {
     try { return JSON.parse(sessionStorage.getItem('agency_session')); } catch { return null; }
   })();
 
-  const [agency, setAgency]       = useState(null);
-  const [candidates, setCandidates] = useState([]);
-  const [loading, setLoading]     = useState(true);
-  const [search, setSearch]       = useState('');
-  const [filters, setFilters] = useState({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' });
-  const [modalOpen, setModalOpen] = useState(false);
+  const [agency, setAgency]             = useState(null);
+  const [candidates, setCandidates]     = useState([]);
+  const [loading, setLoading]           = useState(true);
+  const [search, setSearch]             = useState('');
+  const [filters, setFilters]           = useState({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' });
+  const [modalOpen, setModalOpen]       = useState(false);
   const [editCandidate, setEditCandidate] = useState(null);
-  const [copiedId, setCopiedId] = useState(null);
-  const [showArchive, setShowArchive] = useState(false);
-  const [cityCache, setCityCache] = useState({});
-  const [selectedIds, setSelectedIds] = useState(new Set());
-  const [bulkBusy, setBulkBusy] = useState(false);
+  const [copiedId, setCopiedId]         = useState(null);
+  const [showArchive, setShowArchive]   = useState(false);
+  const [cityCache, setCityCache]       = useState({});
+  const [selectedIds, setSelectedIds]   = useState(new Set());
+  const [bulkBusy, setBulkBusy]         = useState(false);
   const [linkModalCandidate, setLinkModalCandidate] = useState(null);
 
   useEffect(() => {
     if (!session?.id) { navigate('/agency-login', { replace: true }); return; }
     load();
+
+    // Polling вместо WebSocket-subscribe (недоступен вне Base44)
+    pollRef.current = setInterval(() => {
+      silentRefresh();
+    }, POLL_INTERVAL);
+
+    return () => {
+      if (pollRef.current) clearInterval(pollRef.current);
+    };
   }, []);
 
-  // Realtime-подписка — обновляем только изменённую запись без перезагрузки таблицы
-  useEffect(() => {
+  // Тихое фоновое обновление без лоадера
+  const silentRefresh = async () => {
     if (!session?.id) return;
-    const unsubscribe = base44.entities.Candidate.subscribe((event) => {
-      if (!event.data) return;
-      if (event.type === 'delete' || event.data.deleted_at) {
-        setCandidates(prev => prev.filter(c => c.id !== event.data.id));
-        return;
-      }
-      if (event.type === 'update') {
-        setCandidates(prev => prev.map(c => {
-          if (c.id !== event.data.id) return c;
-          // Сохраняем мёрдж документов: не-сгенерированные (из анкет) + сгенерированные с сервера
-          const serverDocs = event.data.documents || [];
-          const existingNonGenerated = (c.documents || []).filter(d => d.type !== 'generated');
-          const serverGenerated = serverDocs.filter(d => d.type === 'generated');
-          return { ...c, ...event.data, documents: [...existingNonGenerated, ...serverGenerated] };
-        }));
-      } else if (event.type === 'create' && event.data.agency_id === session.id) {
-        setCandidates(prev => prev.some(c => c.id === event.data.id) ? prev : [event.data, ...prev]);
-      }
-    });
-    return unsubscribe;
-  }, []);
+    try {
+      const cands = await apiClient.get(`/api/candidates?agency_id=${session.id}&limit=500`);
+      const activeCands = (Array.isArray(cands) ? cands : []).filter(c => !c.deleted_at);
+      setCandidates(prev => {
+        // Мёрджим: сохраняем локальные документы которых нет на сервере
+        return activeCands.map(serverC => {
+          const localC = prev.find(lc => lc.id === serverC.id);
+          if (!localC) return serverC;
+          const serverUrls = new Set((serverC.documents || []).map(d => d.url).filter(Boolean));
+          const extraDocs = (localC.documents || []).filter(d => d.url && !serverUrls.has(d.url));
+          return { ...serverC, documents: [...(serverC.documents || []), ...extraDocs] };
+        });
+      });
+    } catch {
+      // Тихая ошибка — polling, не показываем пользователю
+    }
+  };
 
   const load = async () => {
     if (!session?.id) return;
     setLoading(true);
-    const [agencyData, cands, cities, forms] = await Promise.all([
-      base44.entities.Agency.get(session.id),
-      base44.entities.Candidate.filter({ agency_id: session.id }, '-created_date', 500),
-      base44.entities.City.list('-created_date', 500),
-      base44.entities.CandidateForm.filter({ status: 'completed' }, '-created_date', 500),
-    ]);
-    const formDocsByCandidate = {};
-    forms.forEach(f => {
-      if (f.candidate_id && f.uploaded_docs?.length) {
-        formDocsByCandidate[f.candidate_id] = f.uploaded_docs;
-      }
-    });
-    const activeCands = cands.filter(c => !c.deleted_at);
-    const mergedCands = activeCands.map(c => {
-      const formDocs = formDocsByCandidate[c.id];
-      if (formDocs?.length) {
-        const existingUrls = new Set((c.documents || []).map(d => d.url).filter(Boolean));
-        const newDocs = formDocs.filter(fd => !existingUrls.has(fd.url));
-        return { ...c, documents: [...(c.documents || []), ...newDocs] };
-      }
-      return c;
-    });
-    const cityMap = {};
-    cities.forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
-    setAgency(agencyData || null);
-    setCandidates(mergedCands);
-    setCityCache(cityMap);
-    setLoading(false);
-    setSelectedIds(new Set());
+    try {
+      const [agencyData, cands, cities, forms] = await Promise.all([
+        apiClient.get(`/api/agencies/${session.id}`),
+        apiClient.get(`/api/candidates?agency_id=${session.id}&limit=500`),
+        apiClient.get('/api/cities?limit=500'),
+        apiClient.get('/api/candidate-forms?status=completed&limit=500'),
+      ]);
+
+      const formDocsByCandidate = {};
+      (Array.isArray(forms) ? forms : []).forEach(f => {
+        if (f.candidate_id && f.uploaded_docs?.length) {
+          formDocsByCandidate[f.candidate_id] = f.uploaded_docs;
+        }
+      });
+
+      const activeCands = (Array.isArray(cands) ? cands : []).filter(c => !c.deleted_at);
+      const mergedCands = activeCands.map(c => {
+        const formDocs = formDocsByCandidate[c.id];
+        if (formDocs?.length) {
+          const existingUrls = new Set((c.documents || []).map(d => d.url).filter(Boolean));
+          const newDocs = formDocs.filter(fd => !existingUrls.has(fd.url));
+          return { ...c, documents: [...(c.documents || []), ...newDocs] };
+        }
+        return c;
+      });
+
+      const cityMap = {};
+      (Array.isArray(cities) ? cities : []).forEach(c => { if (c.name) cityMap[c.name.toLowerCase()] = c; });
+
+      setAgency(agencyData || null);
+      setCandidates(mergedCands);
+      setCityCache(cityMap);
+      setSelectedIds(new Set());
+    } catch (e) {
+      toast({ title: 'Ошибка загрузки', description: e.message, variant: 'destructive' });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleLogout = () => {
+    if (pollRef.current) clearInterval(pollRef.current);
     sessionStorage.removeItem('agency_session');
     navigate('/agency-login', { replace: true });
   };
@@ -131,68 +147,92 @@ export default function AgencyWorkspace() {
 
   const handleSave = async (data, id) => {
     const dataWithAgency = { ...data, agency_id: session.id, agency_name: session.name };
-    if (id) {
-      const old = candidates.find(c => c.id === id);
-      await base44.entities.Candidate.update(id, dataWithAgency);
-      const actor = getActor();
-      await Promise.all([
-        logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor }),
-        notifyStatusChange({ ...dataWithAgency, id }, old, actor),
-        notifyLogisticsChange({ ...dataWithAgency, id }, old, actor),
-      ]);
-      setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...dataWithAgency } : c));
-    } else {
-      const response = await base44.functions.invoke('createCandidateSafe', {
-        candidate_data: dataWithAgency,
-        actor: getActor(),
-      });
-      if (response.data?.error === 'duplicate') {
-        const ex = response.data.existing_candidate;
-        alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
-        return;
-      }
-      const newCandidate = response.data?.candidate;
-      if (newCandidate) {
-        setCandidates(prev => prev.some(c => c.id === newCandidate.id)
-          ? prev.map(c => c.id === newCandidate.id ? { ...c, ...newCandidate, ...dataWithAgency } : c)
-          : [{ ...newCandidate, ...dataWithAgency }, ...prev]);
+    try {
+      if (id) {
+        const old = candidates.find(c => c.id === id);
+        await apiClient.patch(`/api/candidates/${id}`, dataWithAgency);
+        const actor = getActor();
+        await Promise.all([
+          logCandidateAction({ action: 'update', candidate: { ...dataWithAgency, id }, oldData: old, actor }),
+          notifyStatusChange({ ...dataWithAgency, id }, old, actor),
+          notifyLogisticsChange({ ...dataWithAgency, id }, old, actor),
+        ]);
+        setCandidates(prev => prev.map(c => c.id === id ? { ...c, ...dataWithAgency } : c));
       } else {
-        await load();
+        const response = await apiClient.post('/api/fn/createCandidateSafe', {
+          candidate_data: dataWithAgency,
+          actor: getActor(),
+        });
+        if (response?.error === 'duplicate') {
+          const ex = response.existing_candidate;
+          toast({
+            title: 'Дубль кандидата',
+            description: `«${ex?.full_name}» с датой рождения ${ex?.birth_date} уже существует${ex?.agency_name ? ` (${ex.agency_name})` : ''}. Создание заблокировано.`,
+            variant: 'destructive',
+          });
+          return;
+        }
+        const newCandidate = response?.candidate;
+        if (newCandidate) {
+          setCandidates(prev => prev.some(c => c.id === newCandidate.id)
+            ? prev.map(c => c.id === newCandidate.id ? { ...c, ...newCandidate, ...dataWithAgency } : c)
+            : [{ ...newCandidate, ...dataWithAgency }, ...prev]);
+        } else {
+          await load();
+        }
+        if (newCandidate?.form_token) {
+          setLinkModalCandidate({ ...newCandidate, ...dataWithAgency });
+        }
       }
-      if (newCandidate?.form_token) {
-        setLinkModalCandidate({ ...newCandidate, ...dataWithAgency });
-      }
+      setModalOpen(false);
+      setEditCandidate(null);
+    } catch (e) {
+      toast({ title: 'Ошибка сохранения', description: e.message, variant: 'destructive' });
     }
-    setModalOpen(false);
-    setEditCandidate(null);
   };
 
   const handleDelete = async (id) => {
     if (!confirm('Переместить кандидата в корзину? Запись можно будет восстановить.')) return;
-    const cand = candidates.find(c => c.id === id);
-    const ts = new Date().toISOString();
-    await base44.entities.Candidate.update(id, { deleted_at: ts });
-    await logCandidateAction({ action: 'delete', candidate: { ...cand, deleted_at: ts }, actor: getActor() });
-    setCandidates(prev => prev.filter(c => c.id !== id));
+    try {
+      const cand = candidates.find(c => c.id === id);
+      const ts = new Date().toISOString();
+      await apiClient.patch(`/api/candidates/${id}`, { deleted_at: ts });
+      await logCandidateAction({ action: 'delete', candidate: { ...cand, deleted_at: ts }, actor: getActor() });
+      setCandidates(prev => prev.filter(c => c.id !== id));
+    } catch (e) {
+      toast({ title: 'Ошибка удаления', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleArchive = async (c) => {
-    await base44.entities.Candidate.update(c.id, { is_archived: true });
-    await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: true }, oldData: c, actor: getActor() });
-    setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: true } : x));
+    try {
+      await apiClient.patch(`/api/candidates/${c.id}`, { is_archived: true });
+      await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: true }, oldData: c, actor: getActor() });
+      setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: true } : x));
+    } catch (e) {
+      toast({ title: 'Ошибка архивации', description: e.message, variant: 'destructive' });
+    }
   };
 
   const handleUnarchive = async (c) => {
-    await base44.entities.Candidate.update(c.id, { is_archived: false });
-    await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: false }, oldData: c, actor: getActor() });
-    setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: false } : x));
+    try {
+      await apiClient.patch(`/api/candidates/${c.id}`, { is_archived: false });
+      await logCandidateAction({ action: 'update', candidate: { ...c, is_archived: false }, oldData: c, actor: getActor() });
+      setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, is_archived: false } : x));
+    } catch (e) {
+      toast({ title: 'Ошибка разархивации', description: e.message, variant: 'destructive' });
+    }
   };
 
   const generateFormToken = async (c) => {
-    const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-    await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
-    await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
-    load();
+    try {
+      const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
+      await apiClient.patch(`/api/candidates/${c.id}`, { form_token: token, form_status: 'pending' });
+      await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' });
+      setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: token, form_status: 'pending' } : x));
+    } catch (e) {
+      toast({ title: 'Ошибка создания анкеты', description: e.message, variant: 'destructive' });
+    }
   };
 
   const exportCSV = () => {
@@ -220,7 +260,9 @@ export default function AgencyWorkspace() {
       <a href={`/form/${c.form_token}?edit=1`} target="_blank" rel="noreferrer"
         className="text-xs px-1.5 py-0.5 rounded bg-green-500/15 text-green-400 border border-green-500/25 whitespace-nowrap hover:bg-green-500/25 transition-all">✓ Заполнена</a>
     );
-    if (c.form_status === 'pending' || c.form_token) return <span className="text-xs px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/80 border border-[#C9A84C]/20 whitespace-nowrap">Ожидает</span>;
+    if (c.form_status === 'pending' || c.form_token) return (
+      <span className="text-xs px-1.5 py-0.5 rounded bg-[#C9A84C]/10 text-[#C9A84C]/80 border border-[#C9A84C]/20 whitespace-nowrap">Ожидает</span>
+    );
     return null;
   };
 
@@ -267,13 +309,9 @@ export default function AgencyWorkspace() {
     setSelectedIds(prev => {
       const allSelected = displayed.length > 0 && displayed.every(c => prev.has(c.id));
       if (allSelected) {
-        const next = new Set(prev);
-        displayed.forEach(c => next.delete(c.id));
-        return next;
+        const next = new Set(prev); displayed.forEach(c => next.delete(c.id)); return next;
       }
-      const next = new Set(prev);
-      displayed.forEach(c => next.add(c.id));
-      return next;
+      const next = new Set(prev); displayed.forEach(c => next.add(c.id)); return next;
     });
   };
 
@@ -282,8 +320,7 @@ export default function AgencyWorkspace() {
     const withToken = selected.filter(c => c.form_token);
     const without = selected.length - withToken.length;
     if (!withToken.length) {
-      const { dismiss } = toast({ title: 'Нет ссылок', description: 'У выбранных кандидатов нет анкет. Нажмите «Создать анкеты».', variant: 'destructive' });
-      setTimeout(dismiss, 5000);
+      toast({ title: 'Нет ссылок', description: 'У выбранных кандидатов нет анкет. Нажмите «Создать анкеты».', variant: 'destructive' });
       return;
     }
     const lines = withToken.map((c, i) =>
@@ -292,8 +329,7 @@ export default function AgencyWorkspace() {
     const text = `📋 Подборка кандидатов (${withToken.length} чел.):\n\n${lines.join('\n\n')}`;
     navigator.clipboard.writeText(text);
     const msg = without > 0 ? `Скопировано ${withToken.length}, без анкеты: ${without}` : `Скопировано ${withToken.length} ссылок`;
-    const { dismiss } = toast({ title: '✓ ' + msg });
-    setTimeout(dismiss, 3500);
+    toast({ title: '✓ ' + msg });
   };
 
   const handleBulkGenerateForms = async () => {
@@ -303,19 +339,17 @@ export default function AgencyWorkspace() {
     try {
       const updates = await Promise.all(selected.map(async c => {
         const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
-        await base44.entities.Candidate.update(c.id, { form_token: token, form_status: 'pending' });
-        await base44.entities.CandidateForm.create({ candidate_id: c.id, form_token: token, status: 'pending' });
+        await apiClient.patch(`/api/candidates/${c.id}`, { form_token: token, form_status: 'pending' });
+        await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' });
         return { id: c.id, form_token: token, form_status: 'pending' };
       }));
       setCandidates(prev => prev.map(c => {
         const u = updates.find(u => u.id === c.id);
         return u ? { ...c, ...u } : c;
       }));
-      const { dismiss } = toast({ title: `✓ Создано ${updates.length} анкет`, description: 'Теперь можно копировать ссылки' });
-      setTimeout(dismiss, 3500);
+      toast({ title: `✓ Создано ${updates.length} анкет`, description: 'Теперь можно копировать ссылки' });
     } catch (e) {
-      const { dismiss } = toast({ title: 'Ошибка создания анкет', variant: 'destructive' });
-      setTimeout(dismiss, 5000);
+      toast({ title: 'Ошибка создания анкет', description: e.message, variant: 'destructive' });
     } finally {
       setBulkBusy(false);
     }
@@ -327,9 +361,11 @@ export default function AgencyWorkspace() {
     setBulkBusy(true);
     try {
       const ts = new Date().toISOString();
-      const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
-      await base44.entities.Candidate.bulkUpdate(updates);
       const actor = getActor();
+      // Нет bulkUpdate в REST — патчим последовательно
+      await Promise.all(ids.map(id =>
+        apiClient.patch(`/api/candidates/${id}`, { final_call_confirmed: true, final_call_confirmed_at: ts })
+      ));
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
         const newData = { ...old, final_call_confirmed: true, final_call_confirmed_at: ts };
@@ -338,13 +374,12 @@ export default function AgencyWorkspace() {
           notifyFinalCallConfirmed(newData, actor),
         ]);
       }));
-      setCandidates(prev => prev.map(c => selectedIds.has(c.id) ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
-      const { dismiss } = toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });
-      setTimeout(dismiss, 3500);
+      setCandidates(prev => prev.map(c => selectedIds.has(c.id)
+        ? { ...c, final_call_confirmed: true, final_call_confirmed_at: ts } : c));
+      toast({ title: `✓ Прозвон подтверждён: ${ids.length} чел.` });
       setSelectedIds(new Set());
     } catch (e) {
-      const { dismiss } = toast({ title: 'Ошибка', variant: 'destructive' });
-      setTimeout(dismiss, 5000);
+      toast({ title: 'Ошибка', description: e.message, variant: 'destructive' });
     } finally {
       setBulkBusy(false);
     }
@@ -384,7 +419,8 @@ export default function AgencyWorkspace() {
                 <Archive size={13} /> Архив ({archived.length})
               </button>
             )}
-            <button onClick={exportCSV} className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
+            <button onClick={exportCSV}
+              className="flex items-center gap-2 px-4 py-2 text-xs rounded border border-[rgba(201,168,76,0.3)] text-[#C9A84C] hover:bg-[#C9A84C]/10 transition-all">
               <Download size={14} /> CSV
             </button>
             <button onClick={handleLogout}
@@ -396,7 +432,7 @@ export default function AgencyWorkspace() {
       </div>
 
       <div className="max-w-[1400px] mx-auto px-6 py-6">
-        {/* Agency info card — compact */}
+        {/* Agency info card */}
         {agency && (
           <div className="glass-card-gold rounded-xl px-5 py-3 mb-4">
             <div className="flex items-center justify-between gap-4 mb-2">
@@ -413,7 +449,7 @@ export default function AgencyWorkspace() {
               </div>
             </div>
             {candidates.length > 0 && (() => {
-              const byPos   = {};
+              const byPos = {};
               candidates.forEach(c => { if (c.position) byPos[c.position] = (byPos[c.position] || 0) + 1; });
               const sbOk    = candidates.filter(c => c.sb_check === 'Согласован').length;
               const medOk   = candidates.filter(c => c.medical_check === 'Прошёл').length;
@@ -438,7 +474,7 @@ export default function AgencyWorkspace() {
           </div>
         )}
 
-        {/* Actions bar + filters */}
+        {/* Filters */}
         <div className="flex flex-wrap items-center gap-3 mb-4">
           <div className="relative flex-1 min-w-[200px]">
             <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#F8FAFC]/30" />
@@ -479,14 +515,13 @@ export default function AgencyWorkspace() {
             {filters.final_call === 'yes' ? 'Прозвон ✓' : filters.final_call === 'no' ? 'Не прозвонен' : 'Прозвон'}
           </button>
           {hasFilters && (
-            <button onClick={() => {             setFilters({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' }); setSearch(''); }}
+            <button onClick={() => { setFilters({ position: '', sb_check: '', medical_check: '', docs_filter: '', final_call: '' }); setSearch(''); }}
               className="flex items-center gap-1 px-3 py-2 text-xs text-red-400 hover:bg-red-500/10 rounded-lg transition-all">
               <X size={12} /> Сбросить
             </button>
           )}
           {!showArchive && (
-            <button
-              onClick={() => { setEditCandidate(null); setModalOpen(true); }}
+            <button onClick={() => { setEditCandidate(null); setModalOpen(true); }}
               className="flex items-center gap-2 px-5 py-2.5 text-sm rounded-lg bg-[#7B3FBF] text-white hover:bg-[#8B4FCF] transition-all font-bold ml-auto">
               <Plus size={15} /> Добавить кандидата
             </button>
@@ -544,12 +579,12 @@ export default function AgencyWorkspace() {
                 <tbody>
                   {displayed.map(c => (
                     <tr key={c.id} className="border-b border-[rgba(255,255,255,0.04)] hover:bg-[rgba(123,63,191,0.06)] transition-colors">
-                        {!showArchive && (
-                          <td className="px-4 py-3">
-                            <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
-                              className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
-                          </td>
-                        )}
+                      {!showArchive && (
+                        <td className="px-4 py-3">
+                          <input type="checkbox" checked={selectedIds.has(c.id)} onChange={() => toggleSelect(c.id)}
+                            className="w-4 h-4 rounded border-[rgba(123,63,191,0.3)] bg-transparent accent-[#7B3FBF] cursor-pointer" />
+                        </td>
+                      )}
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1.5">
                           {hasMissingRequiredDocs(c) && (
