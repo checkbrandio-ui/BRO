@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { apiClient } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell } from 'lucide-react';
@@ -7,20 +7,38 @@ import { isCrmAuthenticated } from '@/lib/crmSession';
 export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [visible, setVisible] = useState(false);
+  const mountedRef = useRef(true);
 
   const load = useCallback(async () => {
+    if (!isCrmAuthenticated()) return;
     try {
       const items = await apiClient.get('/api/notifications?is_read=false&limit=50');
-      setUnread(Array.isArray(items) ? items.length : 0);
-    } catch (_) {}
+      if (mountedRef.current) {
+        setUnread(Array.isArray(items) ? items.length : 0);
+      }
+    } catch (_) {
+      // 401 или сетевая ошибка — молча игнорируем, не блокируем UI
+    }
   }, []);
 
   useEffect(() => {
+    mountedRef.current = true;
+
     if (!isCrmAuthenticated()) return;
     setVisible(true);
-    load();
+
+    // Небольшая задержка — даём токену записаться в localStorage после логина
+    const initialTimer = setTimeout(() => {
+      load();
+    }, 500);
+
     const interval = setInterval(load, 30000);
-    return () => clearInterval(interval);
+
+    return () => {
+      mountedRef.current = false;
+      clearTimeout(initialTimer);
+      clearInterval(interval);
+    };
   }, [load]);
 
   if (!visible) return null;
