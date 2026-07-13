@@ -42,7 +42,7 @@ export default function CrmAdmins() {
     }
     setCreating(true);
     try {
-      const exRes = await apiClient.get('/api/crm-admins?access_code=${encodeURIComponent(newAdmin.access_code.trim())}');
+      const exRes = await apiClient.get(`/api/crm-admins?access_code=${encodeURIComponent(newAdmin.access_code.trim())}`);
       const existing = exRes.data || [];
       if (existing.length > 0) {
         toast({ title: 'Код уже используется', description: 'Сгенерируйте новый код', variant: 'destructive' });
@@ -66,7 +66,7 @@ export default function CrmAdmins() {
   };
 
   const handleToggleActive = async (admin) => {
-    await apiClient.patch('/api/crm-admins/${admin.id}', { is_active: !admin.is_active });
+    await apiClient.patch(`/api/crm-admins/${admin.id}`, { is_active: !admin.is_active });
     load();
   };
 
@@ -81,7 +81,7 @@ export default function CrmAdmins() {
       return;
     }
     if (!confirm(`Удалить администратора «${admin.full_name}»?`)) return;
-    await apiClient.delete('/api/crm-admins/${admin.id}');
+    await apiClient.delete(`/api/crm-admins/${admin.id}`);
     load();
   };
 
