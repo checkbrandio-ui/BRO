@@ -21,7 +21,7 @@ export default function AssemblyPoints() {
   const load = useCallback(async () => {
     setLoading(true);
     const cr = await apiClient.get('/api/cities?sort=-created_date&limit=500');
-    const data = cr.data || [];
+    const data = cr || [];
     setCities(data);
     setLoading(false);
   }, []);
@@ -56,7 +56,7 @@ export default function AssemblyPoints() {
     try {
       // Проверяем, есть ли кандидаты, привязанные к этому городу
       const linkRes = await apiClient.get(`/api/candidates?city=${encodeURIComponent(confirmDelete.name)}&limit=10`);
-      const linked = linkRes.data || [];
+      const linked = linkRes || [];
       if (linked.length > 0) {
         alert(`Невозможно удалить: к городу «${confirmDelete.name}» привязано ${linked.length} кандидатов. Сначала переназначьте их на другой город.`);
         return;
