@@ -37,7 +37,7 @@ export default function Trash() {
   const handleRestore = async (c) => {
     setRestoring(c.id);
     try {
-      await apiClient.patch('/api/candidates/${c.id}', { deleted_at: null });
+      await apiClient.patch(`/api/candidates/${c.id}`, { deleted_at: null });
       await logCandidateAction({ action: 'update', candidate: { ...c, deleted_at: null }, oldData: c, actor: getActor() });
       setCandidates(prev => prev.filter(x => x.id !== c.id));
     } catch (e) {
@@ -53,7 +53,7 @@ export default function Trash() {
     try {
       // Удаляем все связанные анкеты — иначе они остаются «сиротами» и доступны по токену
       // deleteMany заменён: форма остаётся, кандидат удаляется физически
-      await apiClient.delete('/api/candidates/${c.id}');
+      await apiClient.delete(`/api/candidates/${c.id}`);
       await logCandidateAction({ action: 'delete', candidate: { ...c }, actor: getActor() });
       setCandidates(prev => prev.filter(x => x.id !== c.id));
     } catch (e) {
