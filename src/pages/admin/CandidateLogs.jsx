@@ -101,9 +101,9 @@ export default function CandidateLogs() {
           await fetch(`${_api}/api/candidates/${log.candidate_id}`, { method: 'PATCH', headers: _h(), body: JSON.stringify(undoData) });
         }
       } else if (log.action === 'delete') {
-        await apiClient.patch('/api/candidates/${log.candidate_id}', { deleted_at: null });
+        await apiClient.patch(`/api/candidates/${log.candidate_id}`, { deleted_at: null });
       } else if (log.action === 'create') {
-        await apiClient.patch('/api/candidates/${log.candidate_id}', { deleted_at: new Date().toISOString() });
+        await apiClient.patch(`/api/candidates/${log.candidate_id}`, { deleted_at: new Date().toISOString() });
       }
       const actor = getCurrentActor();
       await fetch(`${_api}/api/candidate-logs`, { method: 'POST', headers: _h(), body: JSON.stringify({
