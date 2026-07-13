@@ -31,7 +31,7 @@ export default function AssemblyPoints() {
   const toggle = async (city) => {
     setTogglingId(city.id);
     try {
-      await apiClient.patch('/api/cities/${city.id}', { is_assembly_point: !city.is_assembly_point });
+      await apiClient.patch(`/api/cities/${city.id}`, { is_assembly_point: !city.is_assembly_point });
       setCities(prev => prev.map(c => c.id === city.id ? { ...c, is_assembly_point: !c.is_assembly_point } : c));
     } catch (e) {
       alert('Ошибка: ' + e.message);
@@ -55,13 +55,13 @@ export default function AssemblyPoints() {
     setDeleting(true);
     try {
       // Проверяем, есть ли кандидаты, привязанные к этому городу
-      const linkRes = await apiClient.get('/api/candidates?city=${encodeURIComponent(confirmDelete.name)}&limit=10');
+      const linkRes = await apiClient.get(`/api/candidates?city=${encodeURIComponent(confirmDelete.name)}&limit=10`);
       const linked = linkRes.data || [];
       if (linked.length > 0) {
         alert(`Невозможно удалить: к городу «${confirmDelete.name}» привязано ${linked.length} кандидатов. Сначала переназначьте их на другой город.`);
         return;
       }
-      await apiClient.delete('/api/cities/${confirmDelete.id}');
+      await apiClient.delete(`/api/cities/${confirmDelete.id}`);
       setConfirmDelete(null);
       load();
     } catch (e) {
