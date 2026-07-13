@@ -8,16 +8,26 @@ export default function NotificationBell() {
   const [unread, setUnread] = useState(0);
   const [visible, setVisible] = useState(false);
   const mountedRef = useRef(true);
+  const fetchingRef = useRef(false); // защита от наслоения запросов
 
   const load = useCallback(async () => {
     if (!isCrmAuthenticated()) return;
+    if (fetchingRef.current) return; // уже выполняется — пропускаем
+
+    fetchingRef.current = true;
+    const controller = new AbortController();
+    const timeout = setTimeout(() => controller.abort(), 8000); // 8 сек таймаут
+
     try {
       const items = await apiClient.get('/api/notifications?is_read=false&limit=50');
       if (mountedRef.current) {
         setUnread(Array.isArray(items) ? items.length : 0);
       }
     } catch (_) {
-      // 401 или сетевая ошибка — молча игнорируем, не блокируем UI
+      // таймаут, 401 или сетевая ошибка — молча игнорируем, UI не трогаем
+    } finally {
+      clearTimeout(timeout);
+      fetchingRef.current = false;
     }
   }, []);
 
@@ -27,7 +37,7 @@ export default function NotificationBell() {
     if (!isCrmAuthenticated()) return;
     setVisible(true);
 
-    // Небольшая задержка — даём токену записаться в localStorage после логина
+    // Задержка — даём токену записаться в localStorage после логина
     const initialTimer = setTimeout(() => {
       load();
     }, 500);
