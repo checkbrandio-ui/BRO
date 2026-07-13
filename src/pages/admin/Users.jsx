@@ -27,7 +27,7 @@ export default function Users() {
   const load = async () => {
     setLoading(true);
     const [allUsers, currentUser] = await Promise.all([
-      apiClient.get('/api/users?sort=-created_date&limit=200').then(j=>j.data||[]),
+      apiClient.get('/api/users?sort=-created_date&limit=200').then(j=>Array.isArray(j)?j:[]),
       base44.auth.me(),
     ]);
     setUsers(allUsers);
