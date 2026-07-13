@@ -84,13 +84,13 @@ export default function Candidates() {
   const loadReferenceData = useCallback(async () => {
     try {
       const [agRes, citRes, fmRes] = await Promise.all([
-        apiClient.get('/api/agencies?limit=200').then(r => r.json()).catch(() => ({ data: [] })),
-        apiClient.get('/api/cities?limit=500').then(r => r.json()).catch(() => ({ data: [] })),
-        apiClient.get('/api/candidate-forms?status=completed&limit=500').then(r => r.json()).catch(() => ({ data: [] })),
+        apiClient.get('/api/agencies?limit=200').catch(() => ({ data: [] })),
+        apiClient.get('/api/cities?limit=500').catch(() => ({ data: [] })),
+        apiClient.get('/api/candidate-forms?status=completed&limit=500').catch(() => ({ data: [] })),
       ]);
-      const ag = agRes.data || [];
-      const cities = citRes.data || [];
-      const forms = fmRes.data || [];
+      const ag = agRes || [];
+      const cities = citRes || [];
+      const forms = fmRes || [];
       const fDocsMap = {};
       forms.forEach(f => {
         if (f.candidate_id && f.uploaded_docs?.length) {
@@ -125,8 +125,7 @@ export default function Candidates() {
       if (filters.logistics_status === 'confirmed') query.logistics_status = 'confirmed';
       const params = new URLSearchParams({ limit: 500, sort: '-created_date' });
       Object.entries(query).forEach(([k,v]) => { if (v !== undefined && v !== null) params.set(k, v); });
-      const candRes = await apiClient.get(`/api/candidates?${params}`).then(r => r.json());
-      const cand = candRes.data || [];
+      const cand = await apiClient.get(`/api/candidates?${params}`) || [];
       const activeAgIds = new Set(agenciesRef.current.map(a => a.id));
       const filtered = cand
         .filter(c => !c.agency_id || activeAgIds.has(c.agency_id))
@@ -153,7 +152,7 @@ export default function Candidates() {
   useEffect(() => {
     loadReferenceData();
     // Загружаем текущего пользователя для логов
-    apiClient.get('/api/auth/me').then(r => r.json()).then(j => { if (j.data) setCurrentUser(j.data); }).catch(() => {});
+    apiClient.get('/api/auth/me').then(data => { if (data) setCurrentUser(data); }).catch(() => {});
   }, [loadReferenceData]);
 
   // Повторный запрос кандидатов при изменении серверных фильтров
@@ -171,7 +170,7 @@ export default function Candidates() {
     if (id) {
       const old = candidates.find(c => c.id === id);
       const actor = getActor();
-      await apiClient.patch(`/api/candidates/${id}`, data).then(r => r.json());
+      await apiClient.patch(`/api/candidates/${id}`, data);
       // Логирование и уведомления параллельно — независимы друг от друга
       await Promise.all([
         logCandidateAction({ action: 'update', candidate: { ...data, id }, oldData: old, actor }),
@@ -183,15 +182,15 @@ export default function Candidates() {
       setModalOpen(false);
       setEditCandidate(null);
     } else {
-      const response = await apiClient.post('/api/functions/createCandidateSafe', { candidate_data: data, actor: getActor() }).then(r => r.json());
-      if (response.data?.error === 'duplicate') {
-        const ex = response.data.existing_candidate;
+      const response = await apiClient.post('/api/functions/createCandidateSafe', { candidate_data: data, actor: getActor() });
+      if (response?.error === 'duplicate') {
+        const ex = response?.existing_candidate;
         alert(`Дубль: кандидат «${ex.full_name}» с датой рождения ${ex.birth_date} уже существует${ex.agency_name ? ` (агентство: ${ex.agency_name})` : ''}.\nСоздание заблокировано.`);
         return;
       }
       setModalOpen(false);
       setEditCandidate(null);
-      const newCandidate = response.data?.candidate;
+      const newCandidate = response?.candidate;
       // Добавляем нового кандидата в локальное состояние без перезагрузки.
       // Проверяем по ID — realtime-подписка могла уже добавить запись,
       // тогда обновляем, а не дублируем.
@@ -338,7 +337,7 @@ export default function Candidates() {
       const newComment = baseComment ? `${baseComment}\n\n${autoComment}` : autoComment;
       const updated = { assembly_point: nearest.name, assembly_distance: String(distanceKm), comment: newComment };
 
-      await apiClient.patch(`/api/candidates/${c.id}`, updated).then(r => r.json());
+      await apiClient.patch(`/api/candidates/${c.id}`, updated);
       await logCandidateAction({ action: 'update', candidate: { ...c, ...updated }, oldData: c, actor: getActor() });
       setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, ...updated } : x));
     } finally {
@@ -349,7 +348,7 @@ export default function Candidates() {
   const generateFormToken = async (c) => {
     const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
     await apiClient.patch(`/api/candidates/${c.id}`, { form_token: token, form_status: 'pending' });
-    await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' }).then(r => r.json());
+    await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' });
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: token, form_status: 'pending' } : x));
   };
 
@@ -358,9 +357,9 @@ export default function Candidates() {
     if (!confirm(`Перевыпустить ссылку на анкету для «${c.full_name}»?\n\nСтарая ссылка перестанет работать.`)) return;
     const newToken = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
     await apiClient.patch(`/api/candidates/${c.id}`, { form_token: newToken, form_status: 'pending' });
-    const oldFormsRes = await apiClient.get(`/api/candidate-forms?form_token=${encodeURIComponent(c.form_token || '')}`).then(r => r.json()).then(r => r.json());
-    if (oldFormsRes.data?.length > 0) {
-      await apiClient.patch(`/api/candidate-forms/${oldFormsRes.data[0].id}`, { form_token: newToken, status: 'pending' });
+    const oldFormsRes = await apiClient.get(`/api/candidate-forms?form_token=${encodeURIComponent(c.form_token || '')}`);
+    if (oldFormsRes?.length > 0) {
+      await apiClient.patch(`/api/candidate-forms/${oldFormsRes?.[0].id}`, { form_token: newToken, status: 'pending' });
     }
     setCandidates(prev => prev.map(x => x.id === c.id ? { ...x, form_token: newToken, form_status: 'pending' } : x));
   };
@@ -419,7 +418,7 @@ export default function Candidates() {
     setBulkBusy(true);
     try {
       const updates = ids.map(id => ({ id, [field]: value }));
-      await Promise.all(updates.map(u => apiClient.patch(`/api/candidates/${u.id}`, u).then(r => r.json())));
+      await Promise.all(updates.map(u => apiClient.patch(`/api/candidates/${u.id}`, u)));
       const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
@@ -449,7 +448,7 @@ export default function Candidates() {
     try {
       const ts = new Date().toISOString();
       const updates = ids.map(id => ({ id, final_call_confirmed: true, final_call_confirmed_at: ts }));
-      await Promise.all(updates.map(u => apiClient.patch(`/api/candidates/${u.id}`, u).then(r => r.json())));
+      await Promise.all(updates.map(u => apiClient.patch(`/api/candidates/${u.id}`, u)));
       const actor = getActor();
       await Promise.all(ids.map(id => {
         const old = candidates.find(c => c.id === id);
@@ -498,7 +497,7 @@ export default function Candidates() {
       const updates = await Promise.all(selected.map(async c => {
         const token = 'cf-' + Math.random().toString(36).substring(2, 10) + '-' + Math.random().toString(36).substring(2, 10);
         await apiClient.patch(`/api/candidates/${c.id}`, { form_token: token, form_status: 'pending' });
-        await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' }).then(r => r.json());
+        await apiClient.post('/api/candidate-forms', { candidate_id: c.id, form_token: token, status: 'pending' });
         return { id: c.id, form_token: token, form_status: 'pending' };
       }));
       setCandidates(prev => prev.map(c => {
@@ -1091,7 +1090,7 @@ export default function Candidates() {
           onClose={() => setBulkDocsOpen(false)}
           onComplete={(savedIds) => {
             // Обновляем документы для сохранённых кандидатов из сервера
-            Promise.all(savedIds.map(id => apiClient.get(`/api/candidates/${id}`).then(r => r.json()).then(j => j.data))).then(updated => {
+            Promise.all(savedIds.map(id => apiClient.get(`/api/candidates/${id}`).then(j => j.data))).then(updated => {
               const updates = {};
               updated.forEach(c => { if (c) updates[c.id] = c; });
               setCandidates(prev => prev.map(c => updates[c.id] ? { ...c, ...updates[c.id] } : c));
@@ -1110,7 +1109,7 @@ export default function Candidates() {
           onClose={() => setMapCandidate(null)}
           onAssignAssemblyPoint={async (pointName, distance) => {
             const updated = { assembly_point: pointName, assembly_distance: distance != null ? String(distance) : '' };
-            await apiClient.patch(`/api/candidates/${mapCandidate.id}`, updated).then(r => r.json());
+            await apiClient.patch(`/api/candidates/${mapCandidate.id}`, updated);
             await logCandidateAction({ action: 'update', candidate: { ...mapCandidate, ...updated }, oldData: mapCandidate, actor: getActor() });
             setCandidates(prev => prev.map(x => x.id === mapCandidate.id ? { ...x, ...updated } : x));
             setMapCandidate(prev => prev ? { ...prev, ...updated } : prev);
