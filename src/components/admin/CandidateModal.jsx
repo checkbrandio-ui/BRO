@@ -1,7 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { apiClient } from '@/api/base44Client';
 import { AlertTriangle, Loader2 } from 'lucide-react';
-import { base44 } from '@/api/base44Client';
 import CandidateFormView from './CandidateFormView';
 import { getMissingRequiredDocs } from '@/lib/docUtils';
 import { findNearestAssemblyPoint } from '@/lib/geoUtils';
@@ -20,9 +19,6 @@ import CommentSection from './CommentSection';
 import CandidateDocuments from './CandidateDocuments';
 import GeneratedDocumentsSection from './GeneratedDocumentsSection';
 
-const _token = () => localStorage.getItem('base44_access_token') || '';
-const _h = () => ({ 'Content-Type': 'application/json', Authorization: `Bearer ${_token()}` });
-const _api = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
 
 
 export default function CandidateModal({ candidate, agencies, lockedAgencyId, candidateList, onSave, onClose, onNavigate }) {
@@ -134,11 +130,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
           if (newForm.data?.id) {
             setCandidateFormId(newForm.data.id);
             // Обновляем токен кандидата
-            await fetch(`${_api}/api/candidates/${candidate.id}`, {
-              method: 'PATCH',
-              headers: _h(),
-              body: JSON.stringify({ form_token: token, form_status: 'pending' }),
-            });
+            await apiClient.patch(`/api/candidates/${candidate.id}`, { form_token: token, form_status: 'pending' }).then(r => r.json());
           }
         }
       })
@@ -173,11 +165,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     if (isFormDirty() && candidate?.id) {
       try {
         if (candidateFormId) {
-          await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
-            method: 'PATCH',
-            headers: _h(),
-            body: JSON.stringify({ uploaded_docs: formDocs }),
-          });
+          await apiClient.patch(`/api/candidate-forms/${candidateFormId}`, { uploaded_docs: formDocs }).then(r => r.json());
         }
         const { documents, ...candidateData } = form;
         await onSave(candidateData, candidate?.id);
@@ -198,11 +186,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     const newComment = (form.comment || '') + callLog;
     set('comment', newComment);
     try {
-      await fetch(`${_api}/api/candidates/${candidate.id}`, {
-        method: 'PATCH',
-        headers: _h(),
-        body: JSON.stringify({ comment: newComment }),
-      });
+      await apiClient.patch(`/api/candidates/${candidate.id}`, { comment: newComment }).then(r => r.json());
       await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
     } catch (e) {}
   };
@@ -216,11 +200,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     const newComment = (form.comment || '') + callLog;
     set('comment', newComment);
     try {
-      await fetch(`${_api}/api/candidates/${candidate.id}`, {
-        method: 'PATCH',
-        headers: _h(),
-        body: JSON.stringify({ comment: newComment }),
-      });
+      await apiClient.patch(`/api/candidates/${candidate.id}`, { comment: newComment }).then(r => r.json());
       await logCandidateAction({ action: 'update', candidate: { ...candidate, ...form, comment: newComment, id: candidate.id }, oldData: { ...candidate, ...form }, actor: getCurrentActor() });
     } catch (e) {}
   };
@@ -230,18 +210,10 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     if (isFormDirty() && candidate?.id) {
       try {
         if (candidateFormId) {
-          await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
-            method: 'PATCH',
-            headers: _h(),
-            body: JSON.stringify({ uploaded_docs: formDocs }),
-          });
+          await apiClient.patch(`/api/candidate-forms/${candidateFormId}`, { uploaded_docs: formDocs }).then(r => r.json());
         }
         const { documents, ...candidateData } = form;
-        await fetch(`${_api}/api/candidates/${candidate.id}`, {
-          method: 'PATCH',
-          headers: _h(),
-          body: JSON.stringify(candidateData),
-        });
+        await apiClient.patch(`/api/candidates/${candidate.id}`, candidateData).then(r => r.json());
         await logCandidateAction({ action: 'update', candidate: { ...candidateData, id: candidate.id }, oldData: candidate, actor: getCurrentActor() });
       } catch (e) {}
     }
@@ -255,11 +227,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     try {
       const oldData = { ...candidate };
       const newData = { ...candidate, ...updates };
-      await fetch(`${_api}/api/candidates/${candidate.id}`, {
-        method: 'PATCH',
-        headers: _h(),
-        body: JSON.stringify(updates),
-      });
+      await apiClient.patch(`/api/candidates/${candidate.id}`, updates).then(r => r.json());
       const actor = getCurrentActor();
       const tasks = [
         notifyLogisticsChange(newData, oldData, actor),
@@ -352,11 +320,7 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     setSaving(true);
     try {
       if (candidateFormId) {
-        await fetch(`${_api}/api/candidate-forms/${candidateFormId}`, {
-          method: 'PATCH',
-          headers: _h(),
-          body: JSON.stringify({ uploaded_docs: formDocs }),
-        });
+        await apiClient.patch(`/api/candidate-forms/${candidateFormId}`, { uploaded_docs: formDocs }).then(r => r.json());
       }
       const { documents, ...candidateData } = form;
       await onSave(candidateData, candidate?.id);
@@ -521,3 +485,4 @@ export default function CandidateModal({ candidate, agencies, lockedAgencyId, ca
     </div>
   );
 }
+
