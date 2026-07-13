@@ -25,9 +25,10 @@ export function setCrmAdmin(admin: CrmAdmin): void {
   );
 }
 
-/** Очистить сессию (выход). */
+/** Очистить сессию (выход). Также удаляет JWT-токен авторизации. */
 export function clearCrmSession(): void {
   localStorage.removeItem(CRM_SESSION_KEY);
+  localStorage.removeItem('base44_access_token');
 }
 
 /** Авторизован ли CRM-админ. */
