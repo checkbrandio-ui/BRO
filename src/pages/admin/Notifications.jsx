@@ -1,6 +1,5 @@
 import { useState, useEffect, useCallback } from 'react';
 import { apiClient } from '@/api/base44Client';
-import { base44 } from '@/api/base44Client';
 import { Link } from 'react-router-dom';
 import { Bell, Check, Trash2, RefreshCw, CheckCheck, User } from 'lucide-react';
 
@@ -36,11 +35,13 @@ export default function Notifications() {
   const load = useCallback(async () => {
     setLoading(true);
     try {
-      const nr = await apiClient.get('/api/notifications?sort=-created_date&limit=200');
-      const items = nr.data || [];
-      setNotifications(items);
-    } catch (_) {}
-    setLoading(false);
+      const items = await apiClient.get('/api/notifications?sort=-created_date&limit=200');
+      setNotifications(Array.isArray(items) ? items : []);
+    } catch (_) {
+      setNotifications([]);
+    } finally {
+      setLoading(false);
+    }
   }, []);
 
   useEffect(() => {
@@ -50,19 +51,19 @@ export default function Notifications() {
   }, [load]);
 
   const markRead = async (id) => {
-    await apiClient.patch('/api/notifications/${id}', { is_read: true });
+    await apiClient.patch(`/api/notifications/${id}`, { is_read: true });
     setNotifications(prev => prev.map(n => n.id === id ? { ...n, is_read: true } : n));
   };
 
   const markAllRead = async () => {
     const unread = notifications.filter(n => !n.is_read);
     if (!unread.length) return;
-    await Promise.all(unread.map(n => apiClient.patch('/api/notifications/${n.id}', { is_read: true })));
+    await Promise.all(unread.map(n => apiClient.patch(`/api/notifications/${n.id}`, { is_read: true })));
     setNotifications(prev => prev.map(n => ({ ...n, is_read: true })));
   };
 
   const deleteNotification = async (id) => {
-    await apiClient.delete('/api/notifications/${id}');
+    await apiClient.delete(`/api/notifications/${id}`);
     setNotifications(prev => prev.filter(n => n.id !== id));
   };
 
