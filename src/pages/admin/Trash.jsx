@@ -20,7 +20,7 @@ export default function Trash() {
     setLoading(true);
     try {
       const tr = await apiClient.get('/api/candidates?sort=-created_date&limit=500&deleted=true');
-      const all = tr.data || [];
+      const all = tr || [];
       setCandidates(all.filter(c => c.deleted_at).sort((a, b) => new Date(b.deleted_at) - new Date(a.deleted_at)));
     } catch (e) {
       console.error('Trash load error:', e);
