@@ -52,7 +52,7 @@ export default function Tickets() {
     if (!answerText.trim()) return;
     setSubmitting(true);
     try {
-      await apiClient.patch('/api/agent-tickets/${ticket.id}', {
+      await apiClient.patch(`/api/agent-tickets/${ticket.id}`, {
         status: 'answered',
         answer: answerText.trim(),
         answered_by: currentUser?.full_name || currentUser?.email || 'Администратор',
@@ -67,7 +67,7 @@ export default function Tickets() {
   };
 
   const handleClose = async (ticket) => {
-    await apiClient.patch('/api/agent-tickets/${ticket.id}', { status: 'closed' });
+    await apiClient.patch(`/api/agent-tickets/${ticket.id}`, { status: 'closed' });
     load();
   };
 
