@@ -84,13 +84,13 @@ export default function Candidates() {
   const loadReferenceData = useCallback(async () => {
     try {
       const [agRes, citRes, fmRes] = await Promise.all([
-        apiClient.get('/api/agencies?limit=200').catch(() => ({ data: [] })),
-        apiClient.get('/api/cities?limit=500').catch(() => ({ data: [] })),
-        apiClient.get('/api/candidate-forms?status=completed&limit=500').catch(() => ({ data: [] })),
+        apiClient.get('/api/agencies?limit=200').catch(() => []),
+        apiClient.get('/api/cities?limit=500').catch(() => []),
+        apiClient.get('/api/candidate-forms?status=completed&limit=500').catch(() => []),
       ]);
-      const ag = agRes || [];
-      const cities = citRes || [];
-      const forms = fmRes || [];
+      const ag = Array.isArray(agRes) ? agRes : [];
+      const cities = Array.isArray(citRes) ? citRes : [];
+      const forms = Array.isArray(fmRes) ? fmRes : [];
       const fDocsMap = {};
       forms.forEach(f => {
         if (f.candidate_id && f.uploaded_docs?.length) {
@@ -1090,7 +1090,7 @@ export default function Candidates() {
           onClose={() => setBulkDocsOpen(false)}
           onComplete={(savedIds) => {
             // Обновляем документы для сохранённых кандидатов из сервера
-            Promise.all(savedIds.map(id => apiClient.get(`/api/candidates/${id}`).then(j => j.data))).then(updated => {
+            Promise.all(savedIds.map(id => apiClient.get(`/api/candidates/${id}`))).then(updated => {
               const updates = {};
               updated.forEach(c => { if (c) updates[c.id] = c; });
               setCandidates(prev => prev.map(c => updates[c.id] ? { ...c, ...updates[c.id] } : c));
