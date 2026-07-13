@@ -55,7 +55,7 @@ export default function Users() {
   const handleRoleChange = async (user, newRole) => {
     if (user.id === me?.id) { alert('Нельзя изменить свою роль'); return; }
     setUpdatingId(user.id);
-    await apiClient.patch('/api/users/${user.id}', { role: newRole });
+    await apiClient.patch(`/api/users/${user.id}`, { role: newRole });
     setUsers(u => u.map(x => x.id === user.id ? { ...x, role: newRole } : x));
     setUpdatingId(null);
   };
@@ -63,7 +63,7 @@ export default function Users() {
   const handleDelete = async (user) => {
     if (user.id === me?.id) { alert('Нельзя удалить себя'); return; }
     if (!confirm(`Удалить пользователя ${user.full_name || user.email}?`)) return;
-    await apiClient.delete('/api/users/${user.id}');
+    await apiClient.delete(`/api/users/${user.id}`);
     setUsers(u => u.filter(x => x.id !== user.id));
   };
 
