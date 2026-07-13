@@ -27,7 +27,7 @@ export default function CrmAdmins() {
     setLoading(true);
     try {
       const lr = await apiClient.get('/api/crm-admins?sort=-created_date&limit=100');
-      const list = lr.data || [];
+      const list = lr || [];
       setAdmins(list);
     } catch (_) {}
     setLoading(false);
@@ -43,7 +43,7 @@ export default function CrmAdmins() {
     setCreating(true);
     try {
       const exRes = await apiClient.get(`/api/crm-admins?access_code=${encodeURIComponent(newAdmin.access_code.trim())}`);
-      const existing = exRes.data || [];
+      const existing = exRes || [];
       if (existing.length > 0) {
         toast({ title: 'Код уже используется', description: 'Сгенерируйте новый код', variant: 'destructive' });
         setCreating(false);
