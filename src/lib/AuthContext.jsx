@@ -3,23 +3,22 @@ import React, { createContext, useState, useContext, useEffect } from 'react';
 const AuthContext = createContext();
 
 const TOKEN_KEY = 'base44_access_token';
+const API_BASE = import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru';
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(null);
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [isLoadingAuth, setIsLoadingAuth] = useState(false); // не блокируем старт
+  const [isLoadingAuth, setIsLoadingAuth] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem(TOKEN_KEY);
     if (!token) return;
 
-    // Если токен не наш JWT (наши начинаются с eyJ и имеют тип crm_admin/agency)
-    // проверяем его валидность с таймаутом чтобы не зависать
     setIsLoadingAuth(true);
     const controller = new AbortController();
-    const timeout = setTimeout(() => controller.abort(), 5000); // 5 сек таймаут
+    const timeout = setTimeout(() => controller.abort(), 5000);
 
-    fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/auth/me`, {
+    fetch(`${API_BASE}/api/auth/me`, {
       headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' },
       signal: controller.signal,
     })
@@ -29,26 +28,29 @@ export const AuthProvider = ({ children }) => {
         if (res.ok && json.data) {
           setUser(json.data);
           setIsAuthenticated(true);
-        } else {
+        } else if (res.status === 401) {
+          // Только явный 401 — токен невалиден, удаляем
           localStorage.removeItem(TOKEN_KEY);
           setUser(null);
           setIsAuthenticated(false);
         }
+        // Иные ошибки (403, 500) — токен не трогаем
       })
-      .catch(() => {
+      .catch((err) => {
         clearTimeout(timeout);
-        // Таймаут или сеть — удаляем токен чтобы не зависать
-        localStorage.removeItem(TOKEN_KEY);
-        setUser(null);
-        setIsAuthenticated(false);
+        // Сетевая ошибка или таймаут — НЕ удаляем токен
+        // Пользователь может быть авторизован, просто сеть дала сбой
+        // CrmProtectedRoute использует crmSession независимо от AuthContext
+        console.warn('[AuthContext] /api/auth/me failed (network/timeout) — token preserved:', err?.message);
       })
       .finally(() => setIsLoadingAuth(false));
   }, []);
 
   const logout = () => {
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem('crm_admin_session');
     setUser(null);
     setIsAuthenticated(false);
-    // base44.auth.logout();
     window.location.href = '/';
   };
 
@@ -57,15 +59,21 @@ export const AuthProvider = ({ children }) => {
     if (!token) { setUser(null); setIsAuthenticated(false); return; }
     setIsLoadingAuth(true);
     try {
-      const res = await fetch(`${import.meta.env.VITE_API_URL || 'https://api.bro-crm.ru'}/api/auth/me`, {
+      const res = await fetch(`${API_BASE}/api/auth/me`, {
         headers: { Authorization: `Bearer ${token}`, 'Content-Type': 'application/json' }
       });
       const json = await res.json();
-      if (res.ok && json.data) { setUser(json.data); setIsAuthenticated(true); }
-      else throw new Error('invalid');
+      if (res.ok && json.data) {
+        setUser(json.data);
+        setIsAuthenticated(true);
+      } else if (res.status === 401) {
+        localStorage.removeItem(TOKEN_KEY);
+        setUser(null);
+        setIsAuthenticated(false);
+      }
     } catch {
-      localStorage.removeItem(TOKEN_KEY);
-      setUser(null); setIsAuthenticated(false);
+      // Сетевая ошибка — не трогаем токен
+      console.warn('[AuthContext] checkUserAuth network error — token preserved');
     } finally {
       setIsLoadingAuth(false);
     }
