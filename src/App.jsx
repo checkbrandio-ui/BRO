@@ -1,7 +1,7 @@
 import { Toaster } from "@/components/ui/toaster"
 import { QueryClientProvider } from '@tanstack/react-query'
 import { queryClientInstance } from '@/lib/query-client'
-import { BrowserRouter as Router, Route, Routes, Navigate } from 'react-router-dom';
+import { BrowserRouter as Router, Route, Routes, Navigate, Outlet } from 'react-router-dom';
 import PageNotFound from './lib/PageNotFound';
 import { AuthProvider } from '@/lib/AuthContext';
 import ProtectedRoute, { AdminRoute } from '@/components/ProtectedRoute';
@@ -40,6 +40,22 @@ import CrmAdmins from './pages/admin/CrmAdmins';
 import CrmUserBadge from '@/components/admin/CrmUserBadge';
 import CrmProtectedRoute, { CrmSuperAdminRoute } from '@/components/CrmProtectedRoute';
 
+/**
+ * CrmLayout — рендерит служебные виджеты (Bell, Badge, Assistant)
+ * ТОЛЬКО внутри защищённых CRM-маршрутов.
+ * Это исключает паразитные API-запросы на /crm-login и публичных страницах.
+ */
+function CrmLayout() {
+  return (
+    <>
+      <Outlet />
+      <NotificationBell />
+      <CrmUserBadge />
+      <AssistantWidget />
+    </>
+  );
+}
+
 function App() {
   return (
     <AuthProvider>
@@ -66,22 +82,26 @@ function App() {
             <Route path="/handbook" element={<ManagerHandbook />} />
             <Route path="/crm-login" element={<CrmLogin />} />
 
-            {/* CRM-protected routes (secret code auth) */}
+            {/* CRM-protected routes — виджеты монтируются ТОЛЬКО здесь */}
             <Route element={<CrmProtectedRoute />}>
-              <Route path="/admin/agencies" element={<Agencies />} />
-              <Route path="/admin/candidates" element={<Candidates />} />
-              <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
-              <Route path="/admin/assistant" element={<Assistant />} />
-              <Route path="/admin/tickets" element={<Tickets />} />
-              <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
-              <Route path="/admin/notifications" element={<Notifications />} />
-              <Route path="/admin/trash" element={<Trash />} />
-              <Route path="/admin/documents" element={<DocumentGenerator />} />
+              <Route element={<CrmLayout />}>
+                <Route path="/admin/agencies" element={<Agencies />} />
+                <Route path="/admin/candidates" element={<Candidates />} />
+                <Route path="/admin/candidate-logs" element={<CandidateLogs />} />
+                <Route path="/admin/assistant" element={<Assistant />} />
+                <Route path="/admin/tickets" element={<Tickets />} />
+                <Route path="/admin/assembly-points" element={<AssemblyPoints />} />
+                <Route path="/admin/notifications" element={<Notifications />} />
+                <Route path="/admin/trash" element={<Trash />} />
+                <Route path="/admin/documents" element={<DocumentGenerator />} />
+              </Route>
             </Route>
 
             {/* CRM super-admin only */}
             <Route element={<CrmSuperAdminRoute />}>
-              <Route path="/admin/crm-admins" element={<CrmAdmins />} />
+              <Route element={<CrmLayout />}>
+                <Route path="/admin/crm-admins" element={<CrmAdmins />} />
+              </Route>
             </Route>
 
             {/* Base44 admin-only routes (backward compatibility) */}
@@ -91,9 +111,6 @@ function App() {
 
             <Route path="*" element={<PageNotFound />} />
           </Routes>
-          <AssistantWidget />
-          <NotificationBell />
-          <CrmUserBadge />
         </Router>
         <Toaster />
       </QueryClientProvider>
