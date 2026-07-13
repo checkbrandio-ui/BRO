@@ -297,3 +297,64 @@ pm2 restart crm-backend
 3. **AssistantWidget.jsx** — убрать `base44.auth.*`, заменить на `isCrmAuthenticated()`
 4. **Остальные компоненты** — по таблице 🔴 выше, сверху вниз
 
+---
+
+## ЛОГ ДЕЙСТВИЙ — 13.07.2026 (сессия 2)
+
+### 🎯 Роль агента в этой сессии
+Агент отвечает ТОЛЬКО за бэкенд (VPS 193.200.74.125).
+Фронтенд — зона ответственности Base44 агента.
+
+### Шаг 1 — Диагностика CORS (12:00)
+**Действие:** OPTIONS preflight тест для `bro-crm.base44.app`
+**Результат:** HTTP 500 — домен не в allowedOrigins
+**Вывод:** CORS на VPS не настроен для нового Base44 фронтенда
+
+### Шаг 2 — Чтение конфига бэкенда (12:01)
+**Действие:** SSH → `sed -n "1,40p" /var/www/backend/src/app.js`
+**Результат:** Найден массив `allowedOrigins` (строки 6-14), `*.vercel.app` разрешён через regex, но `*.base44.app` отсутствует
+**Файл:** `/var/www/backend/src/app.js`
+
+### Шаг 3 — Добавление Base44 origins (12:02)
+**Действие:** `sed -i` — добавлены две строки в `allowedOrigins`:
+```
+'https://bro-crm.base44.app',
+'https://app.base44.com',
+```
+**Команда:** `pm2 restart crm-backend`
+**Результат:** CORS OPTIONS → HTTP 200, заголовок `Access-Control-Allow-Origin: https://bro-crm.base44.app` ✅
+
+### Шаг 4 — Настройка автобэкапов (12:05)
+**Действие:** Создан скрипт `/usr/local/bin/bro-backup.sh`
+**Что бэкапируется:**
+- PostgreSQL dump (`appdb`, user: `appuser`) → `/var/backups/bro-crm/db_DATE.sql.gz`
+- Исходники бэкенда (`/var/www/backend/src`) → `/var/backups/bro-crm/backend_DATE.tar.gz`
+- Retention: 7 дней, затем автоудаление
+
+**Cron:** `0 3 * * * /usr/local/bin/bro-backup.sh` (каждый день в 03:00 по времени сервера)
+**Лог:** `/var/log/bro-backup.log`
+**Первый бэкап:** выполнен успешно (DB: 8.0K gz, Code: 16K) ✅
+
+### Шаг 5 — Фикс CrmLogin.jsx (задеплоен ранее)
+**Коммит:** `f82f97bea439`
+**Изменения:**
+- `useRef` → `useState` для поля accessCode (фикс Safari autofill)
+- `setLoading(false)` перенесён строго в `finally` блок
+- Убран дублирующий `setLoading(false)` после `try/catch`
+
+### 📌 Текущее состояние бэкенда
+| Компонент | Статус |
+|-----------|--------|
+| API `https://api.bro-crm.ru` | ✅ Работает |
+| CORS для `bro-ten-livid.vercel.app` | ✅ OK |
+| CORS для `bro-crm.base44.app` | ✅ OK (добавлен 13.07) |
+| CORS для `app.base44.com` | ✅ OK (добавлен 13.07) |
+| Автобэкапы PostgreSQL | ✅ Cron 03:00 ежедневно |
+| PM2 процесс `crm-backend` | ✅ Online |
+
+### 📌 Правило документирования (принято 13.07)
+Каждый шаг агента фиксируется в PROJECT_MEMORY.md:
+- Что сделано
+- Какой командой / файлом
+- Результат (OK / FAIL)
+- Время
