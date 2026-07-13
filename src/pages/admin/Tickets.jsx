@@ -37,15 +37,19 @@ export default function Tickets() {
 
   const load = async () => {
     setLoading(true);
-    const tr = await apiClient.get('/api/agent-tickets?sort=-created_date&limit=200');
-    const data = tr.data || [];
-    setTickets(data);
-    setLoading(false);
+    try {
+      const items = await apiClient.get('/api/agent-tickets?sort=-created_date&limit=200');
+      setTickets(Array.isArray(items) ? items : []);
+    } catch (_) {
+      setTickets([]);
+    } finally {
+      setLoading(false);
+    }
   };
 
   useEffect(() => {
     load();
-    apiClient.get('/api/auth/me').then(j=>{if(j.data)setCurrentUser(j.data);}).catch(()=>{});
+    apiClient.get('/api/auth/me').then(data=>{if(data)setCurrentUser(data);}).catch(()=>{});
   }, []);
 
   const handleAnswer = async (ticket) => {
