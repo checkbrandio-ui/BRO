@@ -76,7 +76,7 @@ export default function CandidateLogs() {
   const load = async () => {
     setLoading(true);
     const lr = await apiClient.get('/api/candidate-logs?sort=-timestamp&limit=500');
-    const data = lr.data || [];
+    const data = lr || [];
     setLogs(data);
     setLoading(false);
   };
